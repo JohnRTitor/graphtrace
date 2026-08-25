@@ -1,0 +1,85 @@
+import type { Grid, NodeId } from '../graph/types';
+import { getNeighbors } from '../graph/neighbors';
+import type { Algorithm, AlgorithmEvent, AlgorithmMetrics, AlgorithmResult } from './types';
+
+export const bfs: Algorithm = {
+	name: 'Breadth-First Search',
+	description: 'Explores all nodes at the present depth before moving on to nodes at the next depth level. Guarantees the shortest path on unweighted graphs.',
+	supportsWeights: false,
+	run(grid: Grid, start: NodeId, goal: NodeId): AlgorithmResult {
+		const startTime = performance.now();
+		const events: AlgorithmEvent[] = [];
+		const metrics: AlgorithmMetrics = {
+			nodesDiscovered: 0,
+			nodesExpanded: 0,
+			maxFrontierSize: 0,
+			pathLength: 0,
+			pathCost: 0,
+			executionTimeMs: 0
+		};
+
+		events.push({ type: 'start', node: start });
+
+		if (start === goal) {
+			events.push({ type: 'path', nodes: [start] });
+			events.push({ type: 'finish', found: true });
+			metrics.executionTimeMs = performance.now() - startTime;
+			return { events, metrics };
+		}
+
+		const queue: NodeId[] = [start];
+		const visited = new Set<NodeId>([start]);
+		const parentMap = new Map<NodeId, NodeId>();
+		
+		let found = false;
+
+		while (queue.length > 0) {
+			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, queue.length);
+			
+			const current = queue.shift()!;
+			
+			if (current !== start) {
+				events.push({ type: 'expand', node: current });
+				metrics.nodesExpanded++;
+			}
+
+			if (current === goal) {
+				found = true;
+				break;
+			}
+
+			const neighbors = getNeighbors(grid, current);
+			
+			for (const neighbor of neighbors) {
+				if (!visited.has(neighbor.id)) {
+					visited.add(neighbor.id);
+					parentMap.set(neighbor.id, current);
+					queue.push(neighbor.id);
+					events.push({ type: 'discover', node: neighbor.id, from: current });
+					metrics.nodesDiscovered++;
+				} else {
+					events.push({ type: 'skip', node: neighbor.id });
+				}
+			}
+		}
+
+		if (found) {
+			const path: NodeId[] = [];
+			let curr: NodeId | undefined = goal;
+			while (curr) {
+				path.unshift(curr);
+				curr = parentMap.get(curr);
+			}
+			events.push({ type: 'path', nodes: path });
+			metrics.pathLength = path.length;
+			metrics.pathCost = path.length - 1; // Unweighted cost
+		} else {
+			events.push({ type: 'no-path' });
+		}
+
+		events.push({ type: 'finish', found });
+		metrics.executionTimeMs = performance.now() - startTime;
+
+		return { events, metrics };
+	}
+};

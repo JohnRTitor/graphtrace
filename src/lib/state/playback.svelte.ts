@@ -1,0 +1,98 @@
+import type { AlgorithmEvent, AlgorithmMetrics } from '../algorithms/types';
+import { PlaybackEngine } from '../visualization/player';
+import { createInitialVisualizationState, type PlaybackStatus, type VisualizationState } from '../visualization/types';
+
+export class PlaybackState {
+	private engine: PlaybackEngine;
+	
+	// Svelte 5 reactive state
+	private _vizState = $state<VisualizationState>(createInitialVisualizationState());
+	private _status = $state<PlaybackStatus>('idle');
+	private _currentStep = $state(0);
+	private _totalSteps = $state(0);
+	private _metrics = $state<AlgorithmMetrics | null>(null);
+	private _speed = $state(50); // events per second
+
+	constructor() {
+		this.engine = new PlaybackEngine({
+			onStateChange: (state, status) => {
+				this._vizState = state;
+				this._status = status;
+			},
+			onProgress: (current, total) => {
+				this._currentStep = current;
+				this._totalSteps = total;
+			}
+		});
+		
+		this.engine.setSpeed(this._speed);
+	}
+
+	// Getters
+	get vizState() { return this._vizState; }
+	get status() { return this._status; }
+	get currentStep() { return this._currentStep; }
+	get totalSteps() { return this._totalSteps; }
+	get metrics() { return this._metrics; }
+	get speed() { return this._speed; }
+	
+	// Derived state
+	get progressPercentage() {
+		if (this._totalSteps === 0) return 0;
+		return (this._currentStep / this._totalSteps) * 100;
+	}
+
+	get isRunning() { return this._status === 'running'; }
+	get isPaused() { return this._status === 'paused'; }
+	get isIdle() { return this._status === 'idle'; }
+	get isCompleted() { return this._status === 'completed'; }
+
+	// Actions
+	loadEvents(events: AlgorithmEvent[], metrics: AlgorithmMetrics) {
+		this._metrics = metrics;
+		this._totalSteps = events.length;
+		this._currentStep = 0;
+		this.engine.loadEvents(events);
+	}
+
+	setSpeed(speed: number) {
+		this._speed = speed;
+		this.engine.setSpeed(speed);
+	}
+
+	play() {
+		this.engine.play();
+	}
+
+	pause() {
+		this.engine.pause();
+	}
+
+	togglePlayPause() {
+		if (this.isRunning) {
+			this.pause();
+		} else {
+			this.play();
+		}
+	}
+
+	step() {
+		this.engine.step();
+	}
+
+	reset() {
+		this.engine.reset();
+	}
+
+	seek(step: number) {
+		this.engine.seek(step);
+	}
+	
+	seekPercentage(percentage: number) {
+		const targetStep = Math.floor((percentage / 100) * this._totalSteps);
+		this.seek(targetStep);
+	}
+}
+
+// Global singleton
+export const playbackState = new PlaybackState();
