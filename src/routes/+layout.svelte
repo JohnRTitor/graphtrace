@@ -3,7 +3,7 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import { playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
-	import { settingsState } from '$lib/state/settings.svelte';
+	import { environmentState } from '$lib/state/environment.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	
 	let { children } = $props();
@@ -16,7 +16,7 @@
 			case ' ':
 				e.preventDefault();
 				if (playbackState.isIdle || playbackState.isCompleted) {
-					settingsState.runAlgorithm();
+					environmentState.runAlgorithm();
 				} else {
 					playbackState.togglePlayPause();
 				}
@@ -24,7 +24,7 @@
 			case 'n':
 				e.preventDefault();
 				if (playbackState.isIdle || playbackState.isCompleted) {
-					settingsState.runAlgorithm();
+					environmentState.runAlgorithm();
 					playbackState.pause();
 				}
 				playbackState.step();

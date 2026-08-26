@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { algorithmList } from '$lib/algorithms';
-	import { settingsState } from '$lib/state/settings.svelte';
+	import { environmentState } from '$lib/state/environment.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
-	import { gridState } from '$lib/state/grid.svelte';
 	import { generateRandomGrid, generateBlankGrid } from '$lib/generators/random';
 	import { generatePerfectMaze, generateBraidedMaze } from '$lib/generators/maze';
 	
@@ -21,64 +20,87 @@
 	import Flag from '@lucide/svelte/icons/flag';
 	import Target from '@lucide/svelte/icons/target';
 	import Weight from '@lucide/svelte/icons/weight';
+	import Circle from '@lucide/svelte/icons/circle';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Move from '@lucide/svelte/icons/move';
 
 	import Shuffle from '@lucide/svelte/icons/shuffle';
 
 	function handleGenerate() {
+		if (environmentState.environmentType === 'graph') {
+			environmentState.clearGraph();
+			return;
+		}
+
 		const options = {
-			seed: settingsState.environmentSeed,
-			loopDensity: settingsState.loopDensity,
-			obstacleDensity: settingsState.obstacleDensity,
-			weighted: settingsState.currentAlgorithm?.supportsWeights
+			seed: environmentState.environmentSeed,
+			loopDensity: environmentState.loopDensity,
+			obstacleDensity: environmentState.obstacleDensity,
+			weighted: environmentState.currentAlgorithm?.supportsWeights
 		};
 
 		let newGrid;
-		switch (settingsState.environmentType) {
+		switch (environmentState.environmentType) {
 			case 'perfect_maze':
-				newGrid = generatePerfectMaze(gridState.rows, gridState.cols, options);
+				newGrid = generatePerfectMaze(environmentState.gridRowsSetting, environmentState.gridColsSetting, options);
 				break;
 			case 'braided_maze':
-				newGrid = generateBraidedMaze(gridState.rows, gridState.cols, options);
+				newGrid = generateBraidedMaze(environmentState.gridRowsSetting, environmentState.gridColsSetting, options);
 				break;
 			case 'random_obstacles':
-				newGrid = generateRandomGrid(gridState.rows, gridState.cols, options);
+				newGrid = generateRandomGrid(environmentState.gridRowsSetting, environmentState.gridColsSetting, options);
 				break;
 			case 'blank':
 			default:
-				newGrid = generateBlankGrid(gridState.rows, gridState.cols, options);
+				newGrid = generateBlankGrid(environmentState.gridRowsSetting, environmentState.gridColsSetting, options);
 				break;
 		}
 		
-		gridState.replaceGrid(newGrid);
+		environmentState.replaceGrid(newGrid);
 	}
 
 	function randomizeSeed() {
-		settingsState.environmentSeed = Math.floor(Math.random() * 1000000);
+		environmentState.environmentSeed = Math.floor(Math.random() * 1000000);
 		handleGenerate();
 	}
 	
 	function handleClear() {
-		gridState.clear();
+		if (environmentState.environmentType === 'graph') {
+			environmentState.clearGraph();
+		} else {
+			environmentState.clearGrid();
+		}
+	}
+
+	function onEnvironmentChange(type: string) {
+		environmentState.environmentType = type as any;
+		if (type === 'graph' && (editorState.mode === 'wall' || editorState.mode === 'erase')) {
+			editorState.mode = 'node';
+		} else if (type !== 'graph' && (editorState.mode === 'node' || editorState.mode === 'edge' || editorState.mode === 'remove' || editorState.mode === 'move')) {
+			editorState.mode = 'wall';
+		}
 	}
 
 	const environmentDescriptions = {
 		'perfect_maze': 'A connected maze with exactly one route between any two cells. No loops.',
 		'braided_maze': 'A maze with intentionally added loops and alternative routes.',
 		'random_obstacles': 'An arbitrary obstacle field. May contain multiple routes or disconnected regions.',
-		'blank': 'An empty grid.'
+		'blank': 'An empty grid.',
+		'graph': 'Manual node and edge editing mode.'
 	};
 </script>
 
-<div class="flex h-full flex-col gap-6 p-4">
+<div class="flex h-full flex-col gap-6 p-4 overflow-y-auto">
 	<!-- Algorithm Selection -->
 	<div class="space-y-3">
 		<Label>Algorithm</Label>
 		<Select
 			type="single"
-			bind:value={settingsState.selectedAlgorithmId}
+			bind:value={environmentState.selectedAlgorithmId}
 		>
 			<SelectTrigger>
-				{settingsState.currentAlgorithm?.name ?? 'Select algorithm'}
+				{environmentState.currentAlgorithm?.name ?? 'Select algorithm'}
 			</SelectTrigger>
 			<SelectContent>
 				{#each algorithmList as algo}
@@ -87,7 +109,7 @@
 			</SelectContent>
 		</Select>
 		<p class="text-xs text-muted-foreground">
-			{settingsState.currentAlgorithm?.description}
+			{environmentState.currentAlgorithm?.description}
 		</p>
 	</div>
 
@@ -100,15 +122,18 @@
 		<div class="space-y-3">
 			<Select
 				type="single"
-				bind:value={settingsState.environmentType}
+				value={environmentState.environmentType}
+				onValueChange={onEnvironmentChange}
 			>
 				<SelectTrigger>
-					{#if settingsState.environmentType === 'perfect_maze'}
+					{#if environmentState.environmentType === 'perfect_maze'}
 						Perfect Maze
-					{:else if settingsState.environmentType === 'braided_maze'}
+					{:else if environmentState.environmentType === 'braided_maze'}
 						Braided Maze
-					{:else if settingsState.environmentType === 'random_obstacles'}
+					{:else if environmentState.environmentType === 'random_obstacles'}
 						Random Obstacles
+					{:else if environmentState.environmentType === 'graph'}
+						Manual Graph
 					{:else}
 						Blank Grid
 					{/if}
@@ -118,22 +143,23 @@
 					<SelectItem value="braided_maze">Braided Maze</SelectItem>
 					<SelectItem value="random_obstacles">Random Obstacles</SelectItem>
 					<SelectItem value="blank">Blank Grid</SelectItem>
+					<SelectItem value="graph">Manual Graph</SelectItem>
 				</SelectContent>
 			</Select>
 			
 			<p class="text-xs text-muted-foreground">
-				{environmentDescriptions[settingsState.environmentType]}
+				{environmentDescriptions[environmentState.environmentType]}
 			</p>
 		</div>
 
-		{#if settingsState.environmentType !== 'blank'}
+		{#if environmentState.environmentType !== 'blank' && environmentState.environmentType !== 'graph'}
 			<div class="flex flex-col gap-2">
 				<Label class="text-xs">Seed</Label>
 				<div class="flex gap-2">
 					<input 
 						type="number" 
 						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" 
-						bind:value={settingsState.environmentSeed} 
+						bind:value={environmentState.environmentSeed} 
 					/>
 					<Button variant="outline" size="icon" class="h-9 w-9 shrink-0" onclick={randomizeSeed} title="Randomize Seed">
 						<Shuffle class="h-4 w-4" />
@@ -142,15 +168,38 @@
 			</div>
 		{/if}
 
-		{#if settingsState.environmentType === 'braided_maze'}
+		{#if environmentState.environmentType !== 'graph'}
+			<div class="flex gap-4">
+				<div class="flex flex-col gap-2 w-1/2">
+					<Label class="text-xs">Rows</Label>
+					<input 
+						type="number" 
+						min="5" max="100"
+						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" 
+						bind:value={environmentState.gridRowsSetting} 
+					/>
+				</div>
+				<div class="flex flex-col gap-2 w-1/2">
+					<Label class="text-xs">Cols</Label>
+					<input 
+						type="number" 
+						min="5" max="100"
+						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" 
+						bind:value={environmentState.gridColsSetting} 
+					/>
+				</div>
+			</div>
+		{/if}
+
+		{#if environmentState.environmentType === 'braided_maze'}
 			<div class="space-y-3 pt-2">
 				<div class="flex items-center justify-between">
 					<Label class="text-xs font-normal text-muted-foreground">Loop Density</Label>
-					<span class="text-xs text-muted-foreground">{settingsState.loopDensity}%</span>
+					<span class="text-xs text-muted-foreground">{environmentState.loopDensity}%</span>
 				</div>
 				<Slider
 					type="single"
-					bind:value={settingsState.loopDensity}
+					bind:value={environmentState.loopDensity}
 					max={100}
 					min={0}
 					step={5}
@@ -158,25 +207,44 @@
 			</div>
 		{/if}
 
-		{#if settingsState.environmentType === 'random_obstacles'}
+		{#if environmentState.environmentType === 'random_obstacles'}
 			<div class="space-y-3 pt-2">
 				<div class="flex items-center justify-between">
 					<Label class="text-xs font-normal text-muted-foreground">Obstacle Density</Label>
-					<span class="text-xs text-muted-foreground">{settingsState.obstacleDensity}%</span>
+					<span class="text-xs text-muted-foreground">{environmentState.obstacleDensity}%</span>
 				</div>
 				<Slider
 					type="single"
-					bind:value={settingsState.obstacleDensity}
+					bind:value={environmentState.obstacleDensity}
 					max={100}
 					min={0}
 					step={5}
+				/>
+			</div>
+		{/if}
+
+		{#if environmentState.environmentType === 'graph'}
+			<div class="flex items-center justify-between">
+				<Label for="directed" class="text-sm font-medium">Directed Edges</Label>
+				<Switch
+					id="directed"
+					checked={environmentState.graphDirected}
+					onCheckedChange={(v) => environmentState.setGraphDirected(v)}
 				/>
 			</div>
 		{/if}
 
 		<div class="grid grid-cols-2 gap-2 pt-2">
-			<Button size="sm" onclick={handleGenerate}>Generate</Button>
-			<Button variant="outline" size="sm" onclick={handleClear}>Clear Grid</Button>
+			{#if environmentState.environmentType !== 'graph'}
+				<Button size="sm" onclick={handleGenerate}>Generate</Button>
+				<Button variant="outline" size="sm" onclick={handleClear}>Clear</Button>
+			{:else}
+				<Button size="sm" disabled={!environmentState.graphCanUndo} onclick={() => environmentState.undoGraph()}>Undo</Button>
+				<Button variant="outline" size="sm" disabled={!environmentState.graphCanRedo} onclick={() => environmentState.redoGraph()}>Redo</Button>
+				<div class="col-span-2">
+					<Button variant="outline" class="w-full" size="sm" onclick={handleClear}>Clear Graph</Button>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -186,29 +254,33 @@
 	<div class="space-y-3">
 		<h3 class="text-sm font-medium">Tools</h3>
 		
+		{#snippet toolButton(value: string, label: string, Icon: any, iconClass: string = "h-4 w-4")}
+			<ToggleGroupItem {value} aria-label={label} title={label}>
+				<Icon class={iconClass} />
+			</ToggleGroupItem>
+		{/snippet}
+
 		<ToggleGroup 
 			type="single" 
 			value={editorState.mode} 
 			onValueChange={(v) => { if (v) editorState.mode = v as any; }}
 			class="justify-start flex-wrap gap-1"
 		>
-			<ToggleGroupItem value="wall" aria-label="Draw Walls" title="Draw Walls">
-				<MousePointer2 class="h-4 w-4" />
-			</ToggleGroupItem>
-			<ToggleGroupItem value="erase" aria-label="Erase" title="Erase">
-				<Eraser class="h-4 w-4" />
-			</ToggleGroupItem>
-			<ToggleGroupItem value="start" aria-label="Move Start" title="Move Start">
-				<Flag class="h-4 w-4 text-green-500" />
-			</ToggleGroupItem>
-			<ToggleGroupItem value="goal" aria-label="Move Goal" title="Move Goal">
-				<Target class="h-4 w-4 text-red-500" />
-			</ToggleGroupItem>
+			{#if environmentState.environmentType === 'graph'}
+				{@render toolButton("node", "Add Node", Circle)}
+				{@render toolButton("edge", "Add Edge", ArrowRight)}
+				{@render toolButton("move", "Move Node", Move)}
+				{@render toolButton("remove", "Remove Node/Edge", Trash2)}
+			{:else}
+				{@render toolButton("wall", "Draw Walls", MousePointer2)}
+				{@render toolButton("erase", "Erase", Eraser)}
+			{/if}
+
+			{@render toolButton("start", "Set Start", Flag, "h-4 w-4 text-green-500")}
+			{@render toolButton("goal", "Set Goal", Target, "h-4 w-4 text-red-500")}
 			
-			{#if settingsState.currentAlgorithm?.supportsWeights}
-				<ToggleGroupItem value="weight" aria-label="Draw Weights" title="Draw Weights">
-					<Weight class="h-4 w-4" />
-				</ToggleGroupItem>
+			{#if environmentState.currentAlgorithm?.supportsWeights}
+				{@render toolButton("weight", "Set Weight", Weight)}
 			{/if}
 		</ToggleGroup>
 
@@ -223,7 +295,7 @@
 					value={editorState.weightValue}
 					onValueChange={(v) => editorState.weightValue = v}
 					max={20}
-					min={2}
+					min={1}
 					step={1}
 				/>
 			</div>
@@ -237,8 +309,8 @@
 			<Label for="show-costs" class="text-sm font-medium">Show Costs (A*)</Label>
 			<Switch
 				id="show-costs"
-				checked={settingsState.showCosts}
-				onCheckedChange={(v) => settingsState.showCosts = v}
+				checked={environmentState.showCosts}
+				onCheckedChange={(v) => environmentState.showCosts = v}
 			/>
 		</div>
 		

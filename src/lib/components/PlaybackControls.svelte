@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { playbackState } from '$lib/state/playback.svelte';
-	import { settingsState } from '$lib/state/settings.svelte';
+	import { environmentState } from '$lib/state/environment.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import Play from '@lucide/svelte/icons/play';
@@ -10,7 +10,7 @@
 
 	function handlePlayPause() {
 		if (playbackState.isIdle || playbackState.isCompleted) {
-			settingsState.runAlgorithm();
+			environmentState.runAlgorithm();
 		} else {
 			playbackState.togglePlayPause();
 		}
@@ -18,7 +18,7 @@
 
 	function handleStep() {
 		if (playbackState.isIdle || playbackState.isCompleted) {
-			settingsState.runAlgorithm();
+			environmentState.runAlgorithm();
 			playbackState.pause();
 		}
 		playbackState.step();

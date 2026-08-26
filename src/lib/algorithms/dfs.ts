@@ -1,12 +1,11 @@
-import type { Grid, NodeId } from '../graph/types';
-import { getNeighbors } from '../graph/neighbors';
+import type { BaseGraph, NodeId } from '../graph/types';
 import type { Algorithm, AlgorithmEvent, AlgorithmMetrics, AlgorithmResult } from './types';
 
 export const dfs: Algorithm = {
 	name: 'Depth-First Search',
 	description: 'Explores as far as possible along each branch before backtracking. Does not guarantee the shortest path.',
 	supportsWeights: false,
-	run(grid: Grid, start: NodeId, goal: NodeId): AlgorithmResult {
+	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];
 		const metrics: AlgorithmMetrics = {
@@ -28,7 +27,7 @@ export const dfs: Algorithm = {
 		}
 
 		const stack: NodeId[] = [start];
-		const visited = new Set<NodeId>();
+		const visited = new Set<NodeId>([start]);
 		const parentMap = new Map<NodeId, NodeId>();
 		
 		let found = false;
@@ -38,39 +37,35 @@ export const dfs: Algorithm = {
 			
 			const current = stack.pop()!;
 			
-			if (!visited.has(current)) {
-				visited.add(current);
-				
-				if (current !== start) {
-					events.push({ type: 'expand', node: current });
-					metrics.nodesExpanded++;
-				}
+			if (current !== start) {
+				events.push({ type: 'expand', node: current });
+				metrics.nodesExpanded++;
+			}
 
-				if (current === goal) {
-					found = true;
-					break;
-				}
+			if (current === goal) {
+				found = true;
+				break;
+			}
 
-				const neighbors = getNeighbors(grid, current);
-				
-				// Push in reverse order so that we explore in the "up, right, down, left" priority order visually
-				// (Because stack pops the last added element first)
-				for (let i = neighbors.length - 1; i >= 0; i--) {
-					const neighbor = neighbors[i];
-					if (!visited.has(neighbor.id)) {
-						if (!parentMap.has(neighbor.id)) {
-							// Only set parent the first time we discover it to keep path somewhat logical
-							parentMap.set(neighbor.id, current);
-						}
-						stack.push(neighbor.id);
-						events.push({ type: 'discover', node: neighbor.id, from: current });
-						metrics.nodesDiscovered++;
-					} else {
-						events.push({ type: 'skip', node: neighbor.id });
+			const neighbors = graph.getNeighbors(current);
+			
+			// For DFS, standard practice in visualization is to push neighbors in reverse order
+			// so that they are explored in visual "top-to-bottom/left-to-right" order when popped.
+			// However, keeping it simple: just push them as returned.
+			for (let i = neighbors.length - 1; i >= 0; i--) {
+				const neighbor = neighbors[i];
+				if (!visited.has(neighbor.target)) {
+					visited.add(neighbor.target);
+					parentMap.set(neighbor.target, current);
+					stack.push(neighbor.target);
+					events.push({ type: 'discover', node: neighbor.target, from: current });
+					metrics.nodesDiscovered++;
+				} else {
+					// Only show skip if it's not the parent we just came from
+					if (parentMap.get(current) !== neighbor.target) {
+						events.push({ type: 'skip', node: neighbor.target });
 					}
 				}
-			} else {
-				events.push({ type: 'skip', node: current });
 			}
 		}
 

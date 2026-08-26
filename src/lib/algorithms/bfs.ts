@@ -1,12 +1,11 @@
-import type { Grid, NodeId } from '../graph/types';
-import { getNeighbors } from '../graph/neighbors';
+import type { BaseGraph, NodeId } from '../graph/types';
 import type { Algorithm, AlgorithmEvent, AlgorithmMetrics, AlgorithmResult } from './types';
 
 export const bfs: Algorithm = {
 	name: 'Breadth-First Search',
 	description: 'Explores all nodes at the present depth before moving on to nodes at the next depth level. Guarantees the shortest path on unweighted graphs.',
 	supportsWeights: false,
-	run(grid: Grid, start: NodeId, goal: NodeId): AlgorithmResult {
+	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];
 		const metrics: AlgorithmMetrics = {
@@ -48,17 +47,17 @@ export const bfs: Algorithm = {
 				break;
 			}
 
-			const neighbors = getNeighbors(grid, current);
+			const neighbors = graph.getNeighbors(current);
 			
 			for (const neighbor of neighbors) {
-				if (!visited.has(neighbor.id)) {
-					visited.add(neighbor.id);
-					parentMap.set(neighbor.id, current);
-					queue.push(neighbor.id);
-					events.push({ type: 'discover', node: neighbor.id, from: current });
+				if (!visited.has(neighbor.target)) {
+					visited.add(neighbor.target);
+					parentMap.set(neighbor.target, current);
+					queue.push(neighbor.target);
+					events.push({ type: 'discover', node: neighbor.target, from: current });
 					metrics.nodesDiscovered++;
 				} else {
-					events.push({ type: 'skip', node: neighbor.id });
+					events.push({ type: 'skip', node: neighbor.target });
 				}
 			}
 		}

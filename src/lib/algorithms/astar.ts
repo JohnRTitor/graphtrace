@@ -1,19 +1,12 @@
-import type { Grid, NodeId } from '../graph/types';
-import { getNeighbors } from '../graph/neighbors';
+import type { BaseGraph, NodeId } from '../graph/types';
 import type { Algorithm, AlgorithmEvent, AlgorithmMetrics, AlgorithmResult } from './types';
 import { MinHeap } from './heap';
-
-function heuristic(nodeA: NodeId, nodeB: NodeId): number {
-	const [r1, c1] = nodeA.split(',').map(Number);
-	const [r2, c2] = nodeB.split(',').map(Number);
-	return Math.abs(r1 - r2) + Math.abs(c1 - c2);
-}
 
 export const astar: Algorithm = {
 	name: 'A* Search',
 	description: 'Uses heuristics to guarantee the shortest path much faster than Dijkstra\'s Algorithm. Optimal for weighted graphs.',
 	supportsWeights: true,
-	run(grid: Grid, start: NodeId, goal: NodeId): AlgorithmResult {
+	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];
 		const metrics: AlgorithmMetrics = {
@@ -41,7 +34,7 @@ export const astar: Algorithm = {
 		const closedSet = new Set<NodeId>();
 
 		gScore.set(start, 0);
-		fScore.set(start, heuristic(start, goal));
+		fScore.set(start, graph.getHeuristic(start, goal));
 		openSet.insert(start, fScore.get(start)!);
 
 		let found = false;
@@ -68,42 +61,42 @@ export const astar: Algorithm = {
 				break;
 			}
 
-			const neighbors = getNeighbors(grid, current);
+			const neighbors = graph.getNeighbors(current);
 			
 			for (const neighbor of neighbors) {
-				if (closedSet.has(neighbor.id)) {
-					events.push({ type: 'skip', node: neighbor.id });
+				if (closedSet.has(neighbor.target)) {
+					events.push({ type: 'skip', node: neighbor.target });
 					continue;
 				}
 
 				const tentativeGScore = gScore.get(current)! + neighbor.weight;
-				const neighborGScore = gScore.get(neighbor.id) ?? Infinity;
+				const neighborGScore = gScore.get(neighbor.target) ?? Infinity;
 
 				if (tentativeGScore < neighborGScore) {
-					parentMap.set(neighbor.id, current);
-					gScore.set(neighbor.id, tentativeGScore);
+					parentMap.set(neighbor.target, current);
+					gScore.set(neighbor.target, tentativeGScore);
 					
-					const h = heuristic(neighbor.id, goal);
+					const h = graph.getHeuristic(neighbor.target, goal);
 					const f = tentativeGScore + h;
-					fScore.set(neighbor.id, f);
+					fScore.set(neighbor.target, f);
 					
 					if (neighborGScore === Infinity) {
 						// Newly discovered
 						metrics.nodesDiscovered++;
-						events.push({ type: 'discover', node: neighbor.id, from: current });
+						events.push({ type: 'discover', node: neighbor.target, from: current });
 					}
 					
-					openSet.insert(neighbor.id, f);
+					openSet.insert(neighbor.target, f);
 					events.push({ 
 						type: 'update', 
-						node: neighbor.id, 
+						node: neighbor.target, 
 						parent: current,
 						g: tentativeGScore,
 						h: h,
 						f: f
 					});
 				} else {
-					events.push({ type: 'skip', node: neighbor.id });
+					events.push({ type: 'skip', node: neighbor.target });
 				}
 			}
 		}
@@ -128,3 +121,4 @@ export const astar: Algorithm = {
 		return { events, metrics };
 	}
 };
+

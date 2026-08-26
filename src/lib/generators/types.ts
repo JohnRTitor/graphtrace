@@ -1,4 +1,4 @@
-export type EnvironmentType = 'perfect_maze' | 'braided_maze' | 'random_obstacles' | 'blank';
+export type EnvironmentType = 'perfect_maze' | 'braided_maze' | 'random_obstacles' | 'blank' | 'graph';
 
 export type GeneratorOptions = {
 	seed: number;

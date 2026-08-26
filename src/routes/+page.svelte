@@ -5,7 +5,7 @@
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/KeyboardShortcutsDialog.svelte';
 	import { generateDefaultPreset } from '$lib/generators/presets';
-	import { gridState } from '$lib/state/grid.svelte';
+	import { environmentState } from '$lib/state/environment.svelte';
 	import { onMount } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 
@@ -14,7 +14,7 @@
 	onMount(() => {
 		// Initialize with default preset
 		const initialGrid = generateDefaultPreset(30, 40);
-		gridState.replaceGrid(initialGrid);
+		environmentState.replaceGrid(initialGrid);
 	});
 </script>
 
@@ -41,10 +41,8 @@
 			<div class="relative flex-1 overflow-hidden">
 				<CanvasView />
 				
-				<!-- Stats overlay on top right of canvas -->
-				<div class="absolute right-4 top-4 z-10 w-72 shadow-md">
-					<StatsPanel />
-				</div>
+				<!-- Stats overlay floating panel -->
+				<StatsPanel />
 			</div>
 		</div>
 	</main>

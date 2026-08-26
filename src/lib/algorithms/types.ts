@@ -1,4 +1,4 @@
-import type { Grid, NodeId } from '../graph/types';
+import type { BaseGraph, NodeId } from '../graph/types';
 
 export type AlgorithmEvent =
 	| { type: 'start'; node: NodeId }
@@ -28,5 +28,5 @@ export type Algorithm = {
 	name: string;
 	description: string;
 	supportsWeights: boolean;
-	run(grid: Grid, start: NodeId, goal: NodeId): AlgorithmResult;
+	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult;
 };

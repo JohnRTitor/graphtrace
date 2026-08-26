@@ -22,3 +22,21 @@ export enum NeighborDirection {
 	Down = 2,
 	Left = 3
 }
+
+// Common graph abstractions for algorithms
+export type BaseGraphNode = {
+	id: NodeId;
+};
+
+export type BaseGraphEdge = {
+	target: NodeId;
+	weight: number;
+};
+
+export type BaseGraph = {
+	getNode: (id: NodeId) => BaseGraphNode | undefined;
+	getNeighbors: (id: NodeId) => BaseGraphEdge[];
+	getHeuristic: (nodeA: NodeId, nodeB: NodeId) => number;
+	getStart: () => NodeId | null;
+	getGoal: () => NodeId | null;
+};
