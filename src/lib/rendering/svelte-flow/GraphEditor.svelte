@@ -122,23 +122,25 @@
 </script>
 
 <div class="w-full h-full relative" style:color-scheme={isDark ? 'dark' : 'light'}>
-	<SvelteFlow
-		{nodes}
-		{edges}
-		{nodeTypes}
-		{edgeTypes}
-		colorMode={isDark ? 'dark' : 'light'}
-		onpaneclick={handlePaneClick}
-		onnodeclick={handleNodeClick}
-		onedgeclick={handleEdgeClick}
-		onconnect={handleConnect}
-		onnodedragstop={handleNodeDragStop}
-		nodesDraggable={editorState.mode === 'move'}
-		nodesConnectable={editorState.mode === 'edge'}
-		elementsSelectable={true}
-		fitView
-	>
-		<Background variant={BackgroundVariant.Dots} />
-		<Controls />
-	</SvelteFlow>
+	{#if browser}
+		<SvelteFlow
+			{nodes}
+			{edges}
+			{nodeTypes}
+			{edgeTypes}
+			colorMode={isDark ? 'dark' : 'light'}
+			onpaneclick={handlePaneClick}
+			onnodeclick={handleNodeClick}
+			onedgeclick={handleEdgeClick}
+			onconnect={handleConnect}
+			onnodedragstop={handleNodeDragStop}
+			nodesDraggable={editorState.mode === 'move'}
+			nodesConnectable={editorState.mode === 'edge'}
+			elementsSelectable={true}
+			fitView
+		>
+			<Background variant={BackgroundVariant.Dots} />
+			<Controls />
+		</SvelteFlow>
+	{/if}
 </div>

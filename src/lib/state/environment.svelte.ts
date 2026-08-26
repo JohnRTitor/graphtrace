@@ -19,7 +19,7 @@ export class EnvironmentState {
 	private _selectedAlgorithmId = $state<string>('bfs');
 	private _showCosts = $state<boolean>(true);
 	private _environmentType = $state<EnvironmentType>('perfect_maze');
-	private _environmentSeed = $state<number>(Date.now());
+	private _environmentSeed = $state<number>(12345);
 	private _loopDensity = $state<number>(10);
 	private _obstacleDensity = $state<number>(30);
 	private _gridRowsSetting = $state<number>(30);
