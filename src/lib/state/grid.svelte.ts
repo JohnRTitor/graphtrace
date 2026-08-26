@@ -7,12 +7,12 @@ export class GridState {
 	// but we'll also provide a version counter to trigger reactivity on deep mutations
 	// since Map mutations don't automatically trigger Svelte reactivity.
 	
-	private _grid = $state<Grid>(createGrid(30, 40));
+	private _grid = $state<Grid>(createGrid(31, 41));
 	private _version = $state(0);
 	
 	constructor() {
-		// Default start and goal for 30x40
-		this.resetToDefaults(30, 40);
+		// Default start and goal for 31x41
+		this.resetToDefaults(31, 41);
 	}
 	
 	get grid(): Grid {

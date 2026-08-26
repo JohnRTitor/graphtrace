@@ -3,8 +3,8 @@
 	import { settingsState } from '$lib/state/settings.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
 	import { gridState } from '$lib/state/grid.svelte';
-	import { generateRandomGrid } from '$lib/generators/random';
-	import { generateMaze } from '$lib/generators/maze';
+	import { generateRandomGrid, generateBlankGrid } from '$lib/generators/random';
+	import { generatePerfectMaze, generateBraidedMaze } from '$lib/generators/maze';
 	
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Label } from '$lib/components/ui/label';
@@ -22,24 +22,51 @@
 	import Target from '@lucide/svelte/icons/target';
 	import Weight from '@lucide/svelte/icons/weight';
 
-	let density = $state(30); // 0-100 mapped to 0-1
+	import Shuffle from '@lucide/svelte/icons/shuffle';
 
-	function handleRandom() {
-		const newGrid = generateRandomGrid(gridState.rows, gridState.cols, {
-			density: density / 100,
+	function handleGenerate() {
+		const options = {
+			seed: settingsState.environmentSeed,
+			loopDensity: settingsState.loopDensity,
+			obstacleDensity: settingsState.obstacleDensity,
 			weighted: settingsState.currentAlgorithm?.supportsWeights
-		});
+		};
+
+		let newGrid;
+		switch (settingsState.environmentType) {
+			case 'perfect_maze':
+				newGrid = generatePerfectMaze(gridState.rows, gridState.cols, options);
+				break;
+			case 'braided_maze':
+				newGrid = generateBraidedMaze(gridState.rows, gridState.cols, options);
+				break;
+			case 'random_obstacles':
+				newGrid = generateRandomGrid(gridState.rows, gridState.cols, options);
+				break;
+			case 'blank':
+			default:
+				newGrid = generateBlankGrid(gridState.rows, gridState.cols, options);
+				break;
+		}
+		
 		gridState.replaceGrid(newGrid);
 	}
 
-	function handleMaze() {
-		const newGrid = generateMaze(gridState.rows, gridState.cols);
-		gridState.replaceGrid(newGrid);
+	function randomizeSeed() {
+		settingsState.environmentSeed = Math.floor(Math.random() * 1000000);
+		handleGenerate();
 	}
 	
 	function handleClear() {
 		gridState.clear();
 	}
+
+	const environmentDescriptions = {
+		'perfect_maze': 'A connected maze with exactly one route between any two cells. No loops.',
+		'braided_maze': 'A maze with intentionally added loops and alternative routes.',
+		'random_obstacles': 'An arbitrary obstacle field. May contain multiple routes or disconnected regions.',
+		'blank': 'An empty grid.'
+	};
 </script>
 
 <div class="flex h-full flex-col gap-6 p-4">
@@ -70,24 +97,86 @@
 	<div class="space-y-4">
 		<h3 class="text-sm font-medium">Environment</h3>
 		
-		<div class="grid grid-cols-2 gap-2">
-			<Button variant="outline" size="sm" onclick={handleRandom}>Random</Button>
-			<Button variant="outline" size="sm" onclick={handleMaze}>Maze</Button>
-			<Button variant="outline" size="sm" class="col-span-2" onclick={handleClear}>Clear Grid</Button>
+		<div class="space-y-3">
+			<Select
+				type="single"
+				bind:value={settingsState.environmentType}
+			>
+				<SelectTrigger>
+					{#if settingsState.environmentType === 'perfect_maze'}
+						Perfect Maze
+					{:else if settingsState.environmentType === 'braided_maze'}
+						Braided Maze
+					{:else if settingsState.environmentType === 'random_obstacles'}
+						Random Obstacles
+					{:else}
+						Blank Grid
+					{/if}
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="perfect_maze">Perfect Maze</SelectItem>
+					<SelectItem value="braided_maze">Braided Maze</SelectItem>
+					<SelectItem value="random_obstacles">Random Obstacles</SelectItem>
+					<SelectItem value="blank">Blank Grid</SelectItem>
+				</SelectContent>
+			</Select>
+			
+			<p class="text-xs text-muted-foreground">
+				{environmentDescriptions[settingsState.environmentType]}
+			</p>
 		</div>
 
-		<div class="space-y-3 pt-2">
-			<div class="flex items-center justify-between">
-				<Label class="text-xs font-normal text-muted-foreground">Random Density</Label>
-				<span class="text-xs text-muted-foreground">{density}%</span>
+		{#if settingsState.environmentType !== 'blank'}
+			<div class="flex flex-col gap-2">
+				<Label class="text-xs">Seed</Label>
+				<div class="flex gap-2">
+					<input 
+						type="number" 
+						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" 
+						bind:value={settingsState.environmentSeed} 
+					/>
+					<Button variant="outline" size="icon" class="h-9 w-9 shrink-0" onclick={randomizeSeed} title="Randomize Seed">
+						<Shuffle class="h-4 w-4" />
+					</Button>
+				</div>
 			</div>
-			<Slider
-				type="single"
-				bind:value={density}
-				max={100}
-				min={0}
-				step={5}
-			/>
+		{/if}
+
+		{#if settingsState.environmentType === 'braided_maze'}
+			<div class="space-y-3 pt-2">
+				<div class="flex items-center justify-between">
+					<Label class="text-xs font-normal text-muted-foreground">Loop Density</Label>
+					<span class="text-xs text-muted-foreground">{settingsState.loopDensity}%</span>
+				</div>
+				<Slider
+					type="single"
+					bind:value={settingsState.loopDensity}
+					max={100}
+					min={0}
+					step={5}
+				/>
+			</div>
+		{/if}
+
+		{#if settingsState.environmentType === 'random_obstacles'}
+			<div class="space-y-3 pt-2">
+				<div class="flex items-center justify-between">
+					<Label class="text-xs font-normal text-muted-foreground">Obstacle Density</Label>
+					<span class="text-xs text-muted-foreground">{settingsState.obstacleDensity}%</span>
+				</div>
+				<Slider
+					type="single"
+					bind:value={settingsState.obstacleDensity}
+					max={100}
+					min={0}
+					step={5}
+				/>
+			</div>
+		{/if}
+
+		<div class="grid grid-cols-2 gap-2 pt-2">
+			<Button size="sm" onclick={handleGenerate}>Generate</Button>
+			<Button variant="outline" size="sm" onclick={handleClear}>Clear Grid</Button>
 		</div>
 	</div>
 
