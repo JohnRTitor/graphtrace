@@ -14,6 +14,7 @@ export class EnvironmentState {
 
 	// --- Graph State ---
 	private _graph = $state<ManualGraph>(new ManualGraph());
+	private _graphVersion = $state(0);
 
 	// --- Settings State ---
 	private _selectedAlgorithmId = $state<string>('bfs');
@@ -110,81 +111,93 @@ export class EnvironmentState {
 
 	// === Graph Getters & Methods ===
 	get graph(): ManualGraph {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph;
 	}
 	get graphDirected(): boolean {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph.directed;
 	}
 	get graphStart(): NodeId | null {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph.start;
 	}
 	get graphGoal(): NodeId | null {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph.goal;
 	}
 	get graphCanUndo(): boolean {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph.canUndo();
 	}
 	get graphCanRedo(): boolean {
-		this._graph.version;
+		this._graphVersion;
 		return this._graph.canRedo();
 	}
 
-	executeGraphCommand(cmd: GraphCommand) { this._graph.execute(cmd); }
-	undoGraph() { this._graph.undo(); }
-	redoGraph() { this._graph.redo(); }
+	executeGraphCommand(cmd: GraphCommand) { this._graph.execute(cmd); this._graphVersion++; }
+	undoGraph() { this._graph.undo(); this._graphVersion++; }
+	redoGraph() { this._graph.redo(); this._graphVersion++; }
 	clearGraph() {
 		playbackState.reset();
 		const nodes = Array.from(this._graph.nodes.values());
 		const edges = Array.from(this._graph.edges.values());
 		this._graph.execute({ type: 'clear', nodes, edges, start: this._graph.start, goal: this._graph.goal });
+		this._graphVersion++;
 	}
 	addGraphNode(x: number, y: number, label: string): NodeId {
 		const id = `node-${generateId(6)}`;
 		this._graph.execute({ type: 'add-node', node: { id, x, y, label } });
+		this._graphVersion++;
 		return id;
 	}
 	removeGraphNode(id: NodeId) {
 		const node = this._graph.nodes.get(id);
 		if (!node) return;
 		const attachedEdges = this._graph.getAttachedEdges(id);
-		this._graph.execute({ type: 'remove-node', node, attachedEdges });
+		const wasStart = this._graph.start === id;
+		const wasGoal = this._graph.goal === id;
+		this._graph.execute({ type: 'remove-node', node, attachedEdges, wasStart, wasGoal });
+		this._graphVersion++;
 	}
 	moveGraphNode(id: NodeId, x: number, y: number) {
 		const node = this._graph.nodes.get(id);
 		if (!node) return;
 		this._graph.execute({ type: 'move-node', id, from: { x: node.x, y: node.y }, to: { x, y } });
+		this._graphVersion++;
 	}
 	addGraphEdge(source: NodeId, target: NodeId, weight: number = 1): string {
 		const id = `edge-${generateId(6)}`;
 		this._graph.execute({ type: 'add-edge', edge: { id, source, target, weight, directed: this._graph.directed } });
+		this._graphVersion++;
 		return id;
 	}
 	removeGraphEdge(id: string) {
 		const edge = this._graph.edges.get(id);
 		if (!edge) return;
 		this._graph.execute({ type: 'remove-edge', edge });
+		this._graphVersion++;
 	}
 	setGraphStart(id: NodeId | null) {
 		this._graph.execute({ type: 'set-start', from: this._graph.start, to: id });
+		this._graphVersion++;
 	}
 	setGraphGoal(id: NodeId | null) {
 		this._graph.execute({ type: 'set-goal', from: this._graph.goal, to: id });
+		this._graphVersion++;
 	}
 	setGraphDirected(directed: boolean) {
 		if (this._graph.directed === directed) return;
 		this._graph.execute({ type: 'set-directed', from: this._graph.directed, to: directed });
+		this._graphVersion++;
 	}
 	setGraphWeight(edgeId: string, weight: number) {
 		const edge = this._graph.edges.get(edgeId);
 		if (!edge || edge.weight === weight) return;
 		this._graph.execute({ type: 'set-weight', edgeId, from: edge.weight, to: weight });
+		this._graphVersion++;
 	}
-	loadGraph(data: any) { this._graph.load(data); }
+	loadGraph(data: any) { this._graph.load(data); this._graphVersion++; }
 
 	// === Settings Getters & Methods ===
 	get selectedAlgorithmId() { return this._selectedAlgorithmId; }

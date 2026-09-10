@@ -27,15 +27,16 @@ export const bfs: Algorithm = {
 		}
 
 		const queue: NodeId[] = [start];
+		let head = 0;
 		const visited = new Set<NodeId>([start]);
 		const parentMap = new Map<NodeId, NodeId>();
 		
 		let found = false;
 
-		while (queue.length > 0) {
-			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, queue.length);
+		while (head < queue.length) {
+			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, queue.length - head);
 			
-			const current = queue.shift()!;
+			const current = queue[head++];
 			
 			if (current !== start) {
 				events.push({ type: 'expand', node: current });

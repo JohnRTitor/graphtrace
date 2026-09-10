@@ -35,9 +35,7 @@ export function validateMaze(grid: Grid): MazeValidationResult {
   // 2. Perform DFS/BFS to find connected components and count edges
   const visited = new Set<string>();
   let edges = 0; // Each undirected edge will be counted twice during traversal
-
-  const stack: string[] = [startNodeId!];
-  visited.add(startNodeId!);
+  let components = 0;
 
   const dirs = [
     [-1, 0],
@@ -46,20 +44,28 @@ export function validateMaze(grid: Grid): MazeValidationResult {
     [0, -1],
   ];
 
-  while (stack.length > 0) {
-    const currId = stack.pop()!;
-    const currNode = grid.nodes.get(currId)!;
+  for (const startId of walkableNodes) {
+    if (visited.has(startId)) continue;
+    
+    components++;
+    const stack: string[] = [startId];
+    visited.add(startId);
 
-    for (const [dr, dc] of dirs) {
-      const nr = currNode.row + dr;
-      const nc = currNode.col + dc;
-      const neighborId = `${nr},${nc}`;
+    while (stack.length > 0) {
+      const currId = stack.pop()!;
+      const currNode = grid.nodes.get(currId)!;
 
-      if (walkableNodes.has(neighborId)) {
-        edges++; // Count directed edge (curr -> neighbor)
-        if (!visited.has(neighborId)) {
-          visited.add(neighborId);
-          stack.push(neighborId);
+      for (const [dr, dc] of dirs) {
+        const nr = currNode.row + dr;
+        const nc = currNode.col + dc;
+        const neighborId = `${nr},${nc}`;
+
+        if (walkableNodes.has(neighborId)) {
+          edges++; // Count directed edge (curr -> neighbor)
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            stack.push(neighborId);
+          }
         }
       }
     }
@@ -68,11 +74,11 @@ export function validateMaze(grid: Grid): MazeValidationResult {
   // Since the graph is undirected, each edge is counted in both directions
   const undirectedEdgeCount = edges / 2;
   const nodeCount = walkableNodes.size;
-  const connected = visited.size === nodeCount;
+  const connected = components <= 1 && nodeCount > 0;
 
-  // For a connected graph, E = V - 1 + C
-  // C = E - V + 1 (number of fundamental cycles)
-  const cycleCount = undirectedEdgeCount - nodeCount + 1;
+  // For C components, E = V - C + Cycles
+  // Cycles = E - V + C
+  const cycleCount = undirectedEdgeCount - nodeCount + components;
 
   return {
     connected,

@@ -64,15 +64,14 @@ export const astar: Algorithm = {
 			const neighbors = graph.getNeighbors(current);
 			
 			for (const neighbor of neighbors) {
-				if (closedSet.has(neighbor.target)) {
-					events.push({ type: 'skip', node: neighbor.target });
-					continue;
-				}
-
 				const tentativeGScore = gScore.get(current)! + neighbor.weight;
 				const neighborGScore = gScore.get(neighbor.target) ?? Infinity;
 
 				if (tentativeGScore < neighborGScore) {
+					if (closedSet.has(neighbor.target)) {
+						closedSet.delete(neighbor.target);
+					}
+
 					parentMap.set(neighbor.target, current);
 					gScore.set(neighbor.target, tentativeGScore);
 					

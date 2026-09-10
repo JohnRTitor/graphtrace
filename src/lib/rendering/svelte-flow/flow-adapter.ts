@@ -15,7 +15,7 @@ export function extractPathEdges(pathNodes: NodeId[], graph: ManualGraph): Set<s
 		// Find edge between u and v
 		let foundEdgeId: string | null = null;
 		for (const [edgeId, edge] of graph.edges.entries()) {
-			if ((edge.source === u && edge.target === v) || (!graph.directed && edge.source === v && edge.target === u)) {
+			if ((edge.source === u && edge.target === v) || (!edge.directed && edge.source === v && edge.target === u)) {
 				foundEdgeId = edgeId;
 				break; // Stop after first match (could be multiple in multigraph, but graphtrace isn't one)
 			}
@@ -97,7 +97,7 @@ export function toFlowEdges(
 			source: edge.source,
 			target: edge.target,
 			animated: state === 'path', // Animate path edges
-			markerEnd: graph.directed ? {
+			markerEnd: edge.directed ? {
 				type: MarkerType.ArrowClosed,
 				color: state === 'path' ? colors.path : (state === 'expanded' ? colors.expanded : (state === 'discovered' ? colors.discovered : colors.text))
 			} : undefined,

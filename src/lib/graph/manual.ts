@@ -17,7 +17,7 @@ export type GraphEdge = {
 
 export type GraphCommand = 
 	| { type: 'add-node'; node: GraphNode }
-	| { type: 'remove-node'; node: GraphNode; attachedEdges: GraphEdge[] }
+	| { type: 'remove-node'; node: GraphNode; attachedEdges: GraphEdge[]; wasStart?: boolean; wasGoal?: boolean }
 	| { type: 'move-node'; id: NodeId; from: { x: number; y: number }; to: { x: number; y: number } }
 	| { type: 'add-edge'; edge: GraphEdge }
 	| { type: 'remove-edge'; edge: GraphEdge }
@@ -54,7 +54,7 @@ export class ManualGraph implements BaseGraph {
 		for (const edge of this.edges.values()) {
 			if (edge.source === id) {
 				neighbors.push({ target: edge.target, weight: edge.weight });
-			} else if (!edge.directed && !this.directed && edge.target === id) {
+			} else if (!edge.directed && edge.target === id) {
 				neighbors.push({ target: edge.source, weight: edge.weight });
 			}
 		}
@@ -65,8 +65,8 @@ export class ManualGraph implements BaseGraph {
 		const a = this.nodes.get(nodeA);
 		const b = this.nodes.get(nodeB);
 		if (!a || !b) return 0;
-		// Euclidean distance
-		return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+		// Return 0 to guarantee admissible heuristic (Dijkstra) since edge weights are arbitrary
+		return 0;
 	}
 
 	getStart(): NodeId | null {
@@ -145,6 +145,8 @@ export class ManualGraph implements BaseGraph {
 				for (const edge of cmd.attachedEdges) {
 					this.edges.set(edge.id, { ...edge });
 				}
+				if (cmd.wasStart) this.start = cmd.node.id;
+				if (cmd.wasGoal) this.goal = cmd.node.id;
 				break;
 			case 'move-node':
 				const n = this.nodes.get(cmd.id);
@@ -221,6 +223,27 @@ export class ManualGraph implements BaseGraph {
 	}
 
 	load(data: any) {
+		if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+			console.error("Invalid graph data");
+			return;
+		}
+		
+		const validNodes = new Map<NodeId, GraphNode>();
+		for (const n of data.nodes) {
+			if (n && typeof n.id === 'string' && typeof n.x === 'number' && typeof n.y === 'number' && Number.isFinite(n.x) && Number.isFinite(n.y)) {
+				validNodes.set(n.id, n);
+			}
+		}
+
+		const validEdges = new Map<string, GraphEdge>();
+		for (const e of data.edges) {
+			if (e && typeof e.id === 'string' && typeof e.source === 'string' && typeof e.target === 'string' && typeof e.weight === 'number' && typeof e.directed === 'boolean') {
+				if (validNodes.has(e.source) && validNodes.has(e.target) && !validEdges.has(e.id)) {
+					validEdges.set(e.id, e);
+				}
+			}
+		}
+
 		const nodes = Array.from(this.nodes.values());
 		const edges = Array.from(this.edges.values());
 		const start = this.start;
@@ -237,11 +260,11 @@ export class ManualGraph implements BaseGraph {
 		// Then manually apply state (bypassing execute so it's not part of the clear command)
 		this.nodes.clear();
 		this.edges.clear();
-		for (const n of data.nodes) this.nodes.set(n.id, n);
-		for (const e of data.edges) this.edges.set(e.id, e);
-		this.start = data.start;
-		this.goal = data.goal;
-		this.directed = data.directed;
+		for (const n of validNodes.values()) this.nodes.set(n.id, n);
+		for (const e of validEdges.values()) this.edges.set(e.id, e);
+		this.start = validNodes.has(data.start) ? data.start : null;
+		this.goal = validNodes.has(data.goal) ? data.goal : null;
+		this.directed = typeof data.directed === 'boolean' ? data.directed : false;
 		this._version++;
 		
 		// Clear stacks when loading new graph
