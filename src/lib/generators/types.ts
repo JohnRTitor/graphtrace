@@ -2,7 +2,7 @@ export type EnvironmentType = 'perfect_maze' | 'braided_maze' | 'random_obstacle
 
 export type RandomGraphOptions = {
 	nodeCount: number;
-	density: 'sparse' | 'balanced' | 'dense';
+	edgeMultiplier: number;
 	directed: boolean;
 	weighted: boolean;
 	ensurePath: boolean;

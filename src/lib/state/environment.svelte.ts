@@ -28,7 +28,7 @@ export class EnvironmentState {
 
 	// --- Random Graph State ---
 	private _graphNodeCount = $state<number>(25);
-	private _graphDensity = $state<'sparse' | 'balanced' | 'dense'>('balanced');
+	private _graphEdgeMultiplier = $state<number>(2);
 	private _graphEnsurePath = $state<boolean>(true);
 	private _graphWeighted = $state<boolean>(true);
 
@@ -144,6 +144,16 @@ export class EnvironmentState {
 	get graph(): ManualGraph {
 		this._graphVersion;
 		return this._graph;
+	}
+	handleGenerateGraph() {
+		this.replaceGraph(generateRandomGraph({
+			nodeCount: this.graphNodeCount,
+			edgeMultiplier: this.graphEdgeMultiplier,
+			directed: this.algorithmOptions.directed,
+			weighted: this.algorithmOptions.weighted && this.graphWeighted,
+			ensurePath: this.graphEnsurePath,
+			seed: this.prngSeed
+		}));
 	}
 	get graphDirected(): boolean {
 		this._graphVersion;
@@ -293,8 +303,8 @@ export class EnvironmentState {
 	get graphNodeCount() { return this._graphNodeCount; }
 	set graphNodeCount(val: number) { this._graphNodeCount = Math.max(5, Math.min(100, val)); }
 
-	get graphDensity() { return this._graphDensity; }
-	set graphDensity(val: 'sparse' | 'balanced' | 'dense') { this._graphDensity = val; }
+	get graphEdgeMultiplier() { return this._graphEdgeMultiplier; }
+	set graphEdgeMultiplier(val: number) { this._graphEdgeMultiplier = Math.max(0, Math.min(10, val)); }
 
 	get graphEnsurePath() { return this._graphEnsurePath; }
 	set graphEnsurePath(val: boolean) { this._graphEnsurePath = val; }

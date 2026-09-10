@@ -5,7 +5,7 @@ describe('generateRandomGraph', () => {
 	it('generates the correct number of nodes', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 10,
-			density: 'balanced',
+			edgeMultiplier: 2,
 			directed: false,
 			weighted: false,
 			ensurePath: false,
@@ -133,7 +133,7 @@ describe('generateRandomGraph', () => {
 	it('generates valid weights when weighted is true', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 10,
-			density: 'balanced',
+			edgeMultiplier: 2,
 			directed: false,
 			weighted: true,
 			ensurePath: false,

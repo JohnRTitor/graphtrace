@@ -32,7 +32,7 @@
 		if (environmentState.environmentType === 'graph') {
 			const options = {
 				nodeCount: environmentState.graphNodeCount,
-				density: environmentState.graphDensity,
+				edgeMultiplier: environmentState.graphEdgeMultiplier,
 				directed: environmentState.graphDirected,
 				weighted: environmentState.graphWeighted && !!environmentState.currentAlgorithm?.supportsWeights,
 				ensurePath: environmentState.graphEnsurePath,
@@ -247,16 +247,19 @@
 					</Select>
 				</div>
 
-				<div class="flex flex-col gap-2">
-					<Label class="text-xs">Edge Density</Label>
-					<Select type="single" value={environmentState.graphDensity} onValueChange={(v) => environmentState.graphDensity = v as any}>
-						<SelectTrigger>{environmentState.graphDensity === 'sparse' ? 'Sparse' : environmentState.graphDensity === 'balanced' ? 'Balanced' : 'Dense'}</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="sparse">Sparse</SelectItem>
-							<SelectItem value="balanced">Balanced</SelectItem>
-							<SelectItem value="dense">Dense</SelectItem>
-						</SelectContent>
-					</Select>
+				<div class="space-y-3 pt-2">
+					<div class="flex items-center justify-between">
+						<Label class="text-xs font-normal text-muted-foreground">Edge Density</Label>
+						<span class="text-xs text-muted-foreground">{environmentState.graphEdgeMultiplier.toFixed(1)}x</span>
+					</div>
+					<Slider
+						type="single"
+						value={environmentState.graphEdgeMultiplier}
+						onValueChange={(v) => environmentState.graphEdgeMultiplier = v as number}
+						max={10}
+						min={0.5}
+						step={0.5}
+					/>
 				</div>
 
 				<div class="flex items-center justify-between">
