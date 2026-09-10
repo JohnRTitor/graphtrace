@@ -10,16 +10,16 @@
 </script>
 
 {#snippet statRow(label: string, value: string | number)}
-	<div class="flex flex-col">
+	<div class="flex flex-col border border-border/50 rounded-md p-4 bg-muted/10">
 		<span class="text-xs text-muted-foreground">{label}</span>
-		<span class="font-mono font-medium">{value}</span>
+		<span class="font-mono font-medium mt-1">{value}</span>
 	</div>
 {/snippet}
 
 <FloatingPanel id="statistics" bind:this={floatingPanel}>
 	{#snippet header()}
-		<CardHeader class="pb-3 flex flex-row items-center justify-between space-y-0 relative">
-			<CardTitle class="text-sm font-medium">Algorithm Statistics</CardTitle>
+		<CardHeader class="p-5 pb-4 flex flex-row items-center justify-between space-y-0 relative">
+			<CardTitle class="text-base font-medium">Algorithm Statistics</CardTitle>
 			<div class="flex items-center gap-2">
 				{#if playbackState.isIdle}
 					<Badge variant="secondary">Idle</Badge>
@@ -46,8 +46,8 @@
 		</CardHeader>
 	{/snippet}
 
-	<CardContent>
-		<div class="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+	<CardContent class="p-5 pt-0">
+		<div class="grid grid-cols-2 gap-3 text-sm">
 			{@render statRow('Nodes Discovered', playbackState.metrics?.nodesDiscovered ?? 0)}
 			{@render statRow('Nodes Expanded', playbackState.metrics?.nodesExpanded ?? 0)}
 			{@render statRow('Max Frontier', playbackState.metrics?.maxFrontierSize ?? 0)}
