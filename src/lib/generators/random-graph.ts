@@ -123,11 +123,12 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 	
 	// 4. Fill remaining density
 	// We use multipliers based on node count to prevent massive slowdowns for large graphs.
-	// Sparse: ~1.5N edges, Balanced: ~3N edges, Dense: ~5N edges
+	// Sparse: ~1.2N edges, Balanced: ~2N edges, Dense: ~3.5N edges
 	let targetEdges = 0;
-	if (options.density === 'sparse') targetEdges = Math.floor(1.5 * N);
-	else if (options.density === 'balanced') targetEdges = Math.floor(3 * N);
-	else if (options.density === 'dense') targetEdges = Math.floor(5 * N);
+	if (options.density === 'sparse') targetEdges = Math.floor(1.2 * N);
+	else if (options.density === 'balanced') targetEdges = Math.floor(2 * N);
+	else if (options.density === 'dense') targetEdges = Math.floor(3.5 * N);
+
 	
 	const maxPossibleEdges = options.directed ? N * (N - 1) : (N * (N - 1)) / 2;
 	targetEdges = Math.min(targetEdges, maxPossibleEdges);
