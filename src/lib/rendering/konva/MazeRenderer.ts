@@ -5,6 +5,7 @@ import { MazeViewport } from './maze-viewport';
 import { MazeInteraction } from './maze-interaction';
 import type { EditorState } from '$lib/state/editor.svelte';
 import type { EnvironmentState } from '$lib/state/environment.svelte';
+import { stageToCellId } from './maze-coords';
 
 export class MazeRenderer {
 	private stage: Konva.Stage;
@@ -79,10 +80,21 @@ export class MazeRenderer {
 
 	private editorStateRef: EditorState | null = null;
 	private envStateRef: EnvironmentState | null = null;
+	private contextMenuHandler: ((cellId: NodeId | null) => void) | null = null;
 
 	public setContext(editorState: EditorState, environmentState: EnvironmentState) {
 		this.editorStateRef = editorState;
 		this.envStateRef = environmentState;
+	}
+
+	/**
+	 * Registers a callback invoked with the cell id under the pointer whenever
+	 * the user right-clicks the maze (or `null` if the click landed outside
+	 * the grid). Used to drive the context menu's typed target - the renderer
+	 * itself has no opinion about menu contents.
+	 */
+	public setContextMenuHandler(handler: (cellId: NodeId | null) => void) {
+		this.contextMenuHandler = handler;
 	}
 
 	private setupEvents() {
@@ -111,12 +123,13 @@ export class MazeRenderer {
 			this.interactionLayer.batchDraw();
 		});
 		
-		// Pan logic (middle click or right click)
+		// Pan logic (middle click). Right click is reserved for the context
+		// menu and must never start a pan or paint - see setupContextMenu().
 		let isPanning = false;
 		let lastPos = { x: 0, y: 0 };
 		
 		this.stage.on('pointerdown', (e) => {
-			if (e.evt instanceof MouseEvent && (e.evt.button === 1 || e.evt.button === 2)) {
+			if (e.evt instanceof MouseEvent && e.evt.button === 1) {
 				isPanning = true;
 				const pos = this.stage.getPointerPosition();
 				if (pos) lastPos = pos;
@@ -139,9 +152,28 @@ export class MazeRenderer {
 		this.stage.on('pointerup', () => {
 			isPanning = false;
 		});
-		
-		// Prevent context menu
-		this.stage.container().addEventListener('contextmenu', (e) => e.preventDefault());
+
+		this.stage.on('contextmenu', (e) => {
+			// Suppress the native browser menu and stop the pan/paint logic
+			// above from reacting to this pointer sequence; the shadcn-svelte
+			// ContextMenu, wired up by the wrapping Trigger in MazeCanvas.svelte,
+			// owns the resulting UI.
+			e.evt.preventDefault();
+			isPanning = false;
+
+			if (!this.currentGrid) {
+				this.contextMenuHandler?.(null);
+				return;
+			}
+
+			const cellId = stageToCellId(
+				this.stage,
+				this.cellSize,
+				this.currentGrid.rows,
+				this.currentGrid.cols
+			);
+			this.contextMenuHandler?.(cellId);
+		});
 	}
 
 	private updateHoverHighlight(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {

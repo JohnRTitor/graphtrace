@@ -9,6 +9,9 @@
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 	import ZoomOut from '@lucide/svelte/icons/zoom-out';
 	import Maximize from '@lucide/svelte/icons/maximize';
+	import * as ContextMenu from '$lib/components/ui/context-menu';
+	import MazeContextMenu from './MazeContextMenu.svelte';
+	import type { NodeId } from '$lib/graph/types';
 
 	let container = $state<HTMLDivElement | null>(null);
 	let renderer = $state<MazeRenderer | null>(null);
@@ -16,11 +19,20 @@
 	// Watch theme
 	let isDark = $state(false);
 
+	// Context menu target: the cell under the pointer at the moment of the
+	// right-click, resolved via the same authoritative screen->grid
+	// transform the renderer uses for painting (see maze-coords.ts).
+	let menuOpen = $state(false);
+	let mazeCellTarget = $state<NodeId | null>(null);
+
 	onMount(() => {
 		if (!browser || !container) return;
 		
 		renderer = new MazeRenderer(container);
 		renderer.setContext(editorState, environmentState);
+		renderer.setContextMenuHandler((cellId) => {
+			mazeCellTarget = cellId;
+		});
 
 		// Observe theme changes
 		const observer = new MutationObserver((mutations) => {
@@ -79,7 +91,16 @@
 
 <div class="relative w-full h-full bg-background">
 	{#if browser}
-		<div bind:this={container} class="w-full h-full cursor-crosshair"></div>
+		<ContextMenu.Root bind:open={menuOpen}>
+			<ContextMenu.Trigger class="block w-full h-full">
+				<div bind:this={container} class="w-full h-full cursor-crosshair"></div>
+			</ContextMenu.Trigger>
+			<ContextMenu.Content>
+				{#if mazeCellTarget}
+					<MazeContextMenu cellId={mazeCellTarget} />
+				{/if}
+			</ContextMenu.Content>
+		</ContextMenu.Root>
 		
 		<!-- Zoom Controls -->
 		{#snippet zoomButton(Icon: any, label: string, onClick: () => void)}

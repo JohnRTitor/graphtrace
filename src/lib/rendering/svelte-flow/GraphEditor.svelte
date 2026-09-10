@@ -9,6 +9,13 @@
 	import { toFlowNodes, toFlowEdges, extractPathEdges } from './flow-adapter';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import * as ContextMenu from '$lib/components/ui/context-menu';
+	import GraphBackgroundMenu from './GraphBackgroundMenu.svelte';
+	import GraphNodeMenu from './GraphNodeMenu.svelte';
+	import GraphEdgeMenu from './GraphEdgeMenu.svelte';
+	import RenameNodeDialog from './RenameNodeDialog.svelte';
+	import type { GraphContextTarget } from '$lib/state/context-menu-targets';
+	import type { NodeId } from '$lib/graph/types';
 
 	const nodeTypes: NodeTypes = {
 		custom: GraphNodeComponent
@@ -18,7 +25,7 @@
 		custom: GraphEdgeComponent
 	};
 
-	const { screenToFlowPosition } = useSvelteFlow();
+	const { screenToFlowPosition, fitView, getNodes, getEdges, updateNode, updateEdge } = useSvelteFlow();
 
 	// We derive nodes and edges from the underlying graph + viz state.
 	// This ensures one-way data flow: Graph/Viz -> SvelteFlow -> DOM.
@@ -119,28 +126,100 @@
 		}
 	}
 
+	// === Context menu ===
+	// The right-clicked object (node/edge/background) is the sole source of
+	// truth for the menu target - it is resolved directly from SvelteFlow's
+	// own contextmenu events below, never from ambient selection state.
+	let menuOpen = $state(false);
+	let graphContextTarget = $state<GraphContextTarget | null>(null);
+
+	function onNodeContextMenu({ node }: { node: Node; event: MouseEvent }) {
+		graphContextTarget = { type: 'node', nodeId: node.id };
+	}
+
+	function onEdgeContextMenu({ edge }: { edge: Edge; event: MouseEvent }) {
+		graphContextTarget = { type: 'edge', edgeId: edge.id };
+	}
+
+	function onPaneContextMenu({ event }: { event: MouseEvent }) {
+		const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+		graphContextTarget = { type: 'background', flowX: position.x, flowY: position.y };
+	}
+
+	function handleFitView() {
+		fitView();
+	}
+
+	function handleClearSelection() {
+		for (const n of getNodes()) {
+			if (n.selected) updateNode(n.id, { selected: false });
+		}
+		for (const e of getEdges()) {
+			if (e.selected) updateEdge(e.id, { selected: false });
+		}
+	}
+
+	// Rename dialog state lives here (not inside the menu) because the
+	// ContextMenu.Content that hosts the "Rename" item unmounts as soon as
+	// the menu closes.
+	let renameOpen = $state(false);
+	let renameNodeId = $state<NodeId | null>(null);
+	let renameInitialLabel = $state('');
+
+	function openRenameDialog(nodeId: NodeId, currentLabel: string) {
+		renameNodeId = nodeId;
+		renameInitialLabel = currentLabel;
+		renameOpen = true;
+	}
+
 </script>
 
 <div class="w-full h-full relative" style:color-scheme={isDark ? 'dark' : 'light'}>
 	{#if browser}
-		<SvelteFlow
-			{nodes}
-			{edges}
-			{nodeTypes}
-			{edgeTypes}
-			colorMode={isDark ? 'dark' : 'light'}
-			onpaneclick={handlePaneClick}
-			onnodeclick={handleNodeClick}
-			onedgeclick={handleEdgeClick}
-			onconnect={handleConnect}
-			onnodedragstop={handleNodeDragStop}
-			nodesDraggable={editorState.mode === 'move'}
-			nodesConnectable={editorState.mode === 'edge'}
-			elementsSelectable={true}
-			fitView
-		>
-			<Background variant={BackgroundVariant.Dots} />
-			<Controls />
-		</SvelteFlow>
+		<ContextMenu.Root bind:open={menuOpen}>
+			<ContextMenu.Trigger class="block w-full h-full">
+				<SvelteFlow
+					{nodes}
+					{edges}
+					{nodeTypes}
+					{edgeTypes}
+					colorMode={isDark ? 'dark' : 'light'}
+					onpaneclick={handlePaneClick}
+					onnodeclick={handleNodeClick}
+					onedgeclick={handleEdgeClick}
+					onconnect={handleConnect}
+					onnodedragstop={handleNodeDragStop}
+					onnodecontextmenu={onNodeContextMenu}
+					onedgecontextmenu={onEdgeContextMenu}
+					onpanecontextmenu={onPaneContextMenu}
+					nodesDraggable={editorState.mode === 'move'}
+					nodesConnectable={editorState.mode === 'edge'}
+					elementsSelectable={true}
+					fitView
+				>
+					<Background variant={BackgroundVariant.Dots} />
+					<Controls />
+				</SvelteFlow>
+			</ContextMenu.Trigger>
+			<ContextMenu.Content>
+				{#if graphContextTarget?.type === 'background'}
+					<GraphBackgroundMenu
+						flowX={graphContextTarget.flowX}
+						flowY={graphContextTarget.flowY}
+						onFitView={handleFitView}
+						onClearSelection={handleClearSelection}
+					/>
+				{:else if graphContextTarget?.type === 'node'}
+					<GraphNodeMenu nodeId={graphContextTarget.nodeId} onRename={openRenameDialog} />
+				{:else if graphContextTarget?.type === 'edge'}
+					<GraphEdgeMenu edgeId={graphContextTarget.edgeId} />
+				{/if}
+			</ContextMenu.Content>
+		</ContextMenu.Root>
+
+		{#if renameNodeId}
+			<RenameNodeDialog bind:open={renameOpen} nodeId={renameNodeId} initialLabel={renameInitialLabel} />
+		{/if}
 	{/if}
 </div>
+

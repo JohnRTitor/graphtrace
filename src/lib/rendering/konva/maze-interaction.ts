@@ -2,6 +2,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import type { NodeId } from '$lib/graph/types';
 import type { EditorState } from '$lib/state/editor.svelte';
 import type { EnvironmentState } from '$lib/state/environment.svelte';
+import { stageToCellIdUnchecked } from './maze-coords';
 
 export class MazeInteraction {
 	private isDragging = false;
@@ -20,18 +21,9 @@ export class MazeInteraction {
 		const stage = e.target.getStage();
 		if (!stage) return null;
 
-		const pointerPosition = stage.getPointerPosition();
-		if (!pointerPosition) return null;
-
-		const transform = stage.getAbsoluteTransform().copy();
-		transform.invert();
-		const pos = transform.point(pointerPosition);
-
-		const col = Math.floor(pos.x / this.cellSize);
-		const row = Math.floor(pos.y / this.cellSize);
-
-		// Boundaries are checked inside environment state methods, but we can do a quick check
-		return `${row},${col}`;
+		// Shared with the context menu and hover highlight - do not duplicate
+		// this screen -> grid transform elsewhere.
+		return stageToCellIdUnchecked(stage, this.cellSize);
 	}
 
 	public handlePointerDown(e: KonvaEventObject<MouseEvent | TouchEvent>, editorState: EditorState, environmentState: EnvironmentState) {

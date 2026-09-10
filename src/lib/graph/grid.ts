@@ -31,11 +31,11 @@ export function setWeight(grid: Grid, id: NodeId, weight: number): void {
 	}
 }
 
-export function setStart(grid: Grid, id: NodeId): void {
+export function setStart(grid: Grid, id: NodeId | null): void {
 	grid.start = id;
 }
 
-export function setGoal(grid: Grid, id: NodeId): void {
+export function setGoal(grid: Grid, id: NodeId | null): void {
 	grid.goal = id;
 }
 

@@ -99,6 +99,31 @@ export class EnvironmentState {
 		setGridGoal(this._grid, id);
 		this._gridVersion++;
 	}
+
+	clearGridStart(): void {
+		if (this._grid.start === null) return;
+		setGridStart(this._grid, null);
+		this._gridVersion++;
+	}
+
+	clearGridGoal(): void {
+		if (this._grid.goal === null) return;
+		setGridGoal(this._grid, null);
+		this._gridVersion++;
+	}
+
+	/** Resets a single cell to its default walkable, unweighted state. */
+	clearGridCell(id: NodeId): void {
+		const node = getNode(this._grid, id);
+		if (!node) return;
+		// A cell that is currently start/goal must have start/goal cleared
+		// explicitly first - clearing it here would silently orphan that
+		// invariant instead of leaving it to an explicit, visible action.
+		if (id === this._grid.start || id === this._grid.goal) return;
+		setWall(this._grid, id, true);
+		setWeight(this._grid, id, 1);
+		this._gridVersion++;
+	}
 	
 	private resetGridToDefaults(rows: number, cols: number): void {
 		const startR = Math.floor(rows / 2);
@@ -195,6 +220,25 @@ export class EnvironmentState {
 		const edge = this._graph.edges.get(edgeId);
 		if (!edge || edge.weight === weight) return;
 		this._graph.execute({ type: 'set-weight', edgeId, from: edge.weight, to: weight });
+		this._graphVersion++;
+	}
+	renameGraphNode(id: NodeId, label: string) {
+		const node = this._graph.nodes.get(id);
+		const trimmed = label.trim();
+		if (!node || !trimmed || node.label === trimmed) return;
+		this._graph.execute({ type: 'set-label', id, from: node.label, to: trimmed });
+		this._graphVersion++;
+	}
+	/**
+	 * Reverses a directed edge's source/target. No-op for undirected edges -
+	 * "direction" is not a meaningful concept there, so callers (the edge
+	 * context menu) should not expose this action when the graph is
+	 * undirected.
+	 */
+	reverseGraphEdge(edgeId: string) {
+		const edge = this._graph.edges.get(edgeId);
+		if (!edge || !this._graph.directed) return;
+		this._graph.execute({ type: 'reverse-edge', edgeId, oldSource: edge.source, oldTarget: edge.target });
 		this._graphVersion++;
 	}
 	loadGraph(data: any) { this._graph.load(data); this._graphVersion++; }

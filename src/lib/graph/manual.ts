@@ -25,6 +25,8 @@ export type GraphCommand =
 	| { type: 'set-goal'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-weight'; edgeId: string; from: number; to: number }
 	| { type: 'set-directed'; from: boolean; to: boolean }
+	| { type: 'set-label'; id: NodeId; from: string; to: string }
+	| { type: 'reverse-edge'; edgeId: string; oldSource: NodeId; oldTarget: NodeId }
 	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null };
 
 export class ManualGraph implements BaseGraph {
@@ -117,6 +119,19 @@ export class ManualGraph implements BaseGraph {
 			case 'set-directed':
 				this.directed = cmd.to;
 				break;
+			case 'set-label': {
+				const labelNode = this.nodes.get(cmd.id);
+				if (labelNode) labelNode.label = cmd.to;
+				break;
+			}
+			case 'reverse-edge': {
+				const revEdge = this.edges.get(cmd.edgeId);
+				if (revEdge) {
+					revEdge.source = cmd.oldTarget;
+					revEdge.target = cmd.oldSource;
+				}
+				break;
+			}
 			case 'clear':
 				this.nodes.clear();
 				this.edges.clear();
@@ -174,6 +189,19 @@ export class ManualGraph implements BaseGraph {
 			case 'set-directed':
 				this.directed = cmd.from;
 				break;
+			case 'set-label': {
+				const labelNode = this.nodes.get(cmd.id);
+				if (labelNode) labelNode.label = cmd.from;
+				break;
+			}
+			case 'reverse-edge': {
+				const revEdge = this.edges.get(cmd.edgeId);
+				if (revEdge) {
+					revEdge.source = cmd.oldSource;
+					revEdge.target = cmd.oldTarget;
+				}
+				break;
+			}
 			case 'clear':
 				for (const node of cmd.nodes) this.nodes.set(node.id, { ...node });
 				for (const edge of cmd.edges) this.edges.set(edge.id, { ...edge });
