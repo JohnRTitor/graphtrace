@@ -27,7 +27,8 @@ export type GraphCommand =
 	| { type: 'set-directed'; from: boolean; to: boolean }
 	| { type: 'set-label'; id: NodeId; from: string; to: string }
 	| { type: 'reverse-edge'; edgeId: string; oldSource: NodeId; oldTarget: NodeId }
-	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null };
+	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null }
+	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; oldDirected: boolean; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null; newDirected: boolean };
 
 export class ManualGraph implements BaseGraph {
 	nodes = new Map<NodeId, GraphNode>();
@@ -138,6 +139,15 @@ export class ManualGraph implements BaseGraph {
 				this.start = null;
 				this.goal = null;
 				break;
+			case 'replace-graph':
+				this.nodes.clear();
+				this.edges.clear();
+				for (const node of cmd.newNodes) this.nodes.set(node.id, { ...node });
+				for (const edge of cmd.newEdges) this.edges.set(edge.id, { ...edge });
+				this.start = cmd.newStart;
+				this.goal = cmd.newGoal;
+				this.directed = cmd.newDirected;
+				break;
 		}
 
 		this._version++;
@@ -207,6 +217,15 @@ export class ManualGraph implements BaseGraph {
 				for (const edge of cmd.edges) this.edges.set(edge.id, { ...edge });
 				this.start = cmd.start;
 				this.goal = cmd.goal;
+				break;
+			case 'replace-graph':
+				this.nodes.clear();
+				this.edges.clear();
+				for (const node of cmd.oldNodes) this.nodes.set(node.id, { ...node });
+				for (const edge of cmd.oldEdges) this.edges.set(edge.id, { ...edge });
+				this.start = cmd.oldStart;
+				this.goal = cmd.oldGoal;
+				this.directed = cmd.oldDirected;
 				break;
 		}
 

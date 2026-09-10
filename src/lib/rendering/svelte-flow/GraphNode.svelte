@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Handle, Position } from '@xyflow/svelte';
+	import { editorState } from '$lib/state/editor.svelte';
 	import type { GraphNodeData } from './types';
 	
 	let { data, selected } = $props<{
@@ -31,15 +32,18 @@
 		return data.colors.text;
 	});
 
+	let showHandles = $derived(editorState.mode === 'edge');
+	let handleClass = $derived(`w-3 h-3 bg-muted-foreground/50 transition-opacity ${showHandles ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 hover:opacity-100!'}`);
+
 </script>
 
 <div 
-	class="relative flex min-w-12.5 min-h-12.5 items-center justify-center rounded-full shadow-sm transition-colors duration-200"
+	class="relative flex min-w-12.5 min-h-12.5 items-center justify-center rounded-full shadow-sm transition-colors duration-200 group"
 	style:background-color={bgStyle}
 	style:border={borderStyle}
 	style:color={textStyle}
 >
-	<Handle type="target" position={Position.Top} class="w-3 h-3 bg-muted-foreground/50! opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity" />
+	<Handle type="target" position={Position.Top} class={handleClass} />
 	
 	<div class="flex flex-col items-center justify-center font-medium text-sm">
 		{data.label}
@@ -60,7 +64,7 @@
 		</div>
 	{/if}
 
-	<Handle type="source" position={Position.Bottom} class="w-3 h-3 bg-muted-foreground/50! opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity" />
-	<Handle type="source" position={Position.Right} class="w-3 h-3 bg-muted-foreground/50! opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity" />
-	<Handle type="target" position={Position.Left} class="w-3 h-3 bg-muted-foreground/50! opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity" />
+	<Handle type="source" position={Position.Bottom} class={handleClass} />
+	<Handle type="source" position={Position.Right} class={handleClass} />
+	<Handle type="target" position={Position.Left} class={handleClass} />
 </div>

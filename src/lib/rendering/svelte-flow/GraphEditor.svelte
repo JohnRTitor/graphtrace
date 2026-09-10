@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SvelteFlow, Background, Controls, useSvelteFlow, type NodeTypes, type EdgeTypes, type Connection, BackgroundVariant, type Edge, type Node } from '@xyflow/svelte';
+	import { SvelteFlow, Background, Controls, useSvelteFlow, type NodeTypes, type EdgeTypes, type Connection, BackgroundVariant, type Edge, type Node, ConnectionMode } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
@@ -174,7 +174,7 @@
 
 </script>
 
-<div class="w-full h-full relative" style:color-scheme={isDark ? 'dark' : 'light'}>
+<div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
 	{#if browser}
 		<ContextMenu.Root bind:open={menuOpen}>
 			<ContextMenu.Trigger class="block w-full h-full">
@@ -194,6 +194,7 @@
 					onpanecontextmenu={onPaneContextMenu}
 					nodesDraggable={editorState.mode === 'move'}
 					nodesConnectable={editorState.mode === 'edge'}
+					connectionMode={ConnectionMode.Loose}
 					elementsSelectable={true}
 					fitView
 				>

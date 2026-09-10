@@ -1,0 +1,148 @@
+import { describe, it, expect } from 'vitest';
+import { generateRandomGraph } from '../random-graph';
+
+describe('generateRandomGraph', () => {
+	it('generates the correct number of nodes', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 10,
+			density: 'balanced',
+			directed: false,
+			weighted: false,
+			ensurePath: false,
+			seed: 123
+		});
+		
+		expect(snapshot.nodes.length).toBe(10);
+		expect(snapshot.start).not.toBeNull();
+		expect(snapshot.goal).not.toBeNull();
+		expect(snapshot.start).not.toBe(snapshot.goal);
+	});
+
+	it('generates no duplicate edges and no self loops', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 5,
+			density: 'dense',
+			directed: false,
+			weighted: false,
+			ensurePath: false,
+			seed: 123
+		});
+		
+		const edgeSet = new Set<string>();
+		for (const edge of snapshot.edges) {
+			expect(edge.source).not.toBe(edge.target);
+			
+			const key = [edge.source, edge.target].sort().join('-');
+			expect(edgeSet.has(key)).toBe(false);
+			edgeSet.add(key);
+		}
+	});
+
+	it('ensures connectivity when ensurePath is true (undirected)', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 20,
+			density: 'sparse',
+			directed: false,
+			weighted: false,
+			ensurePath: true,
+			seed: 456
+		});
+		
+		// At least N-1 edges for a spanning tree
+		expect(snapshot.edges.length).toBeGreaterThanOrEqual(19);
+		
+		// Basic reachability check
+		const adj = new Map<string, string[]>();
+		for (const n of snapshot.nodes) adj.set(n.id, []);
+		for (const e of snapshot.edges) {
+			adj.get(e.source)!.push(e.target);
+			adj.get(e.target)!.push(e.source);
+		}
+		
+		const visited = new Set<string>();
+		const queue = [snapshot.nodes[0].id];
+		visited.add(queue[0]);
+		
+		while(queue.length > 0) {
+			const curr = queue.shift()!;
+			for (const neighbor of adj.get(curr)!) {
+				if (!visited.has(neighbor)) {
+					visited.add(neighbor);
+					queue.push(neighbor);
+				}
+			}
+		}
+		
+		expect(visited.size).toBe(20); // all nodes reachable
+	});
+
+	it('ensures a path from start to goal when ensurePath is true (directed)', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 20,
+			density: 'sparse',
+			directed: true,
+			weighted: false,
+			ensurePath: true,
+			seed: 789
+		});
+		
+		const adj = new Map<string, string[]>();
+		for (const n of snapshot.nodes) adj.set(n.id, []);
+		for (const e of snapshot.edges) {
+			adj.get(e.source)!.push(e.target);
+		}
+		
+		const visited = new Set<string>();
+		const queue = [snapshot.start!];
+		visited.add(queue[0]);
+		
+		let reachedGoal = false;
+		while(queue.length > 0) {
+			const curr = queue.shift()!;
+			if (curr === snapshot.goal) {
+				reachedGoal = true;
+				break;
+			}
+			for (const neighbor of adj.get(curr)!) {
+				if (!visited.has(neighbor)) {
+					visited.add(neighbor);
+					queue.push(neighbor);
+				}
+			}
+		}
+		
+		expect(reachedGoal).toBe(true);
+	});
+
+	it('is deterministic with the same seed', () => {
+		const options = {
+			nodeCount: 15,
+			density: 'balanced' as const,
+			directed: true,
+			weighted: true,
+			ensurePath: true,
+			seed: 999
+		};
+		
+		const snapshot1 = generateRandomGraph(options);
+		const snapshot2 = generateRandomGraph(options);
+		
+		expect(snapshot1).toEqual(snapshot2);
+	});
+	
+	it('generates valid weights when weighted is true', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 10,
+			density: 'balanced',
+			directed: false,
+			weighted: true,
+			ensurePath: false,
+			seed: 123
+		});
+		
+		for (const edge of snapshot.edges) {
+			expect(edge.weight).toBeGreaterThanOrEqual(1);
+			expect(edge.weight).toBeLessThanOrEqual(10);
+		}
+	});
+});

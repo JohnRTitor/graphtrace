@@ -26,6 +26,12 @@ export class EnvironmentState {
 	private _gridRowsSetting = $state<number>(30);
 	private _gridColsSetting = $state<number>(40);
 
+	// --- Random Graph State ---
+	private _graphNodeCount = $state<number>(25);
+	private _graphDensity = $state<'sparse' | 'balanced' | 'dense'>('balanced');
+	private _graphEnsurePath = $state<boolean>(true);
+	private _graphWeighted = $state<boolean>(true);
+
 	constructor() {
 		this.resetGridToDefaults(31, 41);
 	}
@@ -170,6 +176,17 @@ export class EnvironmentState {
 		this._graph.execute({ type: 'clear', nodes, edges, start: this._graph.start, goal: this._graph.goal });
 		this._graphVersion++;
 	}
+	replaceGraph(newNodes: GraphNode[], newEdges: GraphEdge[], newStart: NodeId | null, newGoal: NodeId | null, newDirected: boolean) {
+		playbackState.reset();
+		const oldNodes = Array.from(this._graph.nodes.values());
+		const oldEdges = Array.from(this._graph.edges.values());
+		this._graph.execute({
+			type: 'replace-graph',
+			oldNodes, oldEdges, oldStart: this._graph.start, oldGoal: this._graph.goal, oldDirected: this._graph.directed,
+			newNodes, newEdges, newStart, newGoal, newDirected
+		});
+		this._graphVersion++;
+	}
 	addGraphNode(x: number, y: number, label: string): NodeId {
 		const id = `node-${generateId(6)}`;
 		this._graph.execute({ type: 'add-node', node: { id, x, y, label } });
@@ -272,6 +289,18 @@ export class EnvironmentState {
 
 	get gridColsSetting() { return this._gridColsSetting; }
 	set gridColsSetting(val: number) { this._gridColsSetting = Math.max(5, Math.min(100, val)); }
+
+	get graphNodeCount() { return this._graphNodeCount; }
+	set graphNodeCount(val: number) { this._graphNodeCount = Math.max(5, Math.min(100, val)); }
+
+	get graphDensity() { return this._graphDensity; }
+	set graphDensity(val: 'sparse' | 'balanced' | 'dense') { this._graphDensity = val; }
+
+	get graphEnsurePath() { return this._graphEnsurePath; }
+	set graphEnsurePath(val: boolean) { this._graphEnsurePath = val; }
+
+	get graphWeighted() { return this._graphWeighted; }
+	set graphWeighted(val: boolean) { this._graphWeighted = val; }
 
 	runAlgorithm() {
 		const algo = this.currentAlgorithm;

@@ -4,6 +4,7 @@
 	import { editorState } from '$lib/state/editor.svelte';
 	import { generateRandomGrid, generateBlankGrid } from '$lib/generators/random';
 	import { generatePerfectMaze, generateBraidedMaze } from '$lib/generators/maze';
+	import { generateRandomGraph } from '$lib/generators/random-graph';
 	
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Label } from '$lib/components/ui/label';
@@ -29,7 +30,16 @@
 
 	function handleGenerate() {
 		if (environmentState.environmentType === 'graph') {
-			environmentState.clearGraph();
+			const options = {
+				nodeCount: environmentState.graphNodeCount,
+				density: environmentState.graphDensity,
+				directed: environmentState.graphDirected,
+				weighted: environmentState.graphWeighted && !!environmentState.currentAlgorithm?.supportsWeights,
+				ensurePath: environmentState.graphEnsurePath,
+				seed: environmentState.environmentSeed
+			};
+			const snapshot = generateRandomGraph(options);
+			environmentState.replaceGraph(snapshot.nodes, snapshot.edges, snapshot.start, snapshot.goal, snapshot.directed);
 			return;
 		}
 
@@ -152,7 +162,7 @@
 			</p>
 		</div>
 
-		{#if environmentState.environmentType !== 'blank' && environmentState.environmentType !== 'graph'}
+		{#if environmentState.environmentType !== 'blank'}
 			<div class="flex flex-col gap-2">
 				<Label class="text-xs">Seed</Label>
 				<div class="flex gap-2">
@@ -224,14 +234,53 @@
 		{/if}
 
 		{#if environmentState.environmentType === 'graph'}
-			<div class="flex items-center justify-between">
-				<Label for="directed" class="text-sm font-medium">Directed Edges</Label>
+			<div class="space-y-3 pt-2">
+				<div class="flex flex-col gap-2">
+					<Label class="text-xs">Nodes</Label>
+					<Select type="single" value={environmentState.graphNodeCount.toString()} onValueChange={(v) => environmentState.graphNodeCount = parseInt(v)}>
+						<SelectTrigger>{environmentState.graphNodeCount}</SelectTrigger>
+						<SelectContent>
+							{#each [5, 10, 15, 20, 25, 30, 40, 50, 75, 100] as count}
+								<SelectItem value={count.toString()}>{count}</SelectItem>
+							{/each}
+						</SelectContent>
+					</Select>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<Label class="text-xs">Edge Density</Label>
+					<Select type="single" value={environmentState.graphDensity} onValueChange={(v) => environmentState.graphDensity = v as any}>
+						<SelectTrigger>{environmentState.graphDensity === 'sparse' ? 'Sparse' : environmentState.graphDensity === 'balanced' ? 'Balanced' : 'Dense'}</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="sparse">Sparse</SelectItem>
+							<SelectItem value="balanced">Balanced</SelectItem>
+							<SelectItem value="dense">Dense</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+
+				<div class="flex items-center justify-between">
+					<Label for="ensure-path" class="text-xs font-medium">Ensure path Start → Goal</Label>
+					<Switch id="ensure-path" checked={environmentState.graphEnsurePath} onCheckedChange={(v) => environmentState.graphEnsurePath = v} />
+				</div>
+				{#if environmentState.currentAlgorithm?.supportsWeights}
+				<div class="flex items-center justify-between">
+					<Label for="weighted-graph" class="text-xs font-medium">Weighted edges</Label>
+					<Switch id="weighted-graph" checked={environmentState.graphWeighted} onCheckedChange={(v) => environmentState.graphWeighted = v} />
+				</div>
+				{/if}
+			</div>
+
+			<div class="flex items-center justify-between pt-2">
+				<Label for="directed" class="text-xs font-medium text-muted-foreground">Directed Edges</Label>
 				<Switch
 					id="directed"
 					checked={environmentState.graphDirected}
 					onCheckedChange={(v) => environmentState.setGraphDirected(v)}
 				/>
 			</div>
+			
+			<Button variant="secondary" size="sm" class="w-full mt-2" onclick={handleGenerate}>Generate Random Graph</Button>
 		{/if}
 
 		<div class="grid grid-cols-2 gap-2 pt-2">
