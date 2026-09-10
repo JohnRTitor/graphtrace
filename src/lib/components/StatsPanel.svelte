@@ -33,7 +33,7 @@
 				<Button 
 					variant="ghost" 
 					size="icon" 
-					class="h-6 w-6 -mr-2 pointer-events-auto hover:bg-muted/50 text-muted-foreground"
+					class="h-6 w-6 pointer-events-auto hover:bg-muted/50 text-muted-foreground"
 					onmousedown={(e) => e.stopPropagation()}
 					onpointerdown={(e) => e.stopPropagation()}
 					onclick={() => floatingPanel?.resetPosition()}

@@ -77,7 +77,7 @@ export class PlaybackEngine {
 		this.pause();
 		this.currentStep = 0;
 		this.state = createInitialVisualizationState();
-		this.status = this.events.length > 0 ? 'idle' : 'completed';
+		this.status = 'idle';
 		this.notify();
 	}
 
