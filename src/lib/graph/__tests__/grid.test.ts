@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setStart, setGoal, setWall, setWeight, getNode } from '../grid';
+import { GridAdapter } from '../graph-adapter';
 
 describe('grid', () => {
 	it('creates a walkable, unweighted grid by default', () => {
