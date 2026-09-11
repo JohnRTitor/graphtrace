@@ -27,7 +27,7 @@
 
 	function confirm() {
 		invalidatePlaybackIfNeeded();
-		environmentState.renameGraphNode(nodeId, value);
+		environmentState.setGraphLabel(nodeId, value);
 		open = false;
 	}
 

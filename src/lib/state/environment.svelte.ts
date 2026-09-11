@@ -1,494 +1,655 @@
-import { createGrid, setWall, setWeight, setStart as setGridStart, setGoal as setGridGoal, clearGrid, getNode } from '../graph/grid';
-import type { Grid, NodeId } from '../graph/types';
-import { ManualGraph, type GraphCommand, type GraphEdge, type GraphNode } from '../graph/manual';
-import { generateId } from '../utils';
-import { GridAdapter } from '../graph/graph-adapter';
-import { playbackState } from './playback.svelte';
-import { executionStore } from './execution-store.svelte';
-import { createProblemVersion, type Problem } from '../domain/problem';
-import { defaultGridCostModel, defaultGraphCostModel } from '../domain/cost-model';
-import { defaultMovementModel } from '../domain/movement-model';
-import type { EnvironmentType } from '../generators/types';
-import { generateRandomGraph } from '../generators/random-graph';
-import { getAlgorithm } from '../algorithms';
-import { invertGraphCommand } from '../graph/manual';
-import type { EnvCommand, GridBatchCommand } from '../domain/command';
+import {
+  createGrid,
+  setWall,
+  setWeight,
+  setStart as setGridStart,
+  setGoal as setGridGoal,
+  clearGrid,
+  getNode,
+} from "../graph/grid";
+import type { Grid, NodeId } from "../graph/types";
+import {
+  ManualGraph,
+  type GraphCommand,
+  type GraphEdge,
+  type GraphNode,
+} from "../graph/manual";
+import { generateId } from "../utils";
+import { GridAdapter } from "../graph/graph-adapter";
+import { playbackState } from "./playback.svelte";
+import { executionStore } from "./execution-store.svelte";
+import { createProblemVersion, type Problem } from "../domain/problem";
+import {
+  defaultGridCostModel,
+  defaultGraphCostModel,
+} from "../domain/cost-model";
+import { defaultMovementModel } from "../domain/movement-model";
+import type { EnvironmentType } from "../generators/types";
+import { generateRandomGraph } from "../generators/random-graph";
+import { getAlgorithm } from "../algorithms";
+import { invertGraphCommand } from "../graph/manual";
+import type { EnvCommand, GridBatchCommand } from "../domain/command";
 
 export class EnvironmentState {
-	// --- Grid State ---
-	private _grid = $state<Grid>(createGrid(31, 41));
-	private _gridVersion = $state(0);
+  // --- Grid State ---
+  private _grid = $state<Grid>(createGrid(31, 41));
+  private _gridVersion = $state(0);
 
-	// --- Graph State ---
-	private _graph = $state<ManualGraph>(new ManualGraph());
-	private _graphVersion = $state(0);
+  // --- Graph State ---
+  private _graph = $state<ManualGraph>(new ManualGraph());
+  private _graphVersion = $state(0);
 
-	// --- Settings State ---
-	private _selectedAlgorithmId = $state<string>('bfs');
-	private _showCosts = $state<boolean>(true);
-	private _environmentType = $state<EnvironmentType>('perfect_maze');
-	private _environmentSeed = $state<number>(12345);
-	private _loopDensity = $state<number>(10);
-	private _obstacleDensity = $state<number>(30);
-	private _gridRowsSetting = $state<number>(30);
-	private _gridColsSetting = $state<number>(40);
+  // --- Settings State ---
+  private _selectedAlgorithmId = $state<string>("bfs");
+  private _showCosts = $state<boolean>(true);
+  private _environmentType = $state<EnvironmentType>("perfect_maze");
+  private _environmentSeed = $state<number>(12345);
+  private _loopDensity = $state<number>(10);
+  private _obstacleDensity = $state<number>(30);
+  private _gridRowsSetting = $state<number>(30);
+  private _gridColsSetting = $state<number>(40);
 
-	// --- Random Graph State ---
-	private _graphNodeCount = $state<number>(25);
-	private _graphEdgeMultiplier = $state<number>(2);
-	private _graphEnsurePath = $state<boolean>(true);
-	private _graphWeighted = $state<boolean>(true);
+  // --- Random Graph State ---
+  private _graphNodeCount = $state<number>(25);
+  private _graphEdgeMultiplier = $state<number>(2);
+  private _graphEnsurePath = $state<boolean>(true);
+  private _graphWeighted = $state<boolean>(true);
 
-	// --- History State ---
-	private _undoStack = $state<EnvCommand[]>([]);
-	private _redoStack = $state<EnvCommand[]>([]);
-	private _activeGridBatch = $state<GridBatchCommand | null>(null);
+  // --- History State ---
+  private _undoStack = $state<EnvCommand[]>([]);
+  private _redoStack = $state<EnvCommand[]>([]);
+  private _activeGridBatch = $state<GridBatchCommand | null>(null);
 
-	constructor() {
-		this.resetGridToDefaults(31, 41);
-	}
+  constructor() {
+    this.resetGridToDefaults(31, 41);
+  }
 
-	// === Grid Getters & Methods ===
-	get grid(): Grid {
-		this._gridVersion;
-		return this._grid;
-	}
-	get gridRows(): number { return this._grid.rows; }
-	get gridCols(): number { return this._grid.cols; }
-	get gridStart(): NodeId | null {
-		this._gridVersion;
-		return this._grid.start;
-	}
-	get gridGoal(): NodeId | null {
-		this._gridVersion;
-		return this._grid.goal;
-	}
+  // === Grid Getters & Methods ===
+  get grid(): Grid {
+    this._gridVersion;
+    return this._grid;
+  }
+  get gridRows(): number {
+    return this._grid.rows;
+  }
+  get gridCols(): number {
+    return this._grid.cols;
+  }
+  get gridStart(): NodeId | null {
+    this._gridVersion;
+    return this._grid.start;
+  }
+  get gridGoal(): NodeId | null {
+    this._gridVersion;
+    return this._grid.goal;
+  }
 
-	resizeGrid(rows: number, cols: number): void {
-		this._grid = createGrid(rows, cols);
-		this.resetGridToDefaults(rows, cols);
-		this._gridVersion++;
-	}
+  resizeGrid(rows: number, cols: number): void {
+    this._grid = createGrid(rows, cols);
+    this.resetGridToDefaults(rows, cols);
+    this._gridVersion++;
+  }
 
-	clearGrid(): void {
-		playbackState.reset();
-		clearGrid(this._grid);
-		this._gridVersion++;
-	}
-	
-	replaceGrid(newGrid: Grid): void {
-		playbackState.reset();
-		this._grid = newGrid;
-		this._gridVersion++;
-	}
+  clearGrid(): void {
+    playbackState.reset();
+    clearGrid(this._grid);
+    this._gridVersion++;
+  }
 
-	private recordGridEdit(id: NodeId, newWalkable: boolean, newWeight: number) {
-		const node = getNode(this._grid, id);
-		if (!node) return;
+  replaceGrid(newGrid: Grid): void {
+    playbackState.reset();
+    this._grid = newGrid;
+    this._gridVersion++;
+  }
 
-		let batch = this._activeGridBatch;
-		let isAutoBatch = false;
-		if (!batch) {
-			batch = {
-				type: 'grid-batch',
-				edits: [],
-				oldStart: this._grid.start,
-				newStart: this._grid.start,
-				oldGoal: this._grid.goal,
-				newGoal: this._grid.goal
-			};
-			isAutoBatch = true;
-		}
+  private recordGridEdit(id: NodeId, newWalkable: boolean, newWeight: number) {
+    const node = getNode(this._grid, id);
+    if (!node) return;
 
-		const existing = batch.edits.find(e => e.id === id);
-		if (existing) {
-			existing.newWalkable = newWalkable;
-			existing.newWeight = newWeight;
-		} else {
-			batch.edits.push({
-				id,
-				oldWalkable: node.walkable,
-				newWalkable,
-				oldWeight: node.weight,
-				newWeight
-			});
-		}
+    let batch = this._activeGridBatch;
+    let isAutoBatch = false;
+    if (!batch) {
+      batch = {
+        type: "grid-batch",
+        edits: [],
+        oldStart: this._grid.start,
+        newStart: this._grid.start,
+        oldGoal: this._grid.goal,
+        newGoal: this._grid.goal,
+      };
+      isAutoBatch = true;
+    }
 
-		if (isAutoBatch) {
-			this.executeCommand(batch);
-		} else {
-			// apply mutation incrementally since we are in a batch
-			setWall(this._grid, id, newWalkable);
-			setWeight(this._grid, id, newWeight);
-			this._gridVersion++;
-		}
-	}
+    const existing = batch.edits.find((e) => e.id === id);
+    if (existing) {
+      existing.newWalkable = newWalkable;
+      existing.newWeight = newWeight;
+    } else {
+      batch.edits.push({
+        id,
+        oldWalkable: node.walkable,
+        newWalkable,
+        oldWeight: node.weight,
+        newWeight,
+      });
+    }
 
-	toggleGridWall(id: NodeId): void {
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		if (id === this._grid.start || id === this._grid.goal) return;
-		this.recordGridEdit(id, !node.walkable, node.weight);
-	}
+    if (isAutoBatch) {
+      this.executeCommand(batch);
+    } else {
+      // apply mutation incrementally since we are in a batch
+      setWall(this._grid, id, newWalkable);
+      setWeight(this._grid, id, newWeight);
+      this._gridVersion++;
+    }
+  }
 
-	setGridWall(id: NodeId, isWall: boolean): void {
-		if (isWall && (id === this._grid.start || id === this._grid.goal)) return;
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		this.recordGridEdit(id, !isWall, node.weight);
-	}
-	
-	setGridWeight(id: NodeId, weight: number): void {
-		if (id === this._grid.start || id === this._grid.goal) return;
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		this.recordGridEdit(id, node.walkable, weight);
-	}
+  toggleGridWall(id: NodeId): void {
+    const node = getNode(this._grid, id);
+    if (!node) return;
+    if (id === this._grid.start || id === this._grid.goal) return;
+    this.recordGridEdit(id, !node.walkable, node.weight);
+  }
 
-	setGridStart(id: NodeId): void {
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		
-		const isAutoBatch = !this._activeGridBatch;
-		if (isAutoBatch) this.beginGridBatch();
-		
-		if (!node.walkable) this.recordGridEdit(id, true, node.weight);
-		this._activeGridBatch!.newStart = id;
-		setGridStart(this._grid, id);
-		this._gridVersion++;
-		
-		if (isAutoBatch) this.commitGridBatch();
-	}
+  setGridWall(id: NodeId, isWall: boolean): void {
+    if (isWall && (id === this._grid.start || id === this._grid.goal)) return;
+    const node = getNode(this._grid, id);
+    if (!node) return;
+    this.recordGridEdit(id, !isWall, node.weight);
+  }
 
-	setGridGoal(id: NodeId): void {
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		
-		const isAutoBatch = !this._activeGridBatch;
-		if (isAutoBatch) this.beginGridBatch();
-		
-		if (!node.walkable) this.recordGridEdit(id, true, node.weight);
-		this._activeGridBatch!.newGoal = id;
-		setGridGoal(this._grid, id);
-		this._gridVersion++;
-		
-		if (isAutoBatch) this.commitGridBatch();
-	}
+  setGridWeight(id: NodeId, weight: number): void {
+    if (id === this._grid.start || id === this._grid.goal) return;
+    const node = getNode(this._grid, id);
+    if (!node) return;
+    this.recordGridEdit(id, node.walkable, weight);
+  }
 
-	clearGridStart(): void {
-		if (this._grid.start === null) return;
-		const isAutoBatch = !this._activeGridBatch;
-		if (isAutoBatch) this.beginGridBatch();
-		
-		this._activeGridBatch!.newStart = null;
-		setGridStart(this._grid, null);
-		this._gridVersion++;
-		
-		if (isAutoBatch) this.commitGridBatch();
-	}
+  setGridStart(id: NodeId): void {
+    const node = getNode(this._grid, id);
+    if (!node) return;
 
-	clearGridGoal(): void {
-		if (this._grid.goal === null) return;
-		const isAutoBatch = !this._activeGridBatch;
-		if (isAutoBatch) this.beginGridBatch();
-		
-		this._activeGridBatch!.newGoal = null;
-		setGridGoal(this._grid, null);
-		this._gridVersion++;
-		
-		if (isAutoBatch) this.commitGridBatch();
-	}
+    const isAutoBatch = !this._activeGridBatch;
+    if (isAutoBatch) this.beginGridBatch();
 
-	/** Resets a single cell to its default walkable, unweighted state. */
-	clearGridCell(id: NodeId): void {
-		const node = getNode(this._grid, id);
-		if (!node) return;
-		if (id === this._grid.start || id === this._grid.goal) return;
-		this.recordGridEdit(id, true, 1);
-	}
-	
-	private resetGridToDefaults(rows: number, cols: number): void {
-		const startR = Math.floor(rows / 2);
-		const startC = Math.floor(cols / 4);
-		const goalR = Math.floor(rows / 2);
-		const goalC = Math.floor((cols * 3) / 4);
-		setGridStart(this._grid, `${startR},${startC}`);
-		setGridGoal(this._grid, `${goalR},${goalC}`);
-	}
+    if (!node.walkable) this.recordGridEdit(id, true, node.weight);
+    this._activeGridBatch!.newStart = id;
+    setGridStart(this._grid, id);
+    this._gridVersion++;
 
-	// === Graph Getters & Methods ===
-	get graph(): ManualGraph {
-		this._graphVersion;
-		return this._graph;
-	}
-	handleGenerateGraph() {
-		const snapshot = generateRandomGraph({
-			nodeCount: this.graphNodeCount,
-			edgeMultiplier: this.graphEdgeMultiplier,
-			directed: this._graph.directed,
-			weighted: this.graphWeighted,
-			ensurePath: this.graphEnsurePath,
-			seed: this.environmentSeed
-		});
-		this.replaceGraph(snapshot.nodes, snapshot.edges, snapshot.start, snapshot.goal, snapshot.directed);
-	}
-	get graphDirected(): boolean {
-		this._graphVersion;
-		return this._graph.directed;
-	}
-	get graphStart(): NodeId | null {
-		this._graphVersion;
-		return this._graph.start;
-	}
-	get graphGoal(): NodeId | null {
-		this._graphVersion;
-		return this._graph.goal;
-	}
+    if (isAutoBatch) this.commitGridBatch();
+  }
 
-	get canUndo(): boolean { return this._undoStack.length > 0; }
-	get canRedo(): boolean { return this._redoStack.length > 0; }
+  setGridGoal(id: NodeId): void {
+    const node = getNode(this._grid, id);
+    if (!node) return;
 
-	// Unified history execution
-	executeCommand(cmd: EnvCommand, isRedo = false) {
-		playbackState.reset();
-		
-		// Optimization for continuous move-node
-		if (!isRedo && cmd.type === 'graph' && cmd.cmd.type === 'move-node') {
-			const last = this._undoStack[this._undoStack.length - 1];
-			if (last && last.type === 'graph' && last.cmd.type === 'move-node' && last.cmd.id === cmd.cmd.id) {
-				// apply to graph
-				this._graph.execute(cmd.cmd);
-				this._graphVersion++;
-				// squash in undo stack
-				last.cmd.to = cmd.cmd.to;
-				return;
-			}
-		}
+    const isAutoBatch = !this._activeGridBatch;
+    if (isAutoBatch) this.beginGridBatch();
 
-		if (cmd.type === 'graph') {
-			this._graph.execute(cmd.cmd);
-			this._graphVersion++;
-		} else if (cmd.type === 'grid-batch') {
-			for (const edit of cmd.edits) {
-				setWall(this._grid, edit.id, edit.newWalkable);
-				setWeight(this._grid, edit.id, edit.newWeight);
-			}
-			if (cmd.newStart !== undefined) setGridStart(this._grid, cmd.newStart);
-			if (cmd.newGoal !== undefined) setGridGoal(this._grid, cmd.newGoal);
-			this._gridVersion++;
-		}
+    if (!node.walkable) this.recordGridEdit(id, true, node.weight);
+    this._activeGridBatch!.newGoal = id;
+    setGridGoal(this._grid, id);
+    this._gridVersion++;
 
-		if (!isRedo) {
-			this._undoStack.push(cmd);
-			this._redoStack = [];
-		}
-	}
+    if (isAutoBatch) this.commitGridBatch();
+  }
 
-	undo() {
-		const cmd = this._undoStack.pop();
-		if (!cmd) return;
-		playbackState.reset();
+  clearGridStart(): void {
+    if (this._grid.start === null) return;
+    const isAutoBatch = !this._activeGridBatch;
+    if (isAutoBatch) this.beginGridBatch();
 
-		if (cmd.type === 'graph') {
-			const inv = invertGraphCommand(cmd.cmd);
-			this._graph.execute(inv);
-			this._graphVersion++;
-		} else if (cmd.type === 'grid-batch') {
-			for (const edit of cmd.edits) {
-				setWall(this._grid, edit.id, edit.oldWalkable);
-				setWeight(this._grid, edit.id, edit.oldWeight);
-			}
-			if (cmd.oldStart !== undefined) setGridStart(this._grid, cmd.oldStart);
-			if (cmd.oldGoal !== undefined) setGridGoal(this._grid, cmd.oldGoal);
-			this._gridVersion++;
-		}
+    this._activeGridBatch!.newStart = null;
+    setGridStart(this._grid, null);
+    this._gridVersion++;
 
-		this._redoStack.push(cmd);
-	}
+    if (isAutoBatch) this.commitGridBatch();
+  }
 
-	redo() {
-		const cmd = this._redoStack.pop();
-		if (!cmd) return;
-		this.executeCommand(cmd, true);
-		this._undoStack.push(cmd);
-	}
-	
-	// Batching for continuous interactions (e.g. pointer drag)
-	beginGridBatch() {
-		this._activeGridBatch = {
-			type: 'grid-batch',
-			edits: [],
-			oldStart: this._grid.start,
-			newStart: this._grid.start,
-			oldGoal: this._grid.goal,
-			newGoal: this._grid.goal
-		};
-	}
+  clearGridGoal(): void {
+    if (this._grid.goal === null) return;
+    const isAutoBatch = !this._activeGridBatch;
+    if (isAutoBatch) this.beginGridBatch();
 
-	commitGridBatch() {
-		if (this._activeGridBatch && (this._activeGridBatch.edits.length > 0 || this._activeGridBatch.oldStart !== this._activeGridBatch.newStart || this._activeGridBatch.oldGoal !== this._activeGridBatch.newGoal)) {
-			// Instead of calling executeCommand (which would re-apply the edits that were already applied incrementally), 
-			// we just push it to the stack.
-			this._undoStack.push(this._activeGridBatch);
-			this._redoStack = [];
-		}
-		this._activeGridBatch = null;
-	}
+    this._activeGridBatch!.newGoal = null;
+    setGridGoal(this._grid, null);
+    this._gridVersion++;
 
-	clearGraph() {
-		playbackState.reset();
-		const nodes = Array.from(this._graph.nodes.values());
-		const edges = Array.from(this._graph.edges.values());
-		this.executeCommand({
-			type: 'graph',
-			cmd: { type: 'clear', nodes, edges, start: this._graph.start, goal: this._graph.goal }
-		});
-	}
-	replaceGraph(newNodes: GraphNode[], newEdges: GraphEdge[], newStart: NodeId | null, newGoal: NodeId | null, newDirected: boolean) {
-		playbackState.reset();
-		const oldNodes = Array.from(this._graph.nodes.values());
-		const oldEdges = Array.from(this._graph.edges.values());
-		this.executeCommand({
-			type: 'graph',
-			cmd: {
-				type: 'replace-graph',
-				oldNodes, oldEdges, oldStart: this._graph.start, oldGoal: this._graph.goal, oldDirected: this._graph.directed,
-				newNodes, newEdges, newStart, newGoal, newDirected
-			}
-		});
-	}
-	addGraphNode(x: number, y: number, label: string): NodeId {
-		const id = `node-${generateId(6)}`;
-		this.executeCommand({ type: 'graph', cmd: { type: 'add-node', node: { id, x, y, label } } });
-		return id;
-	}
-	removeGraphNode(id: NodeId) {
-		const node = this._graph.nodes.get(id);
-		if (!node) return;
-		const attachedEdges = this._graph.getAttachedEdges(id);
-		const wasStart = this._graph.start === id;
-		const wasGoal = this._graph.goal === id;
-		this.executeCommand({ type: 'graph', cmd: { type: 'remove-node', node, attachedEdges, wasStart, wasGoal } });
-	}
-	moveGraphNode(id: NodeId, x: number, y: number) {
-		const node = this._graph.nodes.get(id);
-		if (!node) return;
-		this.executeCommand({ type: 'graph', cmd: { type: 'move-node', id, from: { x: node.x, y: node.y }, to: { x, y } } });
-	}
-	addGraphEdge(source: NodeId, target: NodeId, weight: number = 1): string {
-		const id = `edge-${generateId(6)}`;
-		this.executeCommand({ type: 'graph', cmd: { type: 'add-edge', edge: { id, source, target, weight, directed: this._graph.directed } } });
-		return id;
-	}
-	removeGraphEdge(id: string) {
-		const edge = this._graph.edges.get(id);
-		if (!edge) return;
-		this.executeCommand({ type: 'graph', cmd: { type: 'remove-edge', edge } });
-	}
-	setGraphStart(id: NodeId | null) {
-		this.executeCommand({ type: 'graph', cmd: { type: 'set-start', from: this._graph.start, to: id } });
-	}
-	setGraphGoal(id: NodeId | null) {
-		this.executeCommand({ type: 'graph', cmd: { type: 'set-goal', from: this._graph.goal, to: id } });
-	}
-	setGraphDirected(directed: boolean) {
-		if (this._graph.directed === directed) return;
-		this.executeCommand({ type: 'graph', cmd: { type: 'set-directed', from: this._graph.directed, to: directed } });
-	}
+    if (isAutoBatch) this.commitGridBatch();
+  }
+
+  /** Resets a single cell to its default walkable, unweighted state. */
+  clearGridCell(id: NodeId): void {
+    const node = getNode(this._grid, id);
+    if (!node) return;
+    if (id === this._grid.start || id === this._grid.goal) return;
+    this.recordGridEdit(id, true, 1);
+  }
+
+  private resetGridToDefaults(rows: number, cols: number): void {
+    const startR = Math.floor(rows / 2);
+    const startC = Math.floor(cols / 4);
+    const goalR = Math.floor(rows / 2);
+    const goalC = Math.floor((cols * 3) / 4);
+    setGridStart(this._grid, `${startR},${startC}`);
+    setGridGoal(this._grid, `${goalR},${goalC}`);
+  }
+
+  // === Graph Getters & Methods ===
+  get graph(): ManualGraph {
+    this._graphVersion;
+    return this._graph;
+  }
+  handleGenerateGraph() {
+    const snapshot = generateRandomGraph({
+      nodeCount: this.graphNodeCount,
+      edgeMultiplier: this.graphEdgeMultiplier,
+      directed: this._graph.directed,
+      weighted: this.graphWeighted,
+      ensurePath: this.graphEnsurePath,
+      seed: this.environmentSeed,
+    });
+    this.replaceGraph(
+      snapshot.nodes,
+      snapshot.edges,
+      snapshot.start,
+      snapshot.goal,
+      snapshot.directed,
+    );
+  }
+  get graphDirected(): boolean {
+    this._graphVersion;
+    return this._graph.directed;
+  }
+  get graphStart(): NodeId | null {
+    this._graphVersion;
+    return this._graph.start;
+  }
+  get graphGoal(): NodeId | null {
+    this._graphVersion;
+    return this._graph.goal;
+  }
+
+  get canUndo(): boolean {
+    return this._undoStack.length > 0;
+  }
+  get canRedo(): boolean {
+    return this._redoStack.length > 0;
+  }
+
+  // Unified history execution
+  executeCommand(cmd: EnvCommand, isRedo = false) {
+    playbackState.reset();
+
+    // Optimization for continuous move-node
+    if (!isRedo && cmd.type === "graph" && cmd.cmd.type === "move-node") {
+      const last = this._undoStack[this._undoStack.length - 1];
+      if (
+        last &&
+        last.type === "graph" &&
+        last.cmd.type === "move-node" &&
+        last.cmd.id === cmd.cmd.id
+      ) {
+        // apply to graph
+        this._graph.execute(cmd.cmd);
+        this._graphVersion++;
+        // squash in undo stack
+        last.cmd.to = cmd.cmd.to;
+        return;
+      }
+    }
+
+    if (cmd.type === "graph") {
+      this._graph.execute(cmd.cmd);
+      this._graphVersion++;
+    } else if (cmd.type === "grid-batch") {
+      for (const edit of cmd.edits) {
+        setWall(this._grid, edit.id, edit.newWalkable);
+        setWeight(this._grid, edit.id, edit.newWeight);
+      }
+      if (cmd.newStart !== undefined) setGridStart(this._grid, cmd.newStart);
+      if (cmd.newGoal !== undefined) setGridGoal(this._grid, cmd.newGoal);
+      this._gridVersion++;
+    }
+
+    if (!isRedo) {
+      this._undoStack.push(cmd);
+      this._redoStack = [];
+    }
+  }
+
+  undo() {
+    const cmd = this._undoStack.pop();
+    if (!cmd) return;
+    playbackState.reset();
+
+    if (cmd.type === "graph") {
+      const inv = invertGraphCommand(cmd.cmd);
+      this._graph.execute(inv);
+      this._graphVersion++;
+    } else if (cmd.type === "grid-batch") {
+      for (const edit of cmd.edits) {
+        setWall(this._grid, edit.id, edit.oldWalkable);
+        setWeight(this._grid, edit.id, edit.oldWeight);
+      }
+      if (cmd.oldStart !== undefined) setGridStart(this._grid, cmd.oldStart);
+      if (cmd.oldGoal !== undefined) setGridGoal(this._grid, cmd.oldGoal);
+      this._gridVersion++;
+    }
+
+    this._redoStack.push(cmd);
+  }
+
+  redo() {
+    const cmd = this._redoStack.pop();
+    if (!cmd) return;
+    this.executeCommand(cmd, true);
+    this._undoStack.push(cmd);
+  }
+
+  // Batching for continuous interactions (e.g. pointer drag)
+  beginGridBatch() {
+    this._activeGridBatch = {
+      type: "grid-batch",
+      edits: [],
+      oldStart: this._grid.start,
+      newStart: this._grid.start,
+      oldGoal: this._grid.goal,
+      newGoal: this._grid.goal,
+    };
+  }
+
+  commitGridBatch() {
+    if (
+      this._activeGridBatch &&
+      (this._activeGridBatch.edits.length > 0 ||
+        this._activeGridBatch.oldStart !== this._activeGridBatch.newStart ||
+        this._activeGridBatch.oldGoal !== this._activeGridBatch.newGoal)
+    ) {
+      // Instead of calling executeCommand (which would re-apply the edits that were already applied incrementally),
+      // we just push it to the stack.
+      this._undoStack.push(this._activeGridBatch);
+      this._redoStack = [];
+    }
+    this._activeGridBatch = null;
+  }
+
+  clearGraph() {
+    playbackState.reset();
+    const nodes = Array.from(this._graph.nodes.values());
+    const edges = Array.from(this._graph.edges.values());
+    this.executeCommand({
+      type: "graph",
+      cmd: {
+        type: "clear",
+        nodes,
+        edges,
+        start: this._graph.start,
+        goal: this._graph.goal,
+      },
+    });
+  }
+  replaceGraph(
+    newNodes: GraphNode[],
+    newEdges: GraphEdge[],
+    newStart: NodeId | null,
+    newGoal: NodeId | null,
+    newDirected: boolean,
+  ) {
+    playbackState.reset();
+    const oldNodes = Array.from(this._graph.nodes.values());
+    const oldEdges = Array.from(this._graph.edges.values());
+    this.executeCommand({
+      type: "graph",
+      cmd: {
+        type: "replace-graph",
+        oldNodes,
+        oldEdges,
+        oldStart: this._graph.start,
+        oldGoal: this._graph.goal,
+        oldDirected: this._graph.directed,
+        newNodes,
+        newEdges,
+        newStart,
+        newGoal,
+        newDirected,
+      },
+    });
+  }
+  addGraphNode(x: number, y: number, label: string): NodeId {
+    const id = `node-${generateId(6)}`;
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "add-node", node: { id, x, y, label } },
+    });
+    return id;
+  }
+  removeGraphNode(id: NodeId) {
+    const node = this._graph.nodes.get(id);
+    if (!node) return;
+    const attachedEdges = this._graph.getAttachedEdges(id);
+    const wasStart = this._graph.start === id;
+    const wasGoal = this._graph.goal === id;
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "remove-node", node, attachedEdges, wasStart, wasGoal },
+    });
+  }
+  moveGraphNode(id: NodeId, x: number, y: number) {
+    const node = this._graph.nodes.get(id);
+    if (!node) return;
+    this.executeCommand({
+      type: "graph",
+      cmd: {
+        type: "move-node",
+        id,
+        from: { x: node.x, y: node.y },
+        to: { x, y },
+      },
+    });
+  }
+  addGraphEdge(source: NodeId, target: NodeId, weight: number = 1): string {
+    const id = `edge-${generateId(6)}`;
+    this.executeCommand({
+      type: "graph",
+      cmd: {
+        type: "add-edge",
+        edge: { id, source, target, weight, directed: this._graph.directed },
+      },
+    });
+    return id;
+  }
+  removeGraphEdge(id: string) {
+    const edge = this._graph.edges.get(id);
+    if (!edge) return;
+    this.executeCommand({ type: "graph", cmd: { type: "remove-edge", edge } });
+  }
+  setGraphStart(id: NodeId | null) {
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "set-start", from: this._graph.start, to: id },
+    });
+  }
+  setGraphGoal(id: NodeId | null) {
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "set-goal", from: this._graph.goal, to: id },
+    });
+  }
+  setGraphDirected(directed: boolean) {
+    if (this._graph.directed === directed) return;
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "set-directed", from: this._graph.directed, to: directed },
+    });
+  }
 	setGraphWeight(edgeId: string, weight: number) {
 		const edge = this._graph.edges.get(edgeId);
 		if (!edge || edge.weight === weight) return;
 		this.executeCommand({ type: 'graph', cmd: { type: 'set-weight', edgeId, from: edge.weight, to: weight } });
 	}
-	renameGraphNode(id: NodeId, label: string) {
-		const node = this._graph.nodes.get(id);
-		const trimmed = label.trim();
-		if (!node || !trimmed || node.label === trimmed) return;
-		this.executeCommand({ type: 'graph', cmd: { type: 'set-label', id, from: node.label, to: trimmed } });
+
+	setGraphNodeCost(nodeId: NodeId, cost: number) {
+		const node = this._graph.nodes.get(nodeId);
+		if (!node || node.cost === cost) return;
+		this.executeCommand({ type: 'graph', cmd: { type: 'set-node-cost', nodeId, from: node.cost, to: cost } });
 	}
-	/**
-	 * Reverses a directed edge's source/target. No-op for undirected edges -
-	 * "direction" is not a meaningful concept there, so callers (the edge
-	 * context menu) should not expose this action when the graph is
-	 * undirected.
-	 */
-	reverseGraphEdge(edgeId: string) {
-		const edge = this._graph.edges.get(edgeId);
-		if (!edge || !this._graph.directed) return;
-		this.executeCommand({ type: 'graph', cmd: { type: 'reverse-edge', edgeId, oldSource: edge.source, oldTarget: edge.target } });
-	}
-	loadGraph(data: any) { this._graph.load(data); this._graphVersion++; }
 
-	// === Settings Getters & Methods ===
-	get selectedAlgorithmId() { return this._selectedAlgorithmId; }
-	set selectedAlgorithmId(id: string) {
-		this._selectedAlgorithmId = id;
-		playbackState.reset();
-	}
-	
-	get currentAlgorithm() { return getAlgorithm(this._selectedAlgorithmId); }
+  setGraphLabel(id: NodeId, label: string) {
+    const node = this._graph.nodes.get(id);
+    const trimmed = label.trim();
+    if (!node || !trimmed || node.label === trimmed) return;
+    this.executeCommand({
+      type: "graph",
+      cmd: { type: "set-label", id, from: node.label, to: trimmed },
+    });
+  }
+  /**
+   * Reverses a directed edge's source/target. No-op for undirected edges -
+   * "direction" is not a meaningful concept there, so callers (the edge
+   * context menu) should not expose this action when the graph is
+   * undirected.
+   */
+  reverseGraphEdge(edgeId: string) {
+    const edge = this._graph.edges.get(edgeId);
+    if (!edge || !this._graph.directed) return;
+    this.executeCommand({
+      type: "graph",
+      cmd: {
+        type: "reverse-edge",
+        edgeId,
+        oldSource: edge.source,
+        oldTarget: edge.target,
+      },
+    });
+  }
+  loadGraph(data: any) {
+    this._graph.load(data);
+    this._graphVersion++;
+  }
 
-	get showCosts() { return this._showCosts; }
-	set showCosts(val: boolean) { this._showCosts = val; }
+  // === Settings Getters & Methods ===
+  get selectedAlgorithmId() {
+    return this._selectedAlgorithmId;
+  }
+  set selectedAlgorithmId(id: string) {
+    this._selectedAlgorithmId = id;
+    playbackState.reset();
+  }
 
-	get environmentType() { return this._environmentType; }
-	set environmentType(val: EnvironmentType) { this._environmentType = val; }
-	
-	get environmentSeed() { return this._environmentSeed; }
-	set environmentSeed(val: number) { this._environmentSeed = val; }
-	
-	get loopDensity() { return this._loopDensity; }
-	set loopDensity(val: number) { this._loopDensity = Math.max(0, Math.min(100, val)); }
-	
-	get obstacleDensity() { return this._obstacleDensity; }
-	set obstacleDensity(val: number) { this._obstacleDensity = Math.max(0, Math.min(100, val)); }
+  get currentAlgorithm() {
+    return getAlgorithm(this._selectedAlgorithmId);
+  }
 
-	get gridRowsSetting() { return this._gridRowsSetting; }
-	set gridRowsSetting(val: number) { this._gridRowsSetting = Math.max(5, Math.min(100, val)); }
+  get showCosts() {
+    return this._showCosts;
+  }
+  set showCosts(val: boolean) {
+    this._showCosts = val;
+  }
 
-	get gridColsSetting() { return this._gridColsSetting; }
-	set gridColsSetting(val: number) { this._gridColsSetting = Math.max(5, Math.min(100, val)); }
+  get environmentType() {
+    return this._environmentType;
+  }
+  set environmentType(val: EnvironmentType) {
+    this._environmentType = val;
+  }
 
-	get graphNodeCount() { return this._graphNodeCount; }
-	set graphNodeCount(val: number) { this._graphNodeCount = Math.max(5, Math.min(100, val)); }
+  get environmentSeed() {
+    return this._environmentSeed;
+  }
+  set environmentSeed(val: number) {
+    this._environmentSeed = val;
+  }
 
-	get graphEdgeMultiplier() { return this._graphEdgeMultiplier; }
-	set graphEdgeMultiplier(val: number) { this._graphEdgeMultiplier = Math.max(0, Math.min(10, val)); }
+  get loopDensity() {
+    return this._loopDensity;
+  }
+  set loopDensity(val: number) {
+    this._loopDensity = Math.max(0, Math.min(100, val));
+  }
 
-	get graphEnsurePath() { return this._graphEnsurePath; }
-	set graphEnsurePath(val: boolean) { this._graphEnsurePath = val; }
+  get obstacleDensity() {
+    return this._obstacleDensity;
+  }
+  set obstacleDensity(val: number) {
+    this._obstacleDensity = Math.max(0, Math.min(100, val));
+  }
 
-	get graphWeighted() { return this._graphWeighted; }
-	set graphWeighted(val: boolean) { this._graphWeighted = val; }
+  get gridRowsSetting() {
+    return this._gridRowsSetting;
+  }
+  set gridRowsSetting(val: number) {
+    this._gridRowsSetting = Math.max(5, Math.min(100, val));
+  }
 
-	runAlgorithm() {
-		const algo = this.currentAlgorithm;
-		if (!algo) return;
-		
-		let problem: Problem;
-		if (this.environmentType === 'graph') {
-			problem = {
-				type: 'graph',
-				graph: this._graph,
-				costModel: defaultGraphCostModel,
-				version: createProblemVersion()
-			};
-		} else {
-			problem = {
-				type: 'grid',
-				grid: this._grid,
-				movementModel: defaultMovementModel,
-				costModel: defaultGridCostModel,
-				version: createProblemVersion()
-			};
-		}
+  get gridColsSetting() {
+    return this._gridColsSetting;
+  }
+  set gridColsSetting(val: number) {
+    this._gridColsSetting = Math.max(5, Math.min(100, val));
+  }
 
-		try {
-			executionStore.run(problem, this._selectedAlgorithmId);
-		} catch (e) {
-			console.warn("Run failed:", e);
-		}
-	}
+  get graphNodeCount() {
+    return this._graphNodeCount;
+  }
+  set graphNodeCount(val: number) {
+    this._graphNodeCount = Math.max(5, Math.min(100, val));
+  }
+
+  get graphEdgeMultiplier() {
+    return this._graphEdgeMultiplier;
+  }
+  set graphEdgeMultiplier(val: number) {
+    this._graphEdgeMultiplier = Math.max(0, Math.min(10, val));
+  }
+
+  get graphEnsurePath() {
+    return this._graphEnsurePath;
+  }
+  set graphEnsurePath(val: boolean) {
+    this._graphEnsurePath = val;
+  }
+
+  get graphWeighted() {
+    return this._graphWeighted;
+  }
+  set graphWeighted(val: boolean) {
+    this._graphWeighted = val;
+  }
+
+  getProblem(): Problem {
+    if (this.environmentType === "graph") {
+      return {
+        type: "graph",
+        graph: this._graph,
+        costModel: defaultGraphCostModel,
+        version: createProblemVersion(),
+      };
+    } else {
+      return {
+        type: "grid",
+        grid: this._grid,
+        movementModel: defaultMovementModel,
+        costModel: defaultGridCostModel,
+        version: createProblemVersion(),
+      };
+    }
+  }
+
+  runAlgorithm() {
+    const algo = this.currentAlgorithm;
+    if (!algo) return;
+
+    const problem = this.getProblem();
+
+    try {
+      executionStore.run(problem, this._selectedAlgorithmId);
+    } catch (e) {
+      console.warn("Run failed:", e);
+    }
+  }
 }
 
 export const environmentState = new EnvironmentState();

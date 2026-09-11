@@ -10,8 +10,11 @@
 	import SquareX from '@lucide/svelte/icons/square-x';
 	import Weight from '@lucide/svelte/icons/weight';
 	import Eraser from '@lucide/svelte/icons/eraser';
+	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
 
 	let { cellId }: { cellId: NodeId } = $props();
+
+	let showCostDialog = $state(false);
 
 	let node = $derived(environmentState.grid.nodes.get(cellId));
 	let isStart = $derived(environmentState.gridStart === cellId);
@@ -69,6 +72,7 @@
 				<WeightPresetSubmenu
 					currentWeight={node.weight}
 					onSelect={(w) => run(() => environmentState.setGridWeight(cellId, w))}
+					onCustom={() => (showCostDialog = true)}
 				/>
 				{#if hasWeight}
 					<ContextMenu.Item onSelect={() => run(() => environmentState.setGridWeight(cellId, 1))}>
@@ -89,3 +93,9 @@
 		</ContextMenu.Item>
 	{/if}
 {/if}
+
+<EditCostDialog
+	bind:open={showCostDialog}
+	initialCost={node?.weight ?? 1}
+	onSave={(val) => run(() => environmentState.setGridWeight(cellId, val))}
+/>

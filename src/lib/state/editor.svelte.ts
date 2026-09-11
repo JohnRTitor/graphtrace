@@ -13,6 +13,9 @@ export class EditorState {
 	private _dragStartNode = $state<string | null>(null);
 	private _edgePreviewTo = $state<{x: number, y: number} | null>(null);
 	private _nodeCount = 0;
+	
+	// Global Selection
+	private _selection = $state<{type: 'node' | 'edge' | 'cell', id: string} | null>(null);
 
 	get mode() { return this._mode; }
 	set mode(m: EditMode) { 
@@ -26,6 +29,9 @@ export class EditorState {
 	set weightValue(w: number) { this._weightValue = Math.max(1, w); }
 
 	get isDrawing() { return this._isDrawing; }
+	
+	get selection() { return this._selection; }
+	set selection(s) { this._selection = s; }
 
 	// Graph mode properties
 	get dragStartNode() { return this._dragStartNode; }
@@ -78,6 +84,7 @@ export class EditorState {
 	}
 
 	private applyGridEdit(id: NodeId) {
+		this.selection = { type: 'cell', id };
 		switch (this._mode) {
 			case 'wall':
 				environmentState.setGridWall(id, true);
@@ -100,6 +107,12 @@ export class EditorState {
 	}
 
 	private applyGraphEditDown(id: NodeId | null, x: number, y: number) {
+		if (id) {
+			this.selection = { type: id.startsWith('edge-') ? 'edge' : 'node', id };
+		} else {
+			this.selection = null;
+		}
+		
 		switch (this._mode) {
 			case 'node':
 				if (!id) {

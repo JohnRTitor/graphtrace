@@ -25,6 +25,7 @@ export type GraphCommand =
 	| { type: 'set-start'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-goal'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-weight'; edgeId: string; from: number; to: number }
+	| { type: 'set-node-cost'; nodeId: NodeId; from: number | undefined; to: number }
 	| { type: 'set-directed'; from: boolean; to: boolean }
 	| { type: 'set-label'; id: NodeId; from: string; to: string }
 	| { type: 'reverse-edge'; edgeId: string; oldSource: NodeId; oldTarget: NodeId }
@@ -115,6 +116,10 @@ export class ManualGraph implements BaseGraph {
 			case 'set-weight':
 				const e = this.edges.get(cmd.edgeId);
 				if (e) e.weight = cmd.to;
+				break;
+			case 'set-node-cost':
+				const costNode = this.nodes.get(cmd.nodeId);
+				if (costNode) costNode.cost = cmd.to;
 				break;
 			case 'set-directed':
 				this.directed = cmd.to;
@@ -247,6 +252,8 @@ export function invertGraphCommand(cmd: GraphCommand): GraphCommand {
 			return { type: 'set-goal', from: cmd.to, to: cmd.from };
 		case 'set-weight':
 			return { type: 'set-weight', edgeId: cmd.edgeId, from: cmd.to, to: cmd.from };
+		case 'set-node-cost':
+			return { type: 'set-node-cost', nodeId: cmd.nodeId, from: cmd.to, to: cmd.from ?? 0 };
 		case 'set-directed':
 			return { type: 'set-directed', from: cmd.to, to: cmd.from };
 		case 'set-label':

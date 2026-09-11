@@ -69,7 +69,7 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 	it('renameGraphNode updates the label through the undo-able command path', () => {
 		const id = environmentState.addGraphNode(0, 0, 'N1');
 
-		environmentState.renameGraphNode(id, 'Origin');
+		environmentState.setGraphLabel(id, 'Origin');
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('Origin');
 
 		environmentState.undo();
@@ -81,7 +81,7 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 
 	it('renameGraphNode ignores blank labels', () => {
 		const id = environmentState.addGraphNode(0, 0, 'N1');
-		environmentState.renameGraphNode(id, '   ');
+		environmentState.setGraphLabel(id, '   ');
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('N1');
 	});
 

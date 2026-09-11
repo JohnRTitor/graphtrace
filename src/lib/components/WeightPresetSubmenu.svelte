@@ -13,11 +13,13 @@
 	let {
 		label = 'Set Weight',
 		currentWeight,
-		onSelect
+		onSelect,
+		onCustom
 	}: {
 		label?: string;
 		currentWeight: number | undefined;
 		onSelect: (weight: number) => void;
+		onCustom?: () => void;
 	} = $props();
 </script>
 
@@ -39,5 +41,11 @@
 		>
 			Panel value ({editorState.weightValue})
 		</ContextMenu.Item>
+		{#if onCustom}
+			<ContextMenu.Separator />
+			<ContextMenu.Item onSelect={onCustom}>
+				Custom...
+			</ContextMenu.Item>
+		{/if}
 	</ContextMenu.SubContent>
 </ContextMenu.Sub>

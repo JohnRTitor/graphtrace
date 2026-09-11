@@ -14,18 +14,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Switch } from '$lib/components/ui/switch';
 	
-	import PlaybackControls from './PlaybackControls.svelte';
-	
-	import MousePointer2 from '@lucide/svelte/icons/mouse-pointer-2';
-	import Eraser from '@lucide/svelte/icons/eraser';
-	import Flag from '@lucide/svelte/icons/flag';
-	import Target from '@lucide/svelte/icons/target';
-	import Weight from '@lucide/svelte/icons/weight';
-	import Circle from '@lucide/svelte/icons/circle';
-	import ArrowRight from '@lucide/svelte/icons/arrow-right';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import Move from '@lucide/svelte/icons/move';
-
 	import Shuffle from '@lucide/svelte/icons/shuffle';
 
 	function handleGenerate() {
@@ -300,72 +288,4 @@
 		</div>
 	</div>
 
-	<Separator />
-
-	<!-- Editing Tools -->
-	<div class="space-y-3">
-		<h3 class="text-sm font-medium">Tools</h3>
-		
-		{#snippet toolButton(value: string, label: string, Icon: any, iconClass: string = "h-4 w-4")}
-			<ToggleGroupItem {value} aria-label={label} title={label}>
-				<Icon class={iconClass} />
-			</ToggleGroupItem>
-		{/snippet}
-
-		<ToggleGroup 
-			type="single" 
-			value={editorState.mode} 
-			onValueChange={(v) => { if (v) editorState.mode = v as any; }}
-			class="justify-start flex-wrap gap-1"
-		>
-			{#if environmentState.environmentType === 'graph'}
-				{@render toolButton("node", "Add Node", Circle)}
-				{@render toolButton("edge", "Add Edge", ArrowRight)}
-				{@render toolButton("move", "Move Node", Move)}
-				{@render toolButton("remove", "Remove Node/Edge", Trash2)}
-			{:else}
-				{@render toolButton("wall", "Draw Walls", MousePointer2)}
-				{@render toolButton("erase", "Erase", Eraser)}
-			{/if}
-
-			{@render toolButton("start", "Set Start", Flag, "h-4 w-4 text-green-500")}
-			{@render toolButton("goal", "Set Goal", Target, "h-4 w-4 text-red-500")}
-			
-			{#if environmentState.currentAlgorithm?.supportsWeights}
-				{@render toolButton("weight", "Set Weight", Weight)}
-			{/if}
-		</ToggleGroup>
-
-		{#if editorState.mode === 'weight'}
-			<div class="space-y-3 pt-2 pl-1 pr-1">
-				<div class="flex items-center justify-between">
-					<Label class="text-xs font-normal text-muted-foreground">Weight Value</Label>
-					<span class="text-xs text-muted-foreground">{editorState.weightValue}</span>
-				</div>
-				<Slider
-					type="single"
-					value={editorState.weightValue}
-					onValueChange={(v) => editorState.weightValue = v}
-					max={20}
-					min={1}
-					step={1}
-				/>
-			</div>
-		{/if}
-	</div>
-
-	<div class="mt-auto flex flex-col gap-4">
-		<Separator />
-		
-		<div class="flex items-center justify-between">
-			<Label for="show-costs" class="text-sm font-medium">Show Costs (A*)</Label>
-			<Switch
-				id="show-costs"
-				checked={environmentState.showCosts}
-				onCheckedChange={(v) => environmentState.showCosts = v}
-			/>
-		</div>
-		
-		<PlaybackControls />
-	</div>
 </div>
