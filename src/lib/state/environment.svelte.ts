@@ -4,8 +4,13 @@ import { ManualGraph, type GraphCommand, type GraphEdge, type GraphNode } from '
 import { generateId } from '../utils';
 import { GridAdapter } from '../graph/graph-adapter';
 import { playbackState } from './playback.svelte';
-import { getAlgorithm } from '../algorithms';
+import { executionStore } from './execution-store.svelte';
+import { createProblemVersion, type Problem } from '../domain/problem';
+import { defaultGridCostModel, defaultGraphCostModel } from '../domain/cost-model';
+import { defaultMovementModel } from '../domain/movement-model';
 import type { EnvironmentType } from '../generators/types';
+import { generateRandomGraph } from '../generators/random-graph';
+import { getAlgorithm } from '../algorithms';
 
 export class EnvironmentState {
 	// --- Grid State ---
@@ -146,14 +151,15 @@ export class EnvironmentState {
 		return this._graph;
 	}
 	handleGenerateGraph() {
-		this.replaceGraph(generateRandomGraph({
+		const snapshot = generateRandomGraph({
 			nodeCount: this.graphNodeCount,
 			edgeMultiplier: this.graphEdgeMultiplier,
-			directed: this.algorithmOptions.directed,
-			weighted: this.algorithmOptions.weighted && this.graphWeighted,
+			directed: this._graph.directed,
+			weighted: this.graphWeighted,
 			ensurePath: this.graphEnsurePath,
-			seed: this.prngSeed
-		}));
+			seed: this.environmentSeed
+		});
+		this.replaceGraph(snapshot.nodes, snapshot.edges, snapshot.start, snapshot.goal, snapshot.directed);
 	}
 	get graphDirected(): boolean {
 		this._graphVersion;
@@ -316,28 +322,29 @@ export class EnvironmentState {
 		const algo = this.currentAlgorithm;
 		if (!algo) return;
 		
-		let graphModel;
-		let start;
-		let goal;
-
+		let problem: Problem;
 		if (this.environmentType === 'graph') {
-			graphModel = this._graph;
-			start = this._graph.start;
-			goal = this._graph.goal;
+			problem = {
+				type: 'graph',
+				graph: this._graph,
+				costModel: defaultGraphCostModel,
+				version: createProblemVersion()
+			};
 		} else {
-			graphModel = new GridAdapter(this._grid);
-			start = this._grid.start;
-			goal = this._grid.goal;
-		}
-		
-		if (!start || !goal) {
-			console.warn("Start or goal node not set");
-			return;
+			problem = {
+				type: 'grid',
+				grid: this._grid,
+				movementModel: defaultMovementModel,
+				costModel: defaultGridCostModel,
+				version: createProblemVersion()
+			};
 		}
 
-		const result = algo.run(graphModel, start, goal);
-		playbackState.loadEvents(result.events, result.metrics);
-		playbackState.play();
+		try {
+			executionStore.run(problem, this._selectedAlgorithmId);
+		} catch (e) {
+			console.warn("Run failed:", e);
+		}
 	}
 }
 

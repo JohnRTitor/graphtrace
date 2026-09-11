@@ -1,0 +1,83 @@
+import { generateId } from '../utils';
+import type { Execution, ExecutionId } from '../domain/execution';
+import type { Problem } from '../domain/problem';
+import { getAlgorithm } from '../algorithms';
+import type { BaseGraph } from '../graph/types';
+import { GridAdapter } from '../graph/graph-adapter';
+import type { ManualGraph } from '../graph/manual';
+
+export class ExecutionStore {
+	private executions = $state<Map<ExecutionId, Execution>>(new Map());
+	private _activeId = $state<ExecutionId | null>(null);
+
+	get activeId(): ExecutionId | null {
+		return this._activeId;
+	}
+
+	set activeId(id: ExecutionId | null) {
+		this._activeId = id;
+	}
+
+	get activeExecution(): Execution | null {
+		if (!this._activeId) return null;
+		return this.executions.get(this._activeId) || null;
+	}
+
+	get(id: ExecutionId): Execution | undefined {
+		return this.executions.get(id);
+	}
+
+	discard(id: ExecutionId): void {
+		this.executions.delete(id);
+		if (this._activeId === id) {
+			this._activeId = null;
+		}
+	}
+
+	run(problem: Problem, algorithmId: string, config?: any): ExecutionId {
+		const algo = getAlgorithm(algorithmId);
+		if (!algo) {
+			throw new Error(`Algorithm ${algorithmId} not found`);
+		}
+
+		let graphModel: BaseGraph;
+		let start;
+		let goal;
+
+		if (problem.type === 'grid') {
+			graphModel = new GridAdapter(problem.grid, problem.movementModel, problem.costModel);
+			start = problem.grid.start;
+			goal = problem.grid.goal;
+		} else {
+			graphModel = problem.graph; // assuming problem.graph is a ManualGraph which implements BaseGraph
+			start = problem.graph.start;
+			goal = problem.graph.goal;
+		}
+
+		if (!start || !goal) {
+			throw new Error("Start or goal node not set");
+		}
+
+		const result = algo.run(graphModel, start, goal);
+		
+		const id = generateId();
+		
+		const execution: Execution = {
+			id,
+			problemSnapshot: problem.version,
+			algorithmId,
+			algorithmConfig: config,
+			trace: result.events,
+			metrics: result.metrics,
+			result,
+			createdAt: Date.now()
+		};
+
+		this.executions.set(id, execution);
+		this._activeId = id; // New runs automatically become active
+		
+		return id;
+	}
+}
+
+export const executionStore = new ExecutionStore();

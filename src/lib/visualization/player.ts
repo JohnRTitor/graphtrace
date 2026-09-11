@@ -1,5 +1,5 @@
 import type { AlgorithmEvent } from '../algorithms/types';
-import { applyEvent } from './events';
+import { applyEvent, invertEvent } from './trace-reducer';
 import { createInitialVisualizationState, type PlaybackStatus, type VisualizationState } from './types';
 
 export type PlayerOptions = {
@@ -13,7 +13,7 @@ export class PlaybackEngine {
 	private status: PlaybackStatus = 'idle';
 	
 	private currentStep = 0;
-	private speed = 50; // Events per second (can be > 60 for high speeds)
+	private speed = 50;
 	
 	private lastFrameTime = 0;
 	private timeAccumulator = 0;
@@ -73,6 +73,15 @@ export class PlaybackEngine {
 		}
 	}
 
+	stepBack(): void {
+		this.pause();
+		if (this.currentStep > 0) {
+			this.processPrevEvent();
+			this.status = 'paused';
+			this.notify();
+		}
+	}
+
 	reset(): void {
 		this.pause();
 		this.currentStep = 0;
@@ -86,15 +95,21 @@ export class PlaybackEngine {
 		
 		const targetStep = Math.max(0, Math.min(stepIndex, this.events.length));
 		
-		// If seeking backward or very far forward, it's faster to rebuild from scratch
-		// Otherwise we can just apply the delta
-		if (targetStep < this.currentStep) {
+		// Optimization: if seeking forward or backward, just apply/invert the delta
+		// If seeking backward from very far, it might be faster to rebuild, but 
+		// for true bidirectional we just step backward.
+		if (targetStep < this.currentStep && (this.currentStep - targetStep > targetStep)) {
+			// It's faster to rebuild from 0 if target is closer to 0 than to current
 			this.state = createInitialVisualizationState();
 			this.currentStep = 0;
 		}
 
 		while (this.currentStep < targetStep) {
 			this.processNextEvent();
+		}
+
+		while (this.currentStep > targetStep) {
+			this.processPrevEvent();
 		}
 
 		this.status = targetStep >= this.events.length ? 'completed' : 'paused';
@@ -111,7 +126,6 @@ export class PlaybackEngine {
 		const deltaTime = timestamp - this.lastFrameTime;
 		this.lastFrameTime = timestamp;
 		
-		// Prevent massive jumps if tab is inactive
 		if (deltaTime > 100) {
 			this.animationFrameId = requestAnimationFrame(this.tick);
 			return;
@@ -122,8 +136,6 @@ export class PlaybackEngine {
 
 		let processedAny = false;
 
-		// Process as many events as needed for the elapsed time
-		// (allows speed > 60fps)
 		while (this.timeAccumulator >= msPerEvent && this.currentStep < this.events.length) {
 			this.processNextEvent();
 			this.timeAccumulator -= msPerEvent;
@@ -133,7 +145,7 @@ export class PlaybackEngine {
 		if (this.currentStep >= this.events.length) {
 			this.status = 'completed';
 			this.notify();
-			return; // Stop loop
+			return;
 		}
 
 		if (processedAny) {
@@ -146,8 +158,16 @@ export class PlaybackEngine {
 	private processNextEvent(): void {
 		if (this.currentStep < this.events.length) {
 			const event = this.events[this.currentStep];
-			applyEvent(this.state, event);
+			this.state = applyEvent(this.state, event);
 			this.currentStep++;
+		}
+	}
+
+	private processPrevEvent(): void {
+		if (this.currentStep > 0) {
+			this.currentStep--;
+			const event = this.events[this.currentStep];
+			this.state = invertEvent(this.state, event);
 		}
 	}
 

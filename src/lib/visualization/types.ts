@@ -21,6 +21,7 @@ export type VisualizationState = {
 	currentNode: NodeId | null;
 	pathNodes: Set<NodeId>;
 	costData: Map<NodeId, CostData>;
+	expansionHistory: NodeId[];
 };
 
 export type PlaybackStatus = 'idle' | 'running' | 'paused' | 'completed';
@@ -30,6 +31,7 @@ export function createInitialVisualizationState(): VisualizationState {
 		cellStates: new Map(),
 		currentNode: null,
 		pathNodes: new Set(),
-		costData: new Map()
+		costData: new Map(),
+		expansionHistory: []
 	};
 }

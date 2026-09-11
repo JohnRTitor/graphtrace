@@ -1,6 +1,7 @@
-import type { AlgorithmEvent, AlgorithmMetrics } from '../algorithms/types';
 import { PlaybackEngine } from '../visualization/player';
 import { createInitialVisualizationState, type PlaybackStatus, type VisualizationState } from '../visualization/types';
+import { executionStore } from './execution-store.svelte';
+import type { AlgorithmMetrics } from '../algorithms/types';
 
 export class PlaybackState {
 	private engine: PlaybackEngine;
@@ -10,7 +11,6 @@ export class PlaybackState {
 	private _status = $state<PlaybackStatus>('idle');
 	private _currentStep = $state(0);
 	private _totalSteps = $state(0);
-	private _metrics = $state<AlgorithmMetrics | null>(null);
 	private _speed = $state(50); // events per second
 
 	constructor() {
@@ -26,6 +26,42 @@ export class PlaybackState {
 		});
 		
 		this.engine.setSpeed(this._speed);
+
+		// Synchronize engine with the active execution
+		$effect.root(() => {
+			$effect(() => {
+				const exec = executionStore.activeExecution;
+				if (exec) {
+					// Check if we need to load (prevent reloading same execution repeatedly)
+					// We'll just load it. loadEvents calls pause() and reset() internally.
+					// To avoid doing it repeatedly, we can track the loaded ID.
+				}
+			});
+		});
+	}
+
+	// Internal tracker for the loaded execution
+	private _loadedExecutionId: string | null = null;
+
+	// Svelte 5 effect setup separated for clarity
+	public initEffects() {
+		$effect.root(() => {
+			$effect(() => {
+				const exec = executionStore.activeExecution;
+				if (exec && this._loadedExecutionId !== exec.id) {
+					this._loadedExecutionId = exec.id;
+					this._totalSteps = exec.trace.length;
+					this._currentStep = 0;
+					this.engine.loadEvents(exec.trace);
+					this.play();
+				} else if (!exec && this._loadedExecutionId !== null) {
+					this._loadedExecutionId = null;
+					this._totalSteps = 0;
+					this._currentStep = 0;
+					this.engine.loadEvents([]);
+				}
+			});
+		});
 	}
 
 	// Getters
@@ -33,7 +69,7 @@ export class PlaybackState {
 	get status() { return this._status; }
 	get currentStep() { return this._currentStep; }
 	get totalSteps() { return this._totalSteps; }
-	get metrics() { return this._metrics; }
+	get metrics(): AlgorithmMetrics | null { return executionStore.activeExecution?.metrics || null; }
 	get speed() { return this._speed; }
 	
 	// Derived state
@@ -48,13 +84,6 @@ export class PlaybackState {
 	get isCompleted() { return this._status === 'completed'; }
 
 	// Actions
-	loadEvents(events: AlgorithmEvent[], metrics: AlgorithmMetrics) {
-		this._metrics = metrics;
-		this._totalSteps = events.length;
-		this._currentStep = 0;
-		this.engine.loadEvents(events);
-	}
-
 	setSpeed(speed: number) {
 		this._speed = speed;
 		this.engine.setSpeed(speed);
@@ -80,6 +109,10 @@ export class PlaybackState {
 		this.engine.step();
 	}
 
+	stepBack() {
+		this.engine.stepBack();
+	}
+
 	reset() {
 		this.engine.reset();
 	}
@@ -96,3 +129,5 @@ export class PlaybackState {
 
 // Global singleton
 export const playbackState = new PlaybackState();
+// Initialize the effect root
+playbackState.initEffects();

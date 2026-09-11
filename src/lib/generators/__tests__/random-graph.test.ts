@@ -21,7 +21,7 @@ describe('generateRandomGraph', () => {
 	it('generates no duplicate edges and no self loops', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 5,
-			density: 'dense',
+			edgeMultiplier: 3,
 			directed: false,
 			weighted: false,
 			ensurePath: false,
@@ -41,7 +41,7 @@ describe('generateRandomGraph', () => {
 	it('ensures connectivity when ensurePath is true (undirected)', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 20,
-			density: 'sparse',
+			edgeMultiplier: 1.5,
 			directed: false,
 			weighted: false,
 			ensurePath: true,
@@ -79,7 +79,7 @@ describe('generateRandomGraph', () => {
 	it('ensures a path from start to goal when ensurePath is true (directed)', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 20,
-			density: 'sparse',
+			edgeMultiplier: 1.5,
 			directed: true,
 			weighted: false,
 			ensurePath: true,
@@ -117,7 +117,7 @@ describe('generateRandomGraph', () => {
 	it('is deterministic with the same seed', () => {
 		const options = {
 			nodeCount: 15,
-			density: 'balanced' as const,
+			edgeMultiplier: 2,
 			directed: true,
 			weighted: true,
 			ensurePath: true,

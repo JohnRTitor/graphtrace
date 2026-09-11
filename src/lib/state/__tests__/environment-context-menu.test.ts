@@ -123,9 +123,8 @@ describe('invalidatePlaybackIfNeeded', () => {
 		invalidatePlaybackIfNeeded();
 		expect(playbackState.isIdle).toBe(true);
 
-		playbackState.loadEvents(
-			[{ type: 'expand', nodeId: 'x' } as any],
-			{ nodesDiscovered: 1, nodesExpanded: 1, maxFrontierSize: 1, pathLength: 0, pathCost: 0, executionTimeMs: 0 }
+		(playbackState as any).engine.loadEvents(
+			[{ type: 'expand', nodeId: 'x' } as any]
 		);
 		playbackState.play();
 		expect(playbackState.isIdle).toBe(false);
