@@ -1,6 +1,8 @@
 import type { NodeId } from '../graph/types';
 import { environmentState } from './environment.svelte';
 import { playbackState } from './playback.svelte';
+import { Interactor } from '../interaction/interactor';
+import { getNode, setWall, setCost, setStart, setGoal } from '../graph/grid';
 
 export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'cost' | 'node' | 'edge' | 'remove' | 'move';
 
@@ -8,10 +10,13 @@ export class EditorState {
 	private _mode = $state<EditMode>('wall');
 	private _costValue = $state(5); // Default cost for cost mode
 	private _isDrawing = $state(false);
+	
+	private _interactor = new Interactor((cmd) => environmentState.executeCommand(cmd));
 
 	// Graph mode specific states
-	private _dragStartNode = $state<string | null>(null);
-	private _edgePreviewTo = $state<{x: number, y: number} | null>(null);
+	private _dragStartNode: NodeId | null = $state(null);
+	private _edgePreviewTo: { x: number; y: number } | null = $state(null);
+	private _lastProcessedCell: NodeId | null = null;
 	private _nodeCount = 0;
 	
 	// Global Selection
@@ -23,6 +28,7 @@ export class EditorState {
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
 		this._isDrawing = false;
+		this._interactor.cancelGesture();
 	}
 	
 	get costValue() { return this._costValue; }
@@ -39,7 +45,7 @@ export class EditorState {
 
 	// Canvas Interaction Handlers
 	
-	onPointerDown(id: NodeId | null, x: number, y: number) {
+	onPointerDown(id: NodeId | null, x: number = 0, y: number = 0) {
 		if (!playbackState.isIdle) {
 			playbackState.reset();
 		}
@@ -49,25 +55,33 @@ export class EditorState {
 		if (environmentState.environmentType === 'graph') {
 			this.applyGraphEditDown(id, x, y);
 		} else {
-			environmentState.beginGridBatch();
-			if (id) this.applyGridEdit(id);
+			this._interactor.beginGridDrag(environmentState.gridStart, environmentState.gridGoal);
+			this._lastProcessedCell = null;
+			if (id) {
+				this._lastProcessedCell = id;
+				this.applyGridEdit(id);
+			}
 		}
 	}
 	
-	onPointerMove(id: NodeId | null, x: number, y: number) {
+	onPointerMove(id: NodeId | null, x: number = 0, y: number = 0) {
 		if (environmentState.environmentType === 'graph') {
 			this.applyGraphEditMove(id, x, y);
 		} else {
 			if (!this._isDrawing) return;
-			if (id) this.applyGridEdit(id);
+			if (id && id !== this._lastProcessedCell) {
+				this._lastProcessedCell = id;
+				this.applyGridEdit(id);
+			}
 		}
 	}
 	
-	onPointerUp(id: NodeId | null) {
+	onPointerUp(id: NodeId | null, x: number = 0, y: number = 0) {
 		if (environmentState.environmentType === 'graph') {
-			this.applyGraphEditUp(id);
+			this.applyGraphEditUp(id, x, y);
 		} else {
-			environmentState.commitGridBatch();
+			this._interactor.commitGridDrag();
+			this._lastProcessedCell = null;
 		}
 		this._isDrawing = false;
 		this._dragStartNode = null;
@@ -76,7 +90,10 @@ export class EditorState {
 	
 	onPointerLeave() {
 		if (environmentState.environmentType !== 'graph') {
-			environmentState.commitGridBatch();
+			this._interactor.commitGridDrag();
+			this._lastProcessedCell = null;
+		} else {
+			this._interactor.cancelGesture();
 		}
 		this._isDrawing = false;
 		this._dragStartNode = null;
@@ -85,28 +102,46 @@ export class EditorState {
 
 	private applyGridEdit(id: NodeId) {
 		this.selection = { type: 'cell', id };
+		const node = getNode(environmentState.grid, id);
+		if (!node) return;
+		if (id === environmentState.gridStart || id === environmentState.gridGoal) return;
+
 		switch (this._mode) {
 			case 'wall':
-				environmentState.setGridWall(id, true);
+				this._interactor.recordGridEdit(id, node.walkable, false, node.cost, node.cost);
+				setWall(environmentState.grid, id, false);
 				break;
 			case 'erase':
-				environmentState.setGridWall(id, false);
-				environmentState.setGridCost(id, 1);
+				this._interactor.recordGridEdit(id, node.walkable, true, node.cost, 1);
+				setWall(environmentState.grid, id, true);
+				setCost(environmentState.grid, id, 1);
 				break;
 			case 'start':
-				environmentState.setGridStart(id);
+				if (!node.walkable) {
+					this._interactor.recordGridEdit(id, false, true, node.cost, node.cost);
+					setWall(environmentState.grid, id, true);
+				}
+				this._interactor.setGridStart(id);
+				setStart(environmentState.grid, id);
 				break;
 			case 'goal':
-				environmentState.setGridGoal(id);
+				if (!node.walkable) {
+					this._interactor.recordGridEdit(id, false, true, node.cost, node.cost);
+					setWall(environmentState.grid, id, true);
+				}
+				this._interactor.setGridGoal(id);
+				setGoal(environmentState.grid, id);
 				break;
 			case 'cost':
-				environmentState.setGridWall(id, false);
-				environmentState.setGridCost(id, this._costValue);
+				this._interactor.recordGridEdit(id, node.walkable, true, node.cost, this._costValue);
+				setWall(environmentState.grid, id, true);
+				setCost(environmentState.grid, id, this._costValue);
 				break;
 		}
 	}
 
-	private applyGraphEditDown(id: NodeId | null, x: number, y: number) {
+	private applyGraphEditDown(id: NodeId | null, x: number = 0, y: number = 0) {
+
 		if (id) {
 			this.selection = { type: id.startsWith('edge-') ? 'edge' : 'node', id };
 		} else {
@@ -139,6 +174,8 @@ export class EditorState {
 			case 'move':
 				if (id && !id.startsWith('edge-')) {
 					this._dragStartNode = id;
+					const node = environmentState.graph.nodes.get(id);
+					if (node) this._interactor.beginGraphMove(id, node.x, node.y);
 				}
 				break;
 			case 'start':
@@ -166,13 +203,18 @@ export class EditorState {
 				break;
 			case 'move':
 				if (this._dragStartNode) {
-					environmentState.moveGraphNode(this._dragStartNode, x, y);
+					// update visual state but don't record history yet
+					const node = environmentState.graph.nodes.get(this._dragStartNode);
+					if (node) {
+						node.x = x;
+						node.y = y;
+					}
 				}
 				break;
 		}
 	}
 
-	private applyGraphEditUp(id: NodeId | null) {
+	private applyGraphEditUp(id: NodeId | null, x: number, y: number) {
 		switch (this._mode) {
 			case 'edge':
 				if (this._dragStartNode && id && id !== this._dragStartNode && !id.startsWith('edge-')) {
@@ -180,6 +222,11 @@ export class EditorState {
 				} else {
 					// Dragged to empty space - just connect to same node (self-loop) for now or do nothing
 					environmentState.addGraphEdge(this._dragStartNode!, this._dragStartNode!, this._costValue);
+				}
+				break;
+			case 'move':
+				if (this._dragStartNode) {
+					this._interactor.commitGraphMove(this._dragStartNode, x, y);
 				}
 				break;
 		}

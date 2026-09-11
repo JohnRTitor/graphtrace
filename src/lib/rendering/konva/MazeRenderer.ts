@@ -114,11 +114,14 @@ export class MazeRenderer {
 		});
 
 		this.hitRect.on('pointerup', () => {
-			this.interaction.handlePointerUp();
+			if (!this.editorStateRef) return;
+			this.interaction.handlePointerUp(this.editorStateRef);
 		});
 
 		this.hitRect.on('pointerout', () => {
-			this.interaction.handlePointerUp();
+			if (this.editorStateRef) {
+				this.interaction.handlePointerUp(this.editorStateRef);
+			}
 			this.hoverRect.position({ x: -100, y: -100 });
 			this.interactionLayer.batchDraw();
 		});

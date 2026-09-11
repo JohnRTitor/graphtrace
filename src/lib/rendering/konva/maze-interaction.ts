@@ -30,45 +30,18 @@ export class MazeInteraction {
 		// Only handle left click or touch
 		if (e.evt instanceof MouseEvent && e.evt.button !== 0) return;
 		
-		this.isDragging = true;
-		this.lastProcessedCell = null;
-		
-		this.processInteraction(e, editorState, environmentState);
+		const cellId = this.getCellIdFromEvent(e);
+		editorState.onPointerDown(cellId);
 	}
 
 	public handlePointerMove(e: KonvaEventObject<MouseEvent | TouchEvent>, editorState: EditorState, environmentState: EnvironmentState) {
-		if (!this.isDragging) return;
-		this.processInteraction(e, editorState, environmentState);
-	}
-
-	public handlePointerUp() {
-		this.isDragging = false;
-		this.lastProcessedCell = null;
-	}
-
-	private processInteraction(e: KonvaEventObject<MouseEvent | TouchEvent>, editorState: EditorState, environmentState: EnvironmentState) {
 		const cellId = this.getCellIdFromEvent(e);
-		if (!cellId) return;
-
-		// Only process each cell once per drag to prevent rapid toggling
-		if (this.lastProcessedCell === cellId) return;
-		this.lastProcessedCell = cellId;
-
-		const mode = editorState.mode;
-		
-		// Update selection
-		editorState.selection = { type: 'cell', id: cellId };
-
-		if (mode === 'wall') {
-			environmentState.setGridWall(cellId, true);
-		} else if (mode === 'erase') {
-			environmentState.setGridWall(cellId, false);
-		} else if (mode === 'start') {
-			environmentState.setGridStart(cellId);
-		} else if (mode === 'goal') {
-			environmentState.setGridGoal(cellId);
-		} else if (mode === 'cost') {
-			environmentState.setGridCost(cellId, editorState.costValue);
-		}
+		editorState.onPointerMove(cellId);
 	}
+
+	public handlePointerUp(editorState: EditorState) {
+		editorState.onPointerUp(null); // The actual id doesn't matter for grid up
+	}
+
+
 }

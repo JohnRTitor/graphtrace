@@ -8,6 +8,7 @@ import {
   getNode,
 } from "../graph/grid";
 import type { Grid, NodeId } from "../graph/types";
+import { HistoryStore } from "./history-store.svelte";
 import {
   ManualGraph,
   type GraphCommand,
@@ -28,7 +29,7 @@ import type { EnvironmentType } from "../generators/types";
 import { generateRandomGraph } from "../generators/random-graph";
 import { getAlgorithm } from "../algorithms";
 import { invertGraphCommand } from "../graph/manual";
-import type { EnvCommand, GridBatchCommand } from "../domain/command";
+import type { EnvCommand } from "../domain/command";
 
 export class EnvironmentState {
   // --- Grid State ---
@@ -57,11 +58,13 @@ export class EnvironmentState {
   private _defaultEdgeDirected = $state<boolean>(false);
 
   // --- History State ---
-  private _undoStack = $state<EnvCommand[]>([]);
-  private _redoStack = $state<EnvCommand[]>([]);
-  private _activeGridBatch = $state<GridBatchCommand | null>(null);
+  private _history: HistoryStore<EnvCommand>;
 
   constructor() {
+    this._history = new HistoryStore(
+      (cmd, isRedo) => this.applyCommandLocally(cmd, isRedo),
+      (cmd) => this.invertCommandLocally(cmd)
+    );
     this.resetGridToDefaults(31, 41);
   }
 
@@ -103,121 +106,115 @@ export class EnvironmentState {
     this._gridVersion++;
   }
 
-  private recordGridEdit(id: NodeId, newWalkable: boolean, newCost: number) {
-    const node = getNode(this._grid, id);
-    if (!node) return;
-
-    let batch = this._activeGridBatch;
-    let isAutoBatch = false;
-    if (!batch) {
-      batch = {
-        type: "grid-batch",
-        edits: [],
-        oldStart: this._grid.start,
-        newStart: this._grid.start,
-        oldGoal: this._grid.goal,
-        newGoal: this._grid.goal,
-      };
-      isAutoBatch = true;
-    }
-
-    const existing = batch.edits.find((e) => e.id === id);
-    if (existing) {
-      existing.newWalkable = newWalkable;
-      existing.newCost = newCost;
-    } else {
-      batch.edits.push({
-        id,
-        oldWalkable: node.walkable,
-        newWalkable,
-        oldCost: node.cost,
-        newCost,
-      });
-    }
-
-    if (isAutoBatch) {
-      this.executeCommand(batch);
-    } else {
-      // apply mutation incrementally since we are in a batch
-      setWall(this._grid, id, newWalkable);
-      setCost(this._grid, id, newCost);
-      this._gridVersion++;
-    }
-  }
-
   toggleGridWall(id: NodeId): void {
     const node = getNode(this._grid, id);
     if (!node) return;
     if (id === this._grid.start || id === this._grid.goal) return;
-    this.recordGridEdit(id, !node.walkable, node.cost);
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [{ id, oldWalkable: node.walkable, newWalkable: !node.walkable, oldCost: node.cost, newCost: node.cost }],
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   setGridWall(id: NodeId, isWall: boolean): void {
     if (isWall && (id === this._grid.start || id === this._grid.goal)) return;
     const node = getNode(this._grid, id);
-    if (!node) return;
-    this.recordGridEdit(id, !isWall, node.cost);
+    if (!node || node.walkable === !isWall) return;
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [{ id, oldWalkable: node.walkable, newWalkable: !isWall, oldCost: node.cost, newCost: node.cost }],
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   setGridCost(id: NodeId, cost: number): void {
     if (id === this._grid.start || id === this._grid.goal) return;
     const node = getNode(this._grid, id);
-    if (!node) return;
-    this.recordGridEdit(id, node.walkable, cost);
+    if (!node || node.cost === cost) return;
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [{ id, oldWalkable: node.walkable, newWalkable: node.walkable, oldCost: node.cost, newCost: cost }],
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   setGridStart(id: NodeId): void {
     const node = getNode(this._grid, id);
     if (!node) return;
+    
+    const edits = [];
+    if (!node.walkable) {
+      edits.push({ id, oldWalkable: false, newWalkable: true, oldCost: node.cost, newCost: node.cost });
+    }
 
-    const isAutoBatch = !this._activeGridBatch;
-    if (isAutoBatch) this.beginGridBatch();
-
-    if (!node.walkable) this.recordGridEdit(id, true, node.cost);
-    this._activeGridBatch!.newStart = id;
-    setGridStart(this._grid, id);
-    this._gridVersion++;
-
-    if (isAutoBatch) this.commitGridBatch();
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits,
+        oldStart: this._grid.start, newStart: id,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   setGridGoal(id: NodeId): void {
     const node = getNode(this._grid, id);
     if (!node) return;
 
-    const isAutoBatch = !this._activeGridBatch;
-    if (isAutoBatch) this.beginGridBatch();
+    const edits = [];
+    if (!node.walkable) {
+      edits.push({ id, oldWalkable: false, newWalkable: true, oldCost: node.cost, newCost: node.cost });
+    }
 
-    if (!node.walkable) this.recordGridEdit(id, true, node.cost);
-    this._activeGridBatch!.newGoal = id;
-    setGridGoal(this._grid, id);
-    this._gridVersion++;
-
-    if (isAutoBatch) this.commitGridBatch();
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits,
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: id
+      }
+    });
   }
 
   clearGridStart(): void {
     if (this._grid.start === null) return;
-    const isAutoBatch = !this._activeGridBatch;
-    if (isAutoBatch) this.beginGridBatch();
-
-    this._activeGridBatch!.newStart = null;
-    setGridStart(this._grid, null);
-    this._gridVersion++;
-
-    if (isAutoBatch) this.commitGridBatch();
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [],
+        oldStart: this._grid.start, newStart: null,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   clearGridGoal(): void {
     if (this._grid.goal === null) return;
-    const isAutoBatch = !this._activeGridBatch;
-    if (isAutoBatch) this.beginGridBatch();
-
-    this._activeGridBatch!.newGoal = null;
-    setGridGoal(this._grid, null);
-    this._gridVersion++;
-
-    if (isAutoBatch) this.commitGridBatch();
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [],
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: null
+      }
+    });
   }
 
   /** Resets a single cell to its default walkable, uncosted state. */
@@ -225,7 +222,15 @@ export class EnvironmentState {
     const node = getNode(this._grid, id);
     if (!node) return;
     if (id === this._grid.start || id === this._grid.goal) return;
-    this.recordGridEdit(id, true, 1);
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'paint-cells',
+        edits: [{ id, oldWalkable: node.walkable, newWalkable: true, oldCost: node.cost, newCost: 1 }],
+        oldStart: this._grid.start, newStart: this._grid.start,
+        oldGoal: this._grid.goal, newGoal: this._grid.goal
+      }
+    });
   }
 
   private resetGridToDefaults(rows: number, cols: number): void {
@@ -269,108 +274,66 @@ export class EnvironmentState {
   }
 
   get canUndo(): boolean {
-    return this._undoStack.length > 0;
+    return this._history.canUndo;
   }
   get canRedo(): boolean {
-    return this._redoStack.length > 0;
+    return this._history.canRedo;
   }
 
   // Unified history execution
-  executeCommand(cmd: EnvCommand, isRedo = false) {
+  executeCommand(cmd: EnvCommand) {
     playbackState.reset();
+    this._history.execute(cmd);
+  }
 
-    // Optimization for continuous move-node
-    if (!isRedo && cmd.type === "graph" && cmd.cmd.type === "move-node") {
-      const last = this._undoStack[this._undoStack.length - 1];
-      if (
-        last &&
-        last.type === "graph" &&
-        last.cmd.type === "move-node" &&
-        last.cmd.id === cmd.cmd.id
-      ) {
-        // apply to graph
-        this._graph.execute(cmd.cmd);
-        this._graphVersion++;
-        // squash in undo stack
-        last.cmd.to = cmd.cmd.to;
-        return;
-      }
-    }
-
+  private applyCommandLocally(cmd: EnvCommand, isRedo: boolean) {
     if (cmd.type === "graph") {
       this._graph.execute(cmd.cmd);
       this._graphVersion++;
-    } else if (cmd.type === "grid-batch") {
-      for (const edit of cmd.edits) {
-        setWall(this._grid, edit.id, edit.newWalkable);
-        setCost(this._grid, edit.id, edit.newCost);
+    } else if (cmd.type === "grid") {
+      const gcmd = cmd.cmd;
+      if (gcmd.type === 'paint-cells') {
+        for (const edit of gcmd.edits) {
+          setWall(this._grid, edit.id, edit.newWalkable);
+          setCost(this._grid, edit.id, edit.newCost);
+        }
+        if (gcmd.newStart !== undefined) setGridStart(this._grid, gcmd.newStart);
+        if (gcmd.newGoal !== undefined) setGridGoal(this._grid, gcmd.newGoal);
+        this._gridVersion++;
       }
-      if (cmd.newStart !== undefined) setGridStart(this._grid, cmd.newStart);
-      if (cmd.newGoal !== undefined) setGridGoal(this._grid, cmd.newGoal);
-      this._gridVersion++;
-    }
-
-    if (!isRedo) {
-      this._undoStack.push(cmd);
-      this._redoStack = [];
     }
   }
 
-  undo() {
-    const cmd = this._undoStack.pop();
-    if (!cmd) return;
-    playbackState.reset();
-
+  private invertCommandLocally(cmd: EnvCommand) {
     if (cmd.type === "graph") {
       const inv = invertGraphCommand(cmd.cmd);
       this._graph.execute(inv);
       this._graphVersion++;
-    } else if (cmd.type === "grid-batch") {
-      for (const edit of cmd.edits) {
-        setWall(this._grid, edit.id, edit.oldWalkable);
-        setCost(this._grid, edit.id, edit.oldCost);
+    } else if (cmd.type === "grid") {
+      const gcmd = cmd.cmd;
+      if (gcmd.type === 'paint-cells') {
+        for (const edit of gcmd.edits) {
+          setWall(this._grid, edit.id, edit.oldWalkable);
+          setCost(this._grid, edit.id, edit.oldCost);
+        }
+        if (gcmd.oldStart !== undefined) setGridStart(this._grid, gcmd.oldStart);
+        if (gcmd.oldGoal !== undefined) setGridGoal(this._grid, gcmd.oldGoal);
+        this._gridVersion++;
       }
-      if (cmd.oldStart !== undefined) setGridStart(this._grid, cmd.oldStart);
-      if (cmd.oldGoal !== undefined) setGridGoal(this._grid, cmd.oldGoal);
-      this._gridVersion++;
     }
+  }
 
-    this._redoStack.push(cmd);
+  undo() {
+    playbackState.reset();
+    this._history.undo();
   }
 
   redo() {
-    const cmd = this._redoStack.pop();
-    if (!cmd) return;
-    this.executeCommand(cmd, true);
-    this._undoStack.push(cmd);
+    playbackState.reset();
+    this._history.redo();
   }
 
-  // Batching for continuous interactions (e.g. pointer drag)
-  beginGridBatch() {
-    this._activeGridBatch = {
-      type: "grid-batch",
-      edits: [],
-      oldStart: this._grid.start,
-      newStart: this._grid.start,
-      oldGoal: this._grid.goal,
-      newGoal: this._grid.goal,
-    };
-  }
 
-  commitGridBatch() {
-    if (
-      this._activeGridBatch &&
-      (this._activeGridBatch.edits.length > 0 ||
-        this._activeGridBatch.oldStart !== this._activeGridBatch.newStart ||
-        this._activeGridBatch.oldGoal !== this._activeGridBatch.newGoal)
-    ) {
-      // Instead of calling executeCommand (which would re-apply the edits that were already applied incrementally),
-      // we just push it to the stack.
-      this._undoStack.push(this._activeGridBatch);
-      this._redoStack = [];
-    }
-    this._activeGridBatch = null;
-  }
 
   clearGraph() {
     playbackState.reset();
