@@ -5,6 +5,7 @@ export type GraphNode = {
 	x: number;
 	y: number;
 	label: string;
+	cost?: number;
 };
 
 export type GraphEdge = {

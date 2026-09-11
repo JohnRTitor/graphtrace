@@ -1,20 +1,14 @@
 import type { Grid, GridNode, NodeId } from './types';
+import { type MovementModel, getMovementOffsets } from '../domain/movement-model';
 
-// For 4-directional movement
-const DIRECTIONS_4 = [
-	[-1, 0], // Up
-	[0, 1],  // Right
-	[1, 0],  // Down
-	[0, -1]  // Left
-];
-
-export function getNeighbors(grid: Grid, nodeId: NodeId): GridNode[] {
+export function getNeighbors(grid: Grid, nodeId: NodeId, movementModel?: MovementModel): GridNode[] {
 	const node = grid.nodes.get(nodeId);
 	if (!node) return [];
 
 	const neighbors: GridNode[] = [];
+	const offsets = getMovementOffsets(movementModel);
 
-	for (const [dr, dc] of DIRECTIONS_4) {
+	for (const [dr, dc] of offsets) {
 		const r = node.row + dr;
 		const c = node.col + dc;
 
@@ -22,6 +16,17 @@ export function getNeighbors(grid: Grid, nodeId: NodeId): GridNode[] {
 			const neighborId = `${r},${c}`;
 			const neighbor = grid.nodes.get(neighborId);
 			if (neighbor && neighbor.walkable) {
+				const isDiagonal = Math.abs(dr) === 1 && Math.abs(dc) === 1;
+				
+				// Block corner cutting
+				if (isDiagonal && !movementModel?.blockCornerCutting) {
+					const adj1 = grid.nodes.get(`${node.row + dr},${node.col}`);
+					const adj2 = grid.nodes.get(`${node.row},${node.col + dc}`);
+					if ((adj1 && !adj1.walkable) || (adj2 && !adj2.walkable)) {
+						continue;
+					}
+				}
+
 				neighbors.push(neighbor);
 			}
 		}

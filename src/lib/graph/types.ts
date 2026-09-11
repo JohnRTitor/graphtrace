@@ -1,5 +1,14 @@
 export type NodeId = string;
 
+export type GridCell = {
+	id: NodeId;
+	row: number;
+	col: number;
+	walkable: boolean;
+	cost: number;
+};
+
+/** @deprecated Use GridCell instead. `weight` is a deprecated alias for `cost` */
 export type GridNode = {
 	id: NodeId;
 	row: number;
