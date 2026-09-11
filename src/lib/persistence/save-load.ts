@@ -31,8 +31,7 @@ export function serializeWorkspace(envState: EnvironmentState): string {
 			nodes: Array.from(graph.nodes.entries()),
 			edges: Array.from(graph.edges.entries()),
 			start: graph.start,
-			goal: graph.goal,
-			directed: graph.directed,
+			goal: graph.goal
 		};
 		workspace.graph = {
 			data: graphData,
@@ -74,8 +73,7 @@ export function deserializeWorkspace(json: string, envState: EnvironmentState): 
 			nodesArray,
 			edgesArray,
 			data.start,
-			data.goal,
-			data.directed
+			data.goal
 		);
 	}
 }

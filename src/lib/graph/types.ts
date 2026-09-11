@@ -8,19 +8,12 @@ export type GridCell = {
 	cost: number;
 };
 
-/** @deprecated Use GridCell instead. `weight` is a deprecated alias for `cost` */
-export type GridNode = {
-	id: NodeId;
-	row: number;
-	col: number;
-	walkable: boolean;
-	weight: number;
-};
+
 
 export type Grid = {
 	rows: number;
 	cols: number;
-	nodes: Map<NodeId, GridNode>;
+	nodes: Map<NodeId, GridCell>;
 	start: NodeId | null;
 	goal: NodeId | null;
 };

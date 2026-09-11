@@ -2,11 +2,11 @@ import type { NodeId } from '../graph/types';
 import { environmentState } from './environment.svelte';
 import { playbackState } from './playback.svelte';
 
-export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'weight' | 'node' | 'edge' | 'remove' | 'move';
+export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'cost' | 'node' | 'edge' | 'remove' | 'move';
 
 export class EditorState {
 	private _mode = $state<EditMode>('wall');
-	private _weightValue = $state(5); // Default weight for weighted mode
+	private _costValue = $state(5); // Default cost for cost mode
 	private _isDrawing = $state(false);
 
 	// Graph mode specific states
@@ -25,8 +25,8 @@ export class EditorState {
 		this._isDrawing = false;
 	}
 	
-	get weightValue() { return this._weightValue; }
-	set weightValue(w: number) { this._weightValue = Math.max(1, w); }
+	get costValue() { return this._costValue; }
+	set costValue(w: number) { this._costValue = Math.max(1, w); }
 
 	get isDrawing() { return this._isDrawing; }
 	
@@ -91,7 +91,7 @@ export class EditorState {
 				break;
 			case 'erase':
 				environmentState.setGridWall(id, false);
-				environmentState.setGridWeight(id, 1);
+				environmentState.setGridCost(id, 1);
 				break;
 			case 'start':
 				environmentState.setGridStart(id);
@@ -99,9 +99,9 @@ export class EditorState {
 			case 'goal':
 				environmentState.setGridGoal(id);
 				break;
-			case 'weight':
+			case 'cost':
 				environmentState.setGridWall(id, false);
-				environmentState.setGridWeight(id, this._weightValue);
+				environmentState.setGridCost(id, this._costValue);
 				break;
 		}
 	}
@@ -147,9 +147,9 @@ export class EditorState {
 			case 'goal':
 				if (id && !id.startsWith('edge-')) environmentState.setGraphGoal(id);
 				break;
-			case 'weight':
+			case 'cost':
 				if (id && id.startsWith('edge-')) {
-					environmentState.setGraphWeight(id, this._weightValue);
+					environmentState.setGraphWeight(id, this._costValue);
 				}
 				break;
 		}
@@ -176,10 +176,10 @@ export class EditorState {
 		switch (this._mode) {
 			case 'edge':
 				if (this._dragStartNode && id && id !== this._dragStartNode && !id.startsWith('edge-')) {
-					environmentState.addGraphEdge(this._dragStartNode, id, this._weightValue);
-				} else if (this._dragStartNode && id === this._dragStartNode) {
-					// Self loop
-					environmentState.addGraphEdge(this._dragStartNode, this._dragStartNode, this._weightValue);
+					environmentState.addGraphEdge(this._dragStartNode, id, this._costValue);
+				} else {
+					// Dragged to empty space - just connect to same node (self-loop) for now or do nothing
+					environmentState.addGraphEdge(this._dragStartNode!, this._dragStartNode!, this._costValue);
 				}
 				break;
 		}

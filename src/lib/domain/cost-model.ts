@@ -1,15 +1,15 @@
-import type { GridNode } from '../graph/types';
+import type { GridCell } from '../graph/types';
 import type { GraphNode, GraphEdge } from '../graph/manual';
 
 export interface CostModel {
-	cellCost?(cell: GridNode): number;
+	cellCost?(cell: GridCell): number;
 	nodeCost?(node: GraphNode): number;
 	edgeCost?(edge: GraphEdge): number;
 	movementCost?(fromId: string, toId: string): number;
 }
 
 export const defaultGridCostModel: CostModel = {
-	cellCost: (cell: GridNode) => cell.weight,
+	cellCost: (cell: GridCell) => cell.cost,
 };
 
 export const defaultGraphCostModel: CostModel = {

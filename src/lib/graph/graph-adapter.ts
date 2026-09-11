@@ -41,7 +41,7 @@ export class GridAdapter implements BaseGraph {
 						}
 					}
 					
-					let cost = this.costModel.cellCost?.(neighbor) ?? neighbor.weight;
+					let cost = this.costModel.cellCost?.(neighbor) ?? neighbor.cost;
 					
 					if (isDiagonal && this.movementModel?.diagonalCostMultiplier) {
 						cost *= this.movementModel.diagonalCostMultiplier;

@@ -5,8 +5,8 @@ export type GridCellEdit = {
 	id: NodeId;
 	oldWalkable: boolean;
 	newWalkable: boolean;
-	oldWeight: number;
-	newWeight: number;
+	oldCost: number;
+	newCost: number;
 };
 
 export type GridBatchCommand = {

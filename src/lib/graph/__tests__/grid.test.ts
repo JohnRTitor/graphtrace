@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setStart, setGoal, setWall, setWeight, getNode } from '../grid';
+import { createGrid, setStart, setGoal, setWall, setCost, getNode } from '../grid';
 import { GridAdapter } from '../graph-adapter';
 
 describe('grid', () => {
@@ -9,7 +9,7 @@ describe('grid', () => {
 		expect(grid.start).toBeNull();
 		expect(grid.goal).toBeNull();
 		expect(getNode(grid, '1,1')?.walkable).toBe(true);
-		expect(getNode(grid, '1,1')?.weight).toBe(1);
+		expect(getNode(grid, '1,1')?.cost).toBe(1);
 	});
 
 	it('sets and clears start/goal', () => {
@@ -36,13 +36,13 @@ describe('grid', () => {
 		expect(grid.goal).toBe('1,1');
 	});
 
-	it('toggles wall and weight independently', () => {
+	it('toggles wall and cost independently', () => {
 		const grid = createGrid(3, 3);
 		setWall(grid, '1,1', false);
 		expect(getNode(grid, '1,1')?.walkable).toBe(false);
 
-		setWeight(grid, '0,0', 5);
-		expect(getNode(grid, '0,0')?.weight).toBe(5);
+		setCost(grid, '0,0', 5);
+		expect(getNode(grid, '0,0')?.cost).toBe(5);
 	});
 
 	it('characterization: start cost is 0, walls are unreachable, heuristic is Manhattan', () => {
@@ -54,8 +54,8 @@ describe('grid', () => {
 		setWall(grid, '1,1', false);
 		
 		// 2. Start cost is 0 conceptually, but we can verify neighbors entering cell cost semantics
-		setWeight(grid, '0,1', 10);
-		setWeight(grid, '1,0', 5);
+		setCost(grid, '0,1', 10);
+		setCost(grid, '1,0', 5);
 		
 		const adapter = new GridAdapter(grid);
 		

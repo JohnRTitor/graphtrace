@@ -1,6 +1,6 @@
 import type { CostModel } from '../domain/cost-model';
 import type { MovementModel } from '../domain/movement-model';
-import type { NodeId, GridNode } from '../graph/types';
+import type { NodeId, GridCell } from '../graph/types';
 import type { GraphNode, GraphEdge } from '../graph/manual';
 import type { EnvironmentType } from '../generators/types';
 
@@ -9,7 +9,7 @@ export type SchemaVersion = '1.0';
 export type SerializedGrid = {
 	rows: number;
 	cols: number;
-	nodes: [NodeId, GridNode][];
+	nodes: [NodeId, GridCell][];
 	start: NodeId | null;
 	goal: NodeId | null;
 };
@@ -19,7 +19,6 @@ export type SerializedGraph = {
 	edges: [string, GraphEdge][];
 	start: NodeId | null;
 	goal: NodeId | null;
-	directed: boolean;
 };
 
 export type SerializedWorkspace = {

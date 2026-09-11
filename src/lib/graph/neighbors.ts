@@ -1,11 +1,11 @@
-import type { Grid, GridNode, NodeId } from './types';
+import type { Grid, GridCell, NodeId } from './types';
 import { type MovementModel, getMovementOffsets } from '../domain/movement-model';
 
-export function getNeighbors(grid: Grid, nodeId: NodeId, movementModel?: MovementModel): GridNode[] {
+export function getNeighbors(grid: Grid, nodeId: NodeId, movementModel?: MovementModel): GridCell[] {
 	const node = grid.nodes.get(nodeId);
 	if (!node) return [];
 
-	const neighbors: GridNode[] = [];
+	const neighbors: GridCell[] = [];
 	const offsets = getMovementOffsets(movementModel);
 
 	for (const [dr, dc] of offsets) {

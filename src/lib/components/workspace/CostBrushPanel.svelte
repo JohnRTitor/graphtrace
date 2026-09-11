@@ -8,8 +8,8 @@
 	
 	const PRESETS = [2, 3, 5, 10, 20];
 
-	function setWeight(w: number) {
-		editorState.weightValue = w;
+	function setCost(w: number) {
+		editorState.costValue = w;
 	}
 </script>
 
@@ -19,10 +19,10 @@
 		<div class="flex flex-wrap gap-2">
 			{#each PRESETS as preset}
 				<Button
-					variant={editorState.weightValue === preset ? "default" : "outline"}
+					variant={editorState.costValue === preset ? "default" : "outline"}
 					size="sm"
 					class="w-10 h-8 p-0"
-					onclick={() => setWeight(preset)}
+					onclick={() => setCost(preset)}
 				>
 					{preset}
 				</Button>
@@ -38,7 +38,7 @@
 			min="1"
 			max="999"
 			class="h-8 w-24"
-			bind:value={editorState.weightValue}
+			bind:value={editorState.costValue}
 		/>
 	</div>
 

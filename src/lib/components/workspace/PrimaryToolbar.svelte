@@ -97,7 +97,7 @@
 
 		<div class="w-px h-6 bg-border mx-1"></div>
 
-		<ToggleGroupItem value="weight" aria-label="Cost Brush" title="Cost Brush">
+		<ToggleGroupItem value="cost" aria-label="Cost Brush" title="Cost Brush">
 			<Weight class="h-4 w-4" />
 		</ToggleGroupItem>
 		<!-- Popover for cost settings next to the tool -->

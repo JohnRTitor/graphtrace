@@ -8,7 +8,6 @@ export type GraphSnapshot = {
 	edges: GraphEdge[];
 	start: NodeId | null;
 	goal: NodeId | null;
-	directed: boolean;
 };
 
 export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot {
@@ -69,7 +68,8 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 	
 	// Helper to track edges
 	const edgeSet = new Set<string>();
-	const getEdgeKey = (s: string, t: string) => options.directed ? `${s}->${t}` : (s < t ? `${s}-${t}` : `${t}-${s}`);
+	const getEdgeKey = (s: string, t: string) => 
+		options.directed ? `${s}->${t}` : (s < t ? `${s}-${t}` : `${t}-${s}`);
 	
 	const addEdge = (s: string, t: string) => {
 		if (s === t) return false; // no self-loops
@@ -89,35 +89,21 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 
 	// 3. Ensure Path / Connectivity
 	if (options.ensurePath) {
-		if (options.directed) {
-			// Build a directed path from start to goal
-			// Pick a random path length between 0 and N-2
-			const pathLength = prng.nextInt(0, N - 1); // 0 to N-2 intermediate nodes
-			const intermediateNodes = shuffledNodes.slice(2, 2 + pathLength);
+		// Build a random spanning tree for undirected
+		const unvisited = [...shuffledNodes];
+		const visited = [unvisited.shift()!];
+		
+		while (unvisited.length > 0) {
+			const uIdx = prng.nextInt(0, visited.length);
+			const vIdx = prng.nextInt(0, unvisited.length);
 			
-			let current = startNode.id;
-			for (const node of intermediateNodes) {
-				addEdge(current, node.id);
-				current = node.id;
-			}
-			addEdge(current, goalNode.id);
-		} else {
-			// Build a random spanning tree for undirected
-			const unvisited = [...shuffledNodes];
-			const visited = [unvisited.shift()!];
+			const u = visited[uIdx];
+			const v = unvisited[vIdx];
 			
-			while (unvisited.length > 0) {
-				const uIdx = prng.nextInt(0, visited.length);
-				const vIdx = prng.nextInt(0, unvisited.length);
-				
-				const u = visited[uIdx];
-				const v = unvisited[vIdx];
-				
-				addEdge(u.id, v.id);
-				
-				visited.push(v);
-				unvisited.splice(vIdx, 1);
-			}
+			addEdge(u.id, v.id);
+			
+			visited.push(v);
+			unvisited.splice(vIdx, 1);
 		}
 	}
 	
@@ -142,7 +128,6 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 		nodes,
 		edges,
 		start: startNode.id,
-		goal: goalNode.id,
-		directed: options.directed
+		goal: goalNode.id
 	};
 }

@@ -9,7 +9,7 @@
 	import CanvasView from '$lib/components/CanvasView.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/KeyboardShortcutsDialog.svelte';
-	import { generateDefaultPreset } from '$lib/generators/presets';
+	import { generateBlankGrid } from '$lib/generators/random';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { onMount } from 'svelte';
@@ -19,7 +19,7 @@
 
 	onMount(() => {
 		// Initialize with default preset
-		const initialGrid = generateDefaultPreset(30, 40);
+		const initialGrid = generateBlankGrid(30, 40, { seed: 12345 });
 		environmentState.replaceGrid(initialGrid);
 	});
 </script>

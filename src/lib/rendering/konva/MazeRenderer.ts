@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import type { Grid, GridNode, NodeId } from '$lib/graph/types';
+import type { Grid, GridCell, NodeId } from '$lib/graph/types';
 import type { VisualizationState } from '$lib/visualization/types';
 import { MazeViewport } from './maze-viewport';
 import { MazeInteraction } from './maze-interaction';
@@ -277,23 +277,23 @@ export class MazeRenderer {
 		this.hitRect.height(gridHeight);
 
 		// Draw walls and weights
-		grid.nodes.forEach((node, id) => {
-			if (!node.walkable || node.weight > 1) {
+		grid.nodes.forEach((cell, id) => {
+			if (!cell.walkable || cell.cost > 1) {
 				const rect = new Konva.Rect({
-					x: node.col * this.cellSize,
-					y: node.row * this.cellSize,
+					x: cell.col * this.cellSize,
+					y: cell.row * this.cellSize,
 					width: this.cellSize,
 					height: this.cellSize,
-					fill: !node.walkable ? colors.wall : colors.weight,
+					fill: !cell.walkable ? colors.wall : colors.weight,
 				});
 				this.gridGroup.add(rect);
 				
-				if (node.walkable && node.weight > 1 && this.showCosts) {
+				if (cell.walkable && cell.cost > 1 && this.showCosts) {
 					const text = new Konva.Text({
-						x: node.col * this.cellSize,
-						y: node.row * this.cellSize + this.cellSize / 2 - 6,
+						x: cell.col * this.cellSize,
+						y: cell.row * this.cellSize + this.cellSize / 2 - 6,
 						width: this.cellSize,
-						text: node.weight.toString(),
+						text: cell.cost.toString(),
 						fontSize: 10,
 						fontFamily: 'sans-serif',
 						fill: colors.text,
@@ -306,8 +306,8 @@ export class MazeRenderer {
 			// Draw start and goal borders on environment layer so they are always visible
 			if (id === grid.start) {
 				this.gridGroup.add(new Konva.Rect({
-					x: node.col * this.cellSize,
-					y: node.row * this.cellSize,
+					x: cell.col * this.cellSize,
+					y: cell.row * this.cellSize,
 					width: this.cellSize,
 					height: this.cellSize,
 					stroke: colors.start,
@@ -315,8 +315,8 @@ export class MazeRenderer {
 				}));
 			} else if (id === grid.goal) {
 				this.gridGroup.add(new Konva.Rect({
-					x: node.col * this.cellSize,
-					y: node.row * this.cellSize,
+					x: cell.col * this.cellSize,
+					y: cell.row * this.cellSize,
 					width: this.cellSize,
 					height: this.cellSize,
 					stroke: colors.goal,

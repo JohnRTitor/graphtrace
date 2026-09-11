@@ -15,7 +15,6 @@ export type GraphNodeData = {
 
 export type GraphEdgeData = {
 	weight: number;
-	directed: boolean;
 	isPath: boolean;
 	state?: 'discovered' | 'expanded' | 'current' | 'path' | 'none';
 	colors: any;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { bfs } from '../bfs';
-import { createGrid, setStart, setGoal, setWeight } from '../../graph/grid';
+import { createGrid, setStart, setGoal, setCost } from '../../graph/grid';
 import { GridAdapter } from '../../graph/graph-adapter';
 import { ManualGraph } from '../../graph/manual';
 
@@ -11,7 +11,7 @@ describe('BFS on Weighted Graphs (Characterization)', () => {
 		setGoal(grid, '0,2');
 		
 		// Make the direct path extremely heavy
-		setWeight(grid, '0,1', 100);
+		setCost(grid, '0,1', 100);
 		
 		const adapter = new GridAdapter(grid);
 		const result = bfs.run(adapter, grid.start!, grid.goal!);
@@ -29,8 +29,8 @@ describe('BFS on Weighted Graphs (Characterization)', () => {
 		graph.execute({ type: 'add-node', node: { id: 'C', x: 20, y: 0, label: 'C' } });
 		
 		// Add an extremely heavy edge
-		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 50, directed: false } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 1, directed: false } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 50, directed: false  } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 1, directed: false  } });
 		
 		const result = bfs.run(graph, 'A', 'C');
 		

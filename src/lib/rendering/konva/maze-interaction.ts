@@ -67,8 +67,8 @@ export class MazeInteraction {
 			environmentState.setGridStart(cellId);
 		} else if (mode === 'goal') {
 			environmentState.setGridGoal(cellId);
-		} else if (mode === 'weight') {
-			environmentState.setGridWeight(cellId, editorState.weightValue);
+		} else if (mode === 'cost') {
+			environmentState.setGridCost(cellId, editorState.costValue);
 		}
 	}
 }

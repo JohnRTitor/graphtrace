@@ -2,8 +2,7 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
-	import WeightPresetSubmenu from '$lib/components/WeightPresetSubmenu.svelte';
-	import ArrowRightLeft from '@lucide/svelte/icons/arrow-right-left';
+	import CostPresetSubmenu from '$lib/components/CostPresetSubmenu.svelte';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	let { edgeId }: { edgeId: string } = $props();
@@ -17,19 +16,17 @@
 </script>
 
 {#if edge}
-	<WeightPresetSubmenu
-		label="Edit Weight"
-		currentWeight={edge.weight}
+	<CostPresetSubmenu
+		label="Edit Cost"
+		currentCost={edge.weight}
 		onSelect={(w) => run(() => environmentState.setGraphWeight(edgeId, w))}
 	/>
+	<ContextMenu.Item
+		onSelect={() => run(() => environmentState.setGraphEdgeDirected(edgeId, !edge!.directed))}
+	>
+		{edge.directed ? 'Make Undirected' : 'Make Directed'}
+	</ContextMenu.Item>
 
-	{#if environmentState.graphDirected}
-		<ContextMenu.Separator />
-		<ContextMenu.Item onSelect={() => run(() => environmentState.reverseGraphEdge(edgeId))}>
-			<ArrowRightLeft />
-			Reverse Direction
-		</ContextMenu.Item>
-	{/if}
 
 	<ContextMenu.Separator />
 	<ContextMenu.Item

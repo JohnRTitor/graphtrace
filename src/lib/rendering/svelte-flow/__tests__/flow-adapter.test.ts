@@ -9,9 +9,9 @@ describe('Flow Adapter', () => {
 		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
 		graph.execute({ type: 'add-node', node: { id: 'C', x: 20, y: 0, label: 'C' } });
 		
-		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: false } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 1, directed: false } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e3', source: 'A', target: 'C', weight: 1, directed: false } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: false  } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 1, directed: false  } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e3', source: 'A', target: 'C', weight: 1, directed: false  } });
 
 		// Path: A -> B -> C
 		const pathEdges = extractPathEdges(['A', 'B', 'C'], graph);

@@ -25,12 +25,11 @@ export type GraphCommand =
 	| { type: 'set-start'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-goal'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-weight'; edgeId: string; from: number; to: number }
+	| { type: 'set-edge-directed'; edgeId: string; from: boolean; to: boolean }
 	| { type: 'set-node-cost'; nodeId: NodeId; from: number | undefined; to: number }
-	| { type: 'set-directed'; from: boolean; to: boolean }
 	| { type: 'set-label'; id: NodeId; from: string; to: string }
-	| { type: 'reverse-edge'; edgeId: string; oldSource: NodeId; oldTarget: NodeId }
 	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null }
-	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; oldDirected: boolean; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null; newDirected: boolean }
+	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null }
 	| { type: 'batch'; commands: GraphCommand[] };
 
 export class ManualGraph implements BaseGraph {
@@ -38,7 +37,6 @@ export class ManualGraph implements BaseGraph {
 	edges = new Map<string, GraphEdge>();
 	start: NodeId | null = null;
 	goal: NodeId | null = null;
-	directed: boolean = false;
 
 	private _version = 0;
 
@@ -57,7 +55,7 @@ export class ManualGraph implements BaseGraph {
 		for (const edge of this.edges.values()) {
 			if (edge.source === id) {
 				neighbors.push({ target: edge.target, weight: edge.weight });
-			} else if (!edge.directed && edge.target === id) {
+			} else if (edge.target === id) {
 				neighbors.push({ target: edge.source, weight: edge.weight });
 			}
 		}
@@ -117,24 +115,17 @@ export class ManualGraph implements BaseGraph {
 				const e = this.edges.get(cmd.edgeId);
 				if (e) e.weight = cmd.to;
 				break;
+			case 'set-edge-directed':
+				const ed = this.edges.get(cmd.edgeId);
+				if (ed) ed.directed = cmd.to;
+				break;
 			case 'set-node-cost':
 				const costNode = this.nodes.get(cmd.nodeId);
 				if (costNode) costNode.cost = cmd.to;
 				break;
-			case 'set-directed':
-				this.directed = cmd.to;
-				break;
 			case 'set-label': {
 				const labelNode = this.nodes.get(cmd.id);
 				if (labelNode) labelNode.label = cmd.to;
-				break;
-			}
-			case 'reverse-edge': {
-				const revEdge = this.edges.get(cmd.edgeId);
-				if (revEdge) {
-					revEdge.source = cmd.oldTarget;
-					revEdge.target = cmd.oldSource;
-				}
 				break;
 			}
 			case 'clear':
@@ -150,7 +141,6 @@ export class ManualGraph implements BaseGraph {
 				for (const edge of cmd.newEdges) this.edges.set(edge.id, { ...edge });
 				this.start = cmd.newStart;
 				this.goal = cmd.newGoal;
-				this.directed = cmd.newDirected;
 				break;
 			case 'batch':
 				for (const c of cmd.commands) this.execute(c);
@@ -176,8 +166,7 @@ export class ManualGraph implements BaseGraph {
 			nodes: Array.from(this.nodes.values()),
 			edges: Array.from(this.edges.values()),
 			start: this.start,
-			goal: this.goal,
-			directed: this.directed
+			goal: this.goal
 		});
 	}
 
@@ -252,18 +241,16 @@ export function invertGraphCommand(cmd: GraphCommand): GraphCommand {
 			return { type: 'set-goal', from: cmd.to, to: cmd.from };
 		case 'set-weight':
 			return { type: 'set-weight', edgeId: cmd.edgeId, from: cmd.to, to: cmd.from };
+		case 'set-edge-directed':
+			return { type: 'set-edge-directed', edgeId: cmd.edgeId, from: cmd.to, to: cmd.from };
 		case 'set-node-cost':
 			return { type: 'set-node-cost', nodeId: cmd.nodeId, from: cmd.to, to: cmd.from ?? 0 };
-		case 'set-directed':
-			return { type: 'set-directed', from: cmd.to, to: cmd.from };
 		case 'set-label':
 			return { type: 'set-label', id: cmd.id, from: cmd.to, to: cmd.from };
-		case 'reverse-edge':
-			return { type: 'reverse-edge', edgeId: cmd.edgeId, oldSource: cmd.oldTarget, oldTarget: cmd.oldSource };
 		case 'clear':
-			return { type: 'replace-graph', oldNodes: [], oldEdges: [], oldStart: null, oldGoal: null, oldDirected: false, newNodes: cmd.nodes, newEdges: cmd.edges, newStart: cmd.start, newGoal: cmd.goal, newDirected: false }; // Note: directed doesn't change on clear
+			return { type: 'replace-graph', oldNodes: [], oldEdges: [], oldStart: null, oldGoal: null, newNodes: cmd.nodes, newEdges: cmd.edges, newStart: cmd.start, newGoal: cmd.goal };
 		case 'replace-graph':
-			return { type: 'replace-graph', oldNodes: cmd.newNodes, oldEdges: cmd.newEdges, oldStart: cmd.newStart, oldGoal: cmd.newGoal, oldDirected: cmd.newDirected, newNodes: cmd.oldNodes, newEdges: cmd.oldEdges, newStart: cmd.oldStart, newGoal: cmd.oldGoal, newDirected: cmd.oldDirected };
+			return { type: 'replace-graph', oldNodes: cmd.newNodes, oldEdges: cmd.newEdges, oldStart: cmd.newStart, oldGoal: cmd.newGoal, newNodes: cmd.oldNodes, newEdges: cmd.oldEdges, newStart: cmd.oldStart, newGoal: cmd.oldGoal };
 		case 'batch':
 			// Inverse of batch is the inverse of commands in reverse order
 			const inverseCommands = cmd.commands.map(invertGraphCommand).reverse();

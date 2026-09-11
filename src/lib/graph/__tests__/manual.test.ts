@@ -56,7 +56,7 @@ describe('ManualGraph', () => {
 	it('should remove attached edges when removing a node', () => {
 		execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
 		execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
-		execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: false } });
+		execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: false  } });
 		
 		expect(graph.edges.has('e1')).toBe(true);
 		
@@ -101,23 +101,7 @@ describe('ManualGraph', () => {
 		expect(graph.nodes.get('A')!.label).toBe('Origin');
 	});
 
-	it('should reverse a directed edge and undo/redo it', () => {
-		execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
-		execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
-		execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: true } });
 
-		execute({ type: 'reverse-edge', edgeId: 'e1', oldSource: 'A', oldTarget: 'B' });
-		expect(graph.edges.get('e1')!.source).toBe('B');
-		expect(graph.edges.get('e1')!.target).toBe('A');
-
-		undo();
-		expect(graph.edges.get('e1')!.source).toBe('A');
-		expect(graph.edges.get('e1')!.target).toBe('B');
-
-		redo();
-		expect(graph.edges.get('e1')!.source).toBe('B');
-		expect(graph.edges.get('e1')!.target).toBe('A');
-	});
 
 	it('clearing start/goal via set-start/set-goal with null restores on undo', () => {
 		execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });

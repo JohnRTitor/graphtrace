@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { defaultGridCostModel, defaultGraphCostModel } from '../cost-model';
-import type { GridNode } from '../../graph/types';
+import type { GridCell } from '../../graph/types';
 import type { GraphNode, GraphEdge } from '../../graph/manual';
 
 describe('CostModel', () => {
 	it('defaultGridCostModel entering-cell-cost matches old neighbor.weight behavior', () => {
-		const cell: GridNode = {
+		const cell: GridCell = {
 			id: '1,1',
 			row: 1,
 			col: 1,
 			walkable: true,
-			weight: 5
+			cost: 5
 		};
 		
 		expect(defaultGridCostModel.cellCost?.(cell)).toBe(5);
@@ -21,8 +21,7 @@ describe('CostModel', () => {
 			id: 'e1',
 			source: 'A',
 			target: 'B',
-			weight: 10,
-			directed: false
+			weight: 10, directed: false 
 		};
 		
 		expect(defaultGraphCostModel.edgeCost?.(edge)).toBe(10);

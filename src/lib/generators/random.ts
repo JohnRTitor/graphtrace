@@ -1,4 +1,4 @@
-import { createGrid, setStart, setGoal, setWall, setWeight } from '../graph/grid';
+import { createGrid, setStart, setGoal, setWall, setCost } from '../graph/grid';
 import type { Grid } from '../graph/types';
 import { PRNG } from '../utils/random';
 import type { GeneratorOptions } from './types';
@@ -30,8 +30,8 @@ export function generateRandomGrid(
 			setWall(grid, node.id, false);
 		} else if (options.weighted && prng.nextFloat() < 0.2) {
 			// 20% chance of a walkable cell having a higher weight (2-9)
-			const weight = prng.nextInt(2, 10);
-			setWeight(grid, node.id, weight);
+			const cost = prng.nextInt(2, 10);
+			setCost(grid, node.id, cost);
 		}
 	}
 

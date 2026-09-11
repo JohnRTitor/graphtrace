@@ -37,7 +37,7 @@ describe('EnvironmentState - maze context menu commands', () => {
 
 		const node = environmentState.grid.nodes.get('2,2');
 		expect(node?.walkable).toBe(true);
-		expect(node?.weight).toBe(1);
+		expect(node?.cost).toBe(1);
 	});
 
 	it('clearGridCell refuses to act on the start/goal cell (avoids a contradictory state)', () => {
@@ -63,7 +63,6 @@ describe('EnvironmentState - maze context menu commands', () => {
 describe('EnvironmentState - manual graph context menu commands', () => {
 	beforeEach(() => {
 		environmentState.clearGraph();
-		environmentState.setGraphDirected(false);
 	});
 
 	it('renameGraphNode updates the label through the undo-able command path', () => {
@@ -85,34 +84,7 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('N1');
 	});
 
-	it('reverseGraphEdge is a no-op on an undirected graph', () => {
-		const a = environmentState.addGraphNode(0, 0, 'A');
-		const b = environmentState.addGraphNode(10, 0, 'B');
-		const edgeId = environmentState.addGraphEdge(a, b, 1);
 
-		environmentState.reverseGraphEdge(edgeId);
-
-		const edge = environmentState.graph.edges.get(edgeId)!;
-		expect(edge.source).toBe(a);
-		expect(edge.target).toBe(b);
-	});
-
-	it('reverseGraphEdge swaps source/target on a directed graph and undoes cleanly', () => {
-		environmentState.setGraphDirected(true);
-		const a = environmentState.addGraphNode(0, 0, 'A');
-		const b = environmentState.addGraphNode(10, 0, 'B');
-		const edgeId = environmentState.addGraphEdge(a, b, 1);
-
-		environmentState.reverseGraphEdge(edgeId);
-		let edge = environmentState.graph.edges.get(edgeId)!;
-		expect(edge.source).toBe(b);
-		expect(edge.target).toBe(a);
-
-		environmentState.undo();
-		edge = environmentState.graph.edges.get(edgeId)!;
-		expect(edge.source).toBe(a);
-		expect(edge.target).toBe(b);
-	});
 });
 
 describe('invalidatePlaybackIfNeeded', () => {

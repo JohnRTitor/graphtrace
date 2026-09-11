@@ -23,7 +23,7 @@ describe('checkCompatibility', () => {
 	it('returns warning for weighted grid with BFS', () => {
 		const grid = createGrid(5, 5);
 		const node = grid.nodes.get('2,2')!;
-		node.weight = 5;
+		node.cost = 5;
 		const problem: GridProblem = {
 			type: 'grid',
 			grid,
@@ -53,7 +53,7 @@ describe('checkCompatibility', () => {
 		const graph = new ManualGraph();
 		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
 		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 10, label: 'B' } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 5, directed: false } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 5, directed: false  } });
 		const problem: GraphProblem = {
 			type: 'graph',
 			graph,

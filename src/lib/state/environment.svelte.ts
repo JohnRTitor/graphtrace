@@ -1,7 +1,7 @@
 import {
   createGrid,
   setWall,
-  setWeight,
+  setCost,
   setStart as setGridStart,
   setGoal as setGridGoal,
   clearGrid,
@@ -54,6 +54,7 @@ export class EnvironmentState {
   private _graphEdgeMultiplier = $state<number>(2);
   private _graphEnsurePath = $state<boolean>(true);
   private _graphWeighted = $state<boolean>(true);
+  private _graphDirected = $state<boolean>(false);
 
   // --- History State ---
   private _undoStack = $state<EnvCommand[]>([]);
@@ -102,7 +103,7 @@ export class EnvironmentState {
     this._gridVersion++;
   }
 
-  private recordGridEdit(id: NodeId, newWalkable: boolean, newWeight: number) {
+  private recordGridEdit(id: NodeId, newWalkable: boolean, newCost: number) {
     const node = getNode(this._grid, id);
     if (!node) return;
 
@@ -123,14 +124,14 @@ export class EnvironmentState {
     const existing = batch.edits.find((e) => e.id === id);
     if (existing) {
       existing.newWalkable = newWalkable;
-      existing.newWeight = newWeight;
+      existing.newCost = newCost;
     } else {
       batch.edits.push({
         id,
         oldWalkable: node.walkable,
         newWalkable,
-        oldWeight: node.weight,
-        newWeight,
+        oldCost: node.cost,
+        newCost,
       });
     }
 
@@ -139,7 +140,7 @@ export class EnvironmentState {
     } else {
       // apply mutation incrementally since we are in a batch
       setWall(this._grid, id, newWalkable);
-      setWeight(this._grid, id, newWeight);
+      setCost(this._grid, id, newCost);
       this._gridVersion++;
     }
   }
@@ -148,21 +149,21 @@ export class EnvironmentState {
     const node = getNode(this._grid, id);
     if (!node) return;
     if (id === this._grid.start || id === this._grid.goal) return;
-    this.recordGridEdit(id, !node.walkable, node.weight);
+    this.recordGridEdit(id, !node.walkable, node.cost);
   }
 
   setGridWall(id: NodeId, isWall: boolean): void {
     if (isWall && (id === this._grid.start || id === this._grid.goal)) return;
     const node = getNode(this._grid, id);
     if (!node) return;
-    this.recordGridEdit(id, !isWall, node.weight);
+    this.recordGridEdit(id, !isWall, node.cost);
   }
 
-  setGridWeight(id: NodeId, weight: number): void {
+  setGridCost(id: NodeId, cost: number): void {
     if (id === this._grid.start || id === this._grid.goal) return;
     const node = getNode(this._grid, id);
     if (!node) return;
-    this.recordGridEdit(id, node.walkable, weight);
+    this.recordGridEdit(id, node.walkable, cost);
   }
 
   setGridStart(id: NodeId): void {
@@ -172,7 +173,7 @@ export class EnvironmentState {
     const isAutoBatch = !this._activeGridBatch;
     if (isAutoBatch) this.beginGridBatch();
 
-    if (!node.walkable) this.recordGridEdit(id, true, node.weight);
+    if (!node.walkable) this.recordGridEdit(id, true, node.cost);
     this._activeGridBatch!.newStart = id;
     setGridStart(this._grid, id);
     this._gridVersion++;
@@ -187,7 +188,7 @@ export class EnvironmentState {
     const isAutoBatch = !this._activeGridBatch;
     if (isAutoBatch) this.beginGridBatch();
 
-    if (!node.walkable) this.recordGridEdit(id, true, node.weight);
+    if (!node.walkable) this.recordGridEdit(id, true, node.cost);
     this._activeGridBatch!.newGoal = id;
     setGridGoal(this._grid, id);
     this._gridVersion++;
@@ -219,7 +220,7 @@ export class EnvironmentState {
     if (isAutoBatch) this.commitGridBatch();
   }
 
-  /** Resets a single cell to its default walkable, unweighted state. */
+  /** Resets a single cell to its default walkable, uncosted state. */
   clearGridCell(id: NodeId): void {
     const node = getNode(this._grid, id);
     if (!node) return;
@@ -245,9 +246,9 @@ export class EnvironmentState {
     const snapshot = generateRandomGraph({
       nodeCount: this.graphNodeCount,
       edgeMultiplier: this.graphEdgeMultiplier,
-      directed: this._graph.directed,
       weighted: this.graphWeighted,
       ensurePath: this.graphEnsurePath,
+      directed: this.graphDirected,
       seed: this.environmentSeed,
     });
     this.replaceGraph(
@@ -255,13 +256,9 @@ export class EnvironmentState {
       snapshot.edges,
       snapshot.start,
       snapshot.goal,
-      snapshot.directed,
     );
   }
-  get graphDirected(): boolean {
-    this._graphVersion;
-    return this._graph.directed;
-  }
+
   get graphStart(): NodeId | null {
     this._graphVersion;
     return this._graph.start;
@@ -306,7 +303,7 @@ export class EnvironmentState {
     } else if (cmd.type === "grid-batch") {
       for (const edit of cmd.edits) {
         setWall(this._grid, edit.id, edit.newWalkable);
-        setWeight(this._grid, edit.id, edit.newWeight);
+        setCost(this._grid, edit.id, edit.newCost);
       }
       if (cmd.newStart !== undefined) setGridStart(this._grid, cmd.newStart);
       if (cmd.newGoal !== undefined) setGridGoal(this._grid, cmd.newGoal);
@@ -331,7 +328,7 @@ export class EnvironmentState {
     } else if (cmd.type === "grid-batch") {
       for (const edit of cmd.edits) {
         setWall(this._grid, edit.id, edit.oldWalkable);
-        setWeight(this._grid, edit.id, edit.oldWeight);
+        setCost(this._grid, edit.id, edit.oldCost);
       }
       if (cmd.oldStart !== undefined) setGridStart(this._grid, cmd.oldStart);
       if (cmd.oldGoal !== undefined) setGridGoal(this._grid, cmd.oldGoal);
@@ -395,7 +392,6 @@ export class EnvironmentState {
     newEdges: GraphEdge[],
     newStart: NodeId | null,
     newGoal: NodeId | null,
-    newDirected: boolean,
   ) {
     playbackState.reset();
     const oldNodes = Array.from(this._graph.nodes.values());
@@ -408,12 +404,10 @@ export class EnvironmentState {
         oldEdges,
         oldStart: this._graph.start,
         oldGoal: this._graph.goal,
-        oldDirected: this._graph.directed,
         newNodes,
         newEdges,
         newStart,
         newGoal,
-        newDirected,
       },
     });
   }
@@ -449,13 +443,13 @@ export class EnvironmentState {
       },
     });
   }
-  addGraphEdge(source: NodeId, target: NodeId, weight: number = 1): string {
+  addGraphEdge(source: NodeId, target: NodeId, weight: number = 1, directed: boolean = false): string {
     const id = `edge-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
       cmd: {
         type: "add-edge",
-        edge: { id, source, target, weight, directed: this._graph.directed },
+        edge: { id, source, target, weight, directed },
       },
     });
     return id;
@@ -477,17 +471,17 @@ export class EnvironmentState {
       cmd: { type: "set-goal", from: this._graph.goal, to: id },
     });
   }
-  setGraphDirected(directed: boolean) {
-    if (this._graph.directed === directed) return;
-    this.executeCommand({
-      type: "graph",
-      cmd: { type: "set-directed", from: this._graph.directed, to: directed },
-    });
-  }
+
 	setGraphWeight(edgeId: string, weight: number) {
 		const edge = this._graph.edges.get(edgeId);
 		if (!edge || edge.weight === weight) return;
 		this.executeCommand({ type: 'graph', cmd: { type: 'set-weight', edgeId, from: edge.weight, to: weight } });
+	}
+
+	setGraphEdgeDirected(edgeId: string, directed: boolean) {
+		const edge = this._graph.edges.get(edgeId);
+		if (!edge || edge.directed === directed) return;
+		this.executeCommand({ type: 'graph', cmd: { type: 'set-edge-directed', edgeId, from: edge.directed, to: directed } });
 	}
 
 	setGraphNodeCost(nodeId: NodeId, cost: number) {
@@ -505,25 +499,7 @@ export class EnvironmentState {
       cmd: { type: "set-label", id, from: node.label, to: trimmed },
     });
   }
-  /**
-   * Reverses a directed edge's source/target. No-op for undirected edges -
-   * "direction" is not a meaningful concept there, so callers (the edge
-   * context menu) should not expose this action when the graph is
-   * undirected.
-   */
-  reverseGraphEdge(edgeId: string) {
-    const edge = this._graph.edges.get(edgeId);
-    if (!edge || !this._graph.directed) return;
-    this.executeCommand({
-      type: "graph",
-      cmd: {
-        type: "reverse-edge",
-        edgeId,
-        oldSource: edge.source,
-        oldTarget: edge.target,
-      },
-    });
-  }
+
   loadGraph(data: any) {
     this._graph.load(data);
     this._graphVersion++;
@@ -617,6 +593,13 @@ export class EnvironmentState {
   }
   set graphWeighted(val: boolean) {
     this._graphWeighted = val;
+  }
+
+  get graphDirected() {
+    return this._graphDirected;
+  }
+  set graphDirected(val: boolean) {
+    this._graphDirected = val;
   }
 
   getProblem(): Problem {

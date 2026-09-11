@@ -3,9 +3,9 @@ export type EnvironmentType = 'perfect_maze' | 'braided_maze' | 'random_obstacle
 export type RandomGraphOptions = {
 	nodeCount: number;
 	edgeMultiplier: number;
-	directed: boolean;
 	weighted: boolean;
 	ensurePath: boolean;
+	directed: boolean;
 	seed: number;
 };
 

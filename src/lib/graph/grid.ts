@@ -1,7 +1,7 @@
-import type { Grid, GridNode, NodeId } from './types';
+import type { Grid, GridCell, NodeId } from './types';
 
 export function createGrid(rows: number, cols: number): Grid {
-	const nodes = new Map<NodeId, GridNode>();
+	const nodes = new Map<NodeId, GridCell>();
 	for (let r = 0; r < rows; r++) {
 		for (let c = 0; c < cols; c++) {
 			const id = `${r},${c}`;
@@ -10,7 +10,7 @@ export function createGrid(rows: number, cols: number): Grid {
 				row: r,
 				col: c,
 				walkable: true,
-				weight: 1
+				cost: 1
 			});
 		}
 	}
@@ -24,10 +24,10 @@ export function setWall(grid: Grid, id: NodeId, walkable: boolean): void {
 	}
 }
 
-export function setWeight(grid: Grid, id: NodeId, weight: number): void {
+export function setCost(grid: Grid, id: NodeId, cost: number): void {
 	const node = grid.nodes.get(id);
 	if (node) {
-		node.weight = weight;
+		node.cost = cost;
 	}
 }
 
@@ -39,13 +39,13 @@ export function setGoal(grid: Grid, id: NodeId | null): void {
 	grid.goal = id;
 }
 
-export function getNode(grid: Grid, id: NodeId): GridNode | undefined {
+export function getNode(grid: Grid, id: NodeId): GridCell | undefined {
 	return grid.nodes.get(id);
 }
 
 export function clearGrid(grid: Grid): void {
 	for (const node of grid.nodes.values()) {
 		node.walkable = true;
-		node.weight = 1;
+		node.cost = 1;
 	}
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { astar } from '../astar';
-import { createGrid, setStart, setGoal, setWall, setWeight } from '../../graph/grid';
+import { createGrid, setStart, setGoal, setWall, setCost } from '../../graph/grid';
 import { GridAdapter } from '../../graph/graph-adapter';
 import { ManualGraph } from '../../graph/manual';
 
@@ -24,7 +24,7 @@ describe('A* Algorithm', () => {
 		setGoal(grid, '0,2');
 		
 		// Direct path has high weight
-		setWeight(grid, '0,1', 10);
+		setCost(grid, '0,1', 10);
 		
 		const adapter = new GridAdapter(grid);
 		const result = astar.run(adapter, grid.start!, grid.goal!);
@@ -40,9 +40,9 @@ describe('A* Algorithm', () => {
 		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
 		graph.execute({ type: 'add-node', node: { id: 'C', x: 20, y: 0, label: 'C' } });
 		
-		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 5, directed: false } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 5, directed: false } });
-		graph.execute({ type: 'add-edge', edge: { id: 'e3', source: 'A', target: 'C', weight: 15, directed: false } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 5, directed: false  } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e2', source: 'B', target: 'C', weight: 5, directed: false  } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e3', source: 'A', target: 'C', weight: 15, directed: false  } });
 		
 		const result = astar.run(graph, 'A', 'C');
 		expect(result.metrics.pathLength).toBe(3);

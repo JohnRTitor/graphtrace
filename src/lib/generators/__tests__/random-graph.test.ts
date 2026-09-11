@@ -6,10 +6,8 @@ describe('generateRandomGraph', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 10,
 			edgeMultiplier: 2,
-			directed: false,
 			weighted: false,
-			ensurePath: false,
-			seed: 123
+			ensurePath: false, directed: false, seed: 123
 		});
 		
 		expect(snapshot.nodes.length).toBe(10);
@@ -22,10 +20,8 @@ describe('generateRandomGraph', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 5,
 			edgeMultiplier: 3,
-			directed: false,
 			weighted: false,
-			ensurePath: false,
-			seed: 123
+			ensurePath: false, directed: false, seed: 123
 		});
 		
 		const edgeSet = new Set<string>();
@@ -42,10 +38,8 @@ describe('generateRandomGraph', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 20,
 			edgeMultiplier: 1.5,
-			directed: false,
 			weighted: false,
-			ensurePath: true,
-			seed: 456
+			ensurePath: true, directed: false, seed: 456
 		});
 		
 		// At least N-1 edges for a spanning tree
@@ -80,10 +74,8 @@ describe('generateRandomGraph', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 20,
 			edgeMultiplier: 1.5,
-			directed: true,
 			weighted: false,
-			ensurePath: true,
-			seed: 789
+			ensurePath: true, directed: true, seed: 789
 		});
 		
 		const adj = new Map<string, string[]>();
@@ -118,10 +110,8 @@ describe('generateRandomGraph', () => {
 		const options = {
 			nodeCount: 15,
 			edgeMultiplier: 2,
-			directed: true,
 			weighted: true,
-			ensurePath: true,
-			seed: 999
+			ensurePath: true, directed: false, seed: 999
 		};
 		
 		const snapshot1 = generateRandomGraph(options);
@@ -134,10 +124,8 @@ describe('generateRandomGraph', () => {
 		const snapshot = generateRandomGraph({
 			nodeCount: 10,
 			edgeMultiplier: 2,
-			directed: false,
 			weighted: true,
-			ensurePath: false,
-			seed: 123
+			ensurePath: false, directed: false, seed: 123
 		});
 		
 		for (const edge of snapshot.edges) {

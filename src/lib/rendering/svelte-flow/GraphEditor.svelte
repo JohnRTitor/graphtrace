@@ -116,14 +116,14 @@
 		const mode = editorState.mode;
 		if (mode === 'remove') {
 			environmentState.removeGraphEdge(edge.id);
-		} else if (mode === 'weight') {
-			environmentState.setGraphWeight(edge.id, editorState.weightValue);
+		} else if (mode === 'cost') {
+			environmentState.setGraphWeight(edge.id, editorState.costValue);
 		}
 	}
 
 	function handleConnect(connection: Connection) {
 		if (editorState.mode !== 'edge' || !connection.source || !connection.target) return;
-		environmentState.addGraphEdge(connection.source, connection.target, editorState.weightValue);
+		environmentState.addGraphEdge(connection.source, connection.target, editorState.costValue);
 	}
 
 	function handleNodeDragStop({ event, targetNode: node, nodes }: { event: MouseEvent | TouchEvent, targetNode: Node | null, nodes: Node[] }) {

@@ -2,7 +2,7 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
-	import WeightPresetSubmenu from '$lib/components/WeightPresetSubmenu.svelte';
+	import CostPresetSubmenu from '$lib/components/CostPresetSubmenu.svelte';
 	import type { NodeId } from '$lib/graph/types';
 	import Flag from '@lucide/svelte/icons/flag';
 	import Target from '@lucide/svelte/icons/target';
@@ -20,7 +20,7 @@
 	let isStart = $derived(environmentState.gridStart === cellId);
 	let isGoal = $derived(environmentState.gridGoal === cellId);
 	let isWall = $derived(node ? !node.walkable : false);
-	let hasWeight = $derived(node ? node.weight > 1 : false);
+	let hasCost = $derived(node ? node.cost > 1 : false);
 	let supportsWeights = $derived(!!environmentState.currentAlgorithm?.supportsWeights);
 
 	function run(action: () => void) {
@@ -69,13 +69,13 @@
 			</ContextMenu.Item>
 
 			{#if supportsWeights}
-				<WeightPresetSubmenu
-					currentWeight={node.weight}
-					onSelect={(w) => run(() => environmentState.setGridWeight(cellId, w))}
+				<CostPresetSubmenu
+					currentCost={node.cost}
+					onSelect={(w) => run(() => environmentState.setGridCost(cellId, w))}
 					onCustom={() => (showCostDialog = true)}
 				/>
-				{#if hasWeight}
-					<ContextMenu.Item onSelect={() => run(() => environmentState.setGridWeight(cellId, 1))}>
+				{#if hasCost}
+					<ContextMenu.Item onSelect={() => run(() => environmentState.setGridCost(cellId, 1))}>
 						<Weight class="opacity-50" />
 						Remove Weight
 					</ContextMenu.Item>
@@ -96,6 +96,6 @@
 
 <EditCostDialog
 	bind:open={showCostDialog}
-	initialCost={node?.weight ?? 1}
-	onSave={(val) => run(() => environmentState.setGridWeight(cellId, val))}
+	initialCost={node?.cost ?? 1}
+	onSave={(val) => run(() => environmentState.setGridCost(cellId, val))}
 />

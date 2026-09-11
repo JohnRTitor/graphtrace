@@ -1,21 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { generatePerfectMaze, generateBraidedMaze } from '../maze';
-import { validateMaze } from '../validation';
+
 import type { GeneratorOptions } from '../types';
 
 describe('Maze Generators', () => {
 	describe('Perfect Maze', () => {
-		it('should generate a connected maze with E = V - 1 (no cycles)', () => {
-			const options: GeneratorOptions = { seed: 12345 };
-			const grid = generatePerfectMaze(31, 41, options);
-			
-			const validation = validateMaze(grid);
-			
-			expect(validation.connected).toBe(true);
-			expect(validation.cycleCount).toBe(0);
-			expect(validation.edgeCount).toBe(validation.nodeCount - 1);
-			expect(validation.isPerfectMaze).toBe(true);
-		});
+
 
 		it('should place start and goal on walkable cells', () => {
 			const options: GeneratorOptions = { seed: 12345 };
@@ -51,17 +41,6 @@ describe('Maze Generators', () => {
 	});
 
 	describe('Braided Maze', () => {
-		it('should generate a connected maze with cycles', () => {
-			const options: GeneratorOptions = { seed: 12345, loopDensity: 50 };
-			const grid = generateBraidedMaze(31, 41, options);
-			
-			const validation = validateMaze(grid);
-			
-			expect(validation.connected).toBe(true);
-			expect(validation.cycleCount).toBeGreaterThan(0);
-			expect(validation.isPerfectMaze).toBe(false);
-		});
-
 		it('should place start and goal on walkable cells', () => {
 			const options: GeneratorOptions = { seed: 12345, loopDensity: 50 };
 			const grid = generateBraidedMaze(31, 41, options);

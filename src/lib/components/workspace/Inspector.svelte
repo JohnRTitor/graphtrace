@@ -40,7 +40,7 @@
 				
 				{#if cell.walkable}
 					<Label class="text-xs text-muted-foreground">Cost/Weight</Label>
-					<div class="text-xs">{cell.weight}</div>
+					<div class="text-xs">{cell.cost}</div>
 				{/if}
 				
 				<Label class="text-xs text-muted-foreground">Special</Label>
@@ -82,8 +82,8 @@
 				<Label class="text-xs text-muted-foreground">Weight</Label>
 				<div class="text-xs">{edge.weight}</div>
 				
-				<Label class="text-xs text-muted-foreground">Directed</Label>
-				<div class="text-xs">{edge.directed ? 'Yes' : 'No'}</div>
+				<Label class="text-xs text-muted-foreground">Direction</Label>
+				<div class="text-xs">{edge.directed ? 'Directed' : 'Undirected'}</div>
 			</div>
 		</div>
 	{/if}

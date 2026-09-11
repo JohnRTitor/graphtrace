@@ -11,14 +11,14 @@
 	const PRESETS = [2, 3, 5, 10, 20];
 
 	let {
-		label = 'Set Weight',
-		currentWeight,
+		label = 'Set Cost',
+		currentCost,
 		onSelect,
 		onCustom
 	}: {
 		label?: string;
-		currentWeight: number | undefined;
-		onSelect: (weight: number) => void;
+		currentCost: number | undefined;
+		onSelect: (cost: number) => void;
 		onCustom?: () => void;
 	} = $props();
 </script>
@@ -30,16 +30,16 @@
 	</ContextMenu.SubTrigger>
 	<ContextMenu.SubContent>
 		{#each PRESETS as preset (preset)}
-			<ContextMenu.Item onSelect={() => onSelect(preset)} disabled={currentWeight === preset}>
+			<ContextMenu.Item onSelect={() => onSelect(preset)} disabled={currentCost === preset}>
 				{preset}
 			</ContextMenu.Item>
 		{/each}
 		<ContextMenu.Separator />
 		<ContextMenu.Item
-			onSelect={() => onSelect(editorState.weightValue)}
-			disabled={currentWeight === editorState.weightValue}
+			onSelect={() => onSelect(editorState.costValue)}
+			disabled={currentCost === editorState.costValue}
 		>
-			Panel value ({editorState.weightValue})
+			Panel value ({editorState.costValue})
 		</ContextMenu.Item>
 		{#if onCustom}
 			<ContextMenu.Separator />
