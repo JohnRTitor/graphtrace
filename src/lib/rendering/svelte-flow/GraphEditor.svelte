@@ -89,6 +89,7 @@
 	});
 
 	function handlePaneClick({ event }: { event: MouseEvent | TouchEvent }) {
+		editorState.selection = null;
 		if (editorState.mode !== 'node') return;
 		
 		const position = screenToFlowPosition({ x: ('clientX' in event ? event.clientX : event.touches[0].clientX), y: ('clientY' in event ? event.clientY : event.touches[0].clientY) });
@@ -96,6 +97,7 @@
 	}
 
 	function handleNodeClick({ event, node }: { event: MouseEvent | TouchEvent, node: Node }) {
+		editorState.selection = { type: 'node', id: node.id };
 		const mode = editorState.mode;
 		if (mode === 'remove') {
 			environmentState.removeGraphNode(node.id);
@@ -107,6 +109,7 @@
 	}
 
 	function handleEdgeClick({ event, edge }: { event: MouseEvent | TouchEvent, edge: Edge }) {
+		editorState.selection = { type: 'edge', id: edge.id };
 		const mode = editorState.mode;
 		if (mode === 'remove') {
 			environmentState.removeGraphEdge(edge.id);

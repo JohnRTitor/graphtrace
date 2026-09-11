@@ -55,6 +55,9 @@ export class MazeInteraction {
 		this.lastProcessedCell = cellId;
 
 		const mode = editorState.mode;
+		
+		// Update selection
+		editorState.selection = { type: 'cell', id: cellId };
 
 		if (mode === 'wall') {
 			environmentState.setGridWall(cellId, true);
