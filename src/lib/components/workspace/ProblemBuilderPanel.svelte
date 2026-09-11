@@ -35,7 +35,7 @@
           environmentState.graphWeighted &&
           !!environmentState.currentAlgorithm?.supportsWeights,
         ensurePath: environmentState.graphEnsurePath,
-        directed: environmentState.graphDirected,
+        directed: environmentState.defaultEdgeDirected,
         seed: environmentState.environmentSeed,
       };
       const snapshot = generateRandomGraph(options);
@@ -342,12 +342,12 @@
         {/if}
         <div class="flex items-center justify-between">
           <Label for="directed-graph" class="text-xs font-medium"
-            >Directed edges</Label
+            >New edges directed by default</Label
           >
           <Switch
             id="directed-graph"
-            checked={environmentState.graphDirected}
-            onCheckedChange={(v) => (environmentState.graphDirected = v)}
+            checked={environmentState.defaultEdgeDirected}
+            onCheckedChange={(v) => (environmentState.defaultEdgeDirected = v)}
           />
         </div>
       </div>

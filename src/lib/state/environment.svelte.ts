@@ -54,7 +54,7 @@ export class EnvironmentState {
   private _graphEdgeMultiplier = $state<number>(2);
   private _graphEnsurePath = $state<boolean>(true);
   private _graphWeighted = $state<boolean>(true);
-  private _graphDirected = $state<boolean>(false);
+  private _defaultEdgeDirected = $state<boolean>(false);
 
   // --- History State ---
   private _undoStack = $state<EnvCommand[]>([]);
@@ -248,7 +248,7 @@ export class EnvironmentState {
       edgeMultiplier: this.graphEdgeMultiplier,
       weighted: this.graphWeighted,
       ensurePath: this.graphEnsurePath,
-      directed: this.graphDirected,
+      directed: this.defaultEdgeDirected,
       seed: this.environmentSeed,
     });
     this.replaceGraph(
@@ -443,7 +443,12 @@ export class EnvironmentState {
       },
     });
   }
-  addGraphEdge(source: NodeId, target: NodeId, weight: number = 1, directed: boolean = false): string {
+  addGraphEdge(
+    source: NodeId,
+    target: NodeId,
+    weight: number = 1,
+    directed: boolean = this.defaultEdgeDirected,
+  ): string {
     const id = `edge-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
@@ -595,11 +600,11 @@ export class EnvironmentState {
     this._graphWeighted = val;
   }
 
-  get graphDirected() {
-    return this._graphDirected;
+  get defaultEdgeDirected() {
+    return this._defaultEdgeDirected;
   }
-  set graphDirected(val: boolean) {
-    this._graphDirected = val;
+  set defaultEdgeDirected(val: boolean) {
+    this._defaultEdgeDirected = val;
   }
 
   getProblem(): Problem {

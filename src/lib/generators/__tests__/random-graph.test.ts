@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateRandomGraph } from '../random-graph';
+import { ManualGraph } from '../../graph/manual';
 
 describe('generateRandomGraph', () => {
 	it('generates the correct number of nodes', () => {
@@ -132,5 +133,41 @@ describe('generateRandomGraph', () => {
 			expect(edge.weight).toBeGreaterThanOrEqual(1);
 			expect(edge.weight).toBeLessThanOrEqual(10);
 		}
+	});
+
+	it('respects directed option and allows overriding edge direction post-generation', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: 5,
+			edgeMultiplier: 2,
+			weighted: false,
+			ensurePath: false,
+			directed: true,
+			seed: 123
+		});
+		
+		// All generated edges should have directed: true
+		for (const edge of snapshot.edges) {
+			expect(edge.directed).toBe(true);
+		}
+
+		// Verify manual graph can load and modify it
+		const graph = new ManualGraph();
+		graph.load({
+			nodes: snapshot.nodes,
+			edges: snapshot.edges,
+			start: snapshot.start,
+			goal: snapshot.goal
+		});
+
+		const firstEdgeId = snapshot.edges[0].id;
+		graph.execute({
+			type: 'set-edge-directed',
+			edgeId: firstEdgeId,
+			from: true,
+			to: false
+		});
+
+		const modifiedEdge = graph.edges.get(firstEdgeId);
+		expect(modifiedEdge?.directed).toBe(false);
 	});
 });
