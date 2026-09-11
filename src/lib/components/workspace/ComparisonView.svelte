@@ -3,6 +3,7 @@
 	import { playbackState, comparePlaybackState } from '$lib/state/playback.svelte';
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
+	import ExecutionMetricsTable from '$lib/components/workspace/ExecutionMetricsTable.svelte';
 </script>
 
 <div class="flex h-full w-full">
@@ -38,5 +39,19 @@
 			</Card>
 		</div>
 		<CanvasView playback={comparePlaybackState} />
+	</div>
+	
+	<!-- Bottom Center: Comparison Metrics Table -->
+	<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+		<Card class="bg-background/95 backdrop-blur shadow-lg min-w-[500px]">
+			<CardHeader class="p-4 pb-2">
+				<CardTitle class="text-sm font-semibold text-center">Comparison Metrics</CardTitle>
+			</CardHeader>
+			<CardContent class="p-4 pt-0">
+				<ExecutionMetricsTable 
+					executions={[executionStore.activeExecution, executionStore.compareExecution].filter(Boolean) as any} 
+				/>
+			</CardContent>
+		</Card>
 	</div>
 </div>
