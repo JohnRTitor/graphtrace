@@ -107,4 +107,13 @@ describe('ManualGraph', () => {
 		graph.undo();
 		expect(graph.start).toBe('A');
 	});
+
+	it('characterization: getHeuristic always returns 0 (Dijkstra degradation)', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 100, y: 100, label: 'B' } });
+		
+		// Even though nodes have spatial coordinates, heuristic returns 0 today
+		expect(graph.getHeuristic('A', 'B')).toBe(0);
+	});
 });
