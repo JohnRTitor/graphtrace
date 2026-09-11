@@ -29,7 +29,8 @@ export type GraphCommand =
 	| { type: 'set-label'; id: NodeId; from: string; to: string }
 	| { type: 'reverse-edge'; edgeId: string; oldSource: NodeId; oldTarget: NodeId }
 	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null }
-	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; oldDirected: boolean; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null; newDirected: boolean };
+	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; oldDirected: boolean; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null; newDirected: boolean }
+	| { type: 'batch'; commands: GraphCommand[] };
 
 export class ManualGraph implements BaseGraph {
 	nodes = new Map<NodeId, GraphNode>();
@@ -37,9 +38,6 @@ export class ManualGraph implements BaseGraph {
 	start: NodeId | null = null;
 	goal: NodeId | null = null;
 	directed: boolean = false;
-
-	private undoStack: GraphCommand[] = [];
-	private redoStack: GraphCommand[] = [];
 
 	private _version = 0;
 
@@ -82,7 +80,7 @@ export class ManualGraph implements BaseGraph {
 	}
 
 	// Operations
-	execute(cmd: GraphCommand, isRedo = false) {
+	execute(cmd: GraphCommand) {
 		switch (cmd.type) {
 			case 'add-node':
 				this.nodes.set(cmd.node.id, { ...cmd.node });
@@ -149,104 +147,12 @@ export class ManualGraph implements BaseGraph {
 				this.goal = cmd.newGoal;
 				this.directed = cmd.newDirected;
 				break;
-		}
-
-		this._version++;
-		if (!isRedo) {
-			this.undoStack.push(cmd);
-			this.redoStack = [];
-		}
-	}
-
-	undo() {
-		const cmd = this.undoStack.pop();
-		if (!cmd) return;
-
-		switch (cmd.type) {
-			case 'add-node':
-				this.nodes.delete(cmd.node.id);
-				break;
-			case 'remove-node':
-				this.nodes.set(cmd.node.id, { ...cmd.node });
-				for (const edge of cmd.attachedEdges) {
-					this.edges.set(edge.id, { ...edge });
-				}
-				if (cmd.wasStart) this.start = cmd.node.id;
-				if (cmd.wasGoal) this.goal = cmd.node.id;
-				break;
-			case 'move-node':
-				const n = this.nodes.get(cmd.id);
-				if (n) {
-					n.x = cmd.from.x;
-					n.y = cmd.from.y;
-				}
-				break;
-			case 'add-edge':
-				this.edges.delete(cmd.edge.id);
-				break;
-			case 'remove-edge':
-				this.edges.set(cmd.edge.id, { ...cmd.edge });
-				break;
-			case 'set-start':
-				this.start = cmd.from;
-				break;
-			case 'set-goal':
-				this.goal = cmd.from;
-				break;
-			case 'set-weight':
-				const e = this.edges.get(cmd.edgeId);
-				if (e) e.weight = cmd.from;
-				break;
-			case 'set-directed':
-				this.directed = cmd.from;
-				break;
-			case 'set-label': {
-				const labelNode = this.nodes.get(cmd.id);
-				if (labelNode) labelNode.label = cmd.from;
-				break;
-			}
-			case 'reverse-edge': {
-				const revEdge = this.edges.get(cmd.edgeId);
-				if (revEdge) {
-					revEdge.source = cmd.oldSource;
-					revEdge.target = cmd.oldTarget;
-				}
-				break;
-			}
-			case 'clear':
-				for (const node of cmd.nodes) this.nodes.set(node.id, { ...node });
-				for (const edge of cmd.edges) this.edges.set(edge.id, { ...edge });
-				this.start = cmd.start;
-				this.goal = cmd.goal;
-				break;
-			case 'replace-graph':
-				this.nodes.clear();
-				this.edges.clear();
-				for (const node of cmd.oldNodes) this.nodes.set(node.id, { ...node });
-				for (const edge of cmd.oldEdges) this.edges.set(edge.id, { ...edge });
-				this.start = cmd.oldStart;
-				this.goal = cmd.oldGoal;
-				this.directed = cmd.oldDirected;
+			case 'batch':
+				for (const c of cmd.commands) this.execute(c);
 				break;
 		}
 
 		this._version++;
-		this.redoStack.push(cmd);
-	}
-
-	redo() {
-		const cmd = this.redoStack.pop();
-		if (!cmd) return;
-		this.execute(cmd, true);
-		this.undoStack.push(cmd);
-	}
-
-	canUndo() {
-		return this.undoStack.length > 0;
-	}
-
-	canRedo() {
-		return this.redoStack.length > 0;
 	}
 
 	getAttachedEdges(nodeId: NodeId): GraphEdge[] {
@@ -312,11 +218,48 @@ export class ManualGraph implements BaseGraph {
 		for (const e of validEdges.values()) this.edges.set(e.id, e);
 		this.start = validNodes.has(data.start) ? data.start : null;
 		this.goal = validNodes.has(data.goal) ? data.goal : null;
-		this.directed = typeof data.directed === 'boolean' ? data.directed : false;
 		this._version++;
-		
-		// Clear stacks when loading new graph
-		this.undoStack = [];
-		this.redoStack = [];
+	}
+}
+
+export function invertGraphCommand(cmd: GraphCommand): GraphCommand {
+	switch (cmd.type) {
+		case 'add-node':
+			return { type: 'remove-node', node: cmd.node, attachedEdges: [] };
+		case 'remove-node': {
+			const batch: GraphCommand[] = [ { type: 'add-node', node: cmd.node } ];
+			for (const edge of cmd.attachedEdges) {
+				batch.push({ type: 'add-edge', edge });
+			}
+			if (cmd.wasStart) batch.push({ type: 'set-start', from: null, to: cmd.node.id });
+			if (cmd.wasGoal) batch.push({ type: 'set-goal', from: null, to: cmd.node.id });
+			return { type: 'batch', commands: batch };
+		}
+		case 'move-node':
+			return { type: 'move-node', id: cmd.id, from: cmd.to, to: cmd.from };
+		case 'add-edge':
+			return { type: 'remove-edge', edge: cmd.edge };
+		case 'remove-edge':
+			return { type: 'add-edge', edge: cmd.edge };
+		case 'set-start':
+			return { type: 'set-start', from: cmd.to, to: cmd.from };
+		case 'set-goal':
+			return { type: 'set-goal', from: cmd.to, to: cmd.from };
+		case 'set-weight':
+			return { type: 'set-weight', edgeId: cmd.edgeId, from: cmd.to, to: cmd.from };
+		case 'set-directed':
+			return { type: 'set-directed', from: cmd.to, to: cmd.from };
+		case 'set-label':
+			return { type: 'set-label', id: cmd.id, from: cmd.to, to: cmd.from };
+		case 'reverse-edge':
+			return { type: 'reverse-edge', edgeId: cmd.edgeId, oldSource: cmd.oldTarget, oldTarget: cmd.oldSource };
+		case 'clear':
+			return { type: 'replace-graph', oldNodes: [], oldEdges: [], oldStart: null, oldGoal: null, oldDirected: false, newNodes: cmd.nodes, newEdges: cmd.edges, newStart: cmd.start, newGoal: cmd.goal, newDirected: false }; // Note: directed doesn't change on clear
+		case 'replace-graph':
+			return { type: 'replace-graph', oldNodes: cmd.newNodes, oldEdges: cmd.newEdges, oldStart: cmd.newStart, oldGoal: cmd.newGoal, oldDirected: cmd.newDirected, newNodes: cmd.oldNodes, newEdges: cmd.oldEdges, newStart: cmd.oldStart, newGoal: cmd.oldGoal, newDirected: cmd.oldDirected };
+		case 'batch':
+			// Inverse of batch is the inverse of commands in reverse order
+			const inverseCommands = cmd.commands.map(invertGraphCommand).reverse();
+			return { type: 'batch', commands: inverseCommands };
 	}
 }

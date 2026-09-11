@@ -72,10 +72,10 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 		environmentState.renameGraphNode(id, 'Origin');
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('Origin');
 
-		environmentState.undoGraph();
+		environmentState.undo();
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('N1');
 
-		environmentState.redoGraph();
+		environmentState.redo();
 		expect(environmentState.graph.nodes.get(id)?.label).toBe('Origin');
 	});
 
@@ -108,7 +108,7 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 		expect(edge.source).toBe(b);
 		expect(edge.target).toBe(a);
 
-		environmentState.undoGraph();
+		environmentState.undo();
 		edge = environmentState.graph.edges.get(edgeId)!;
 		expect(edge.source).toBe(a);
 		expect(edge.target).toBe(b);

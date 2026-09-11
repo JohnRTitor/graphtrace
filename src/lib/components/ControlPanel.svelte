@@ -291,8 +291,8 @@
 				<Button size="sm" onclick={handleGenerate}>Generate</Button>
 				<Button variant="outline" size="sm" onclick={handleClear}>Clear</Button>
 			{:else}
-				<Button size="sm" disabled={!environmentState.graphCanUndo} onclick={() => environmentState.undoGraph()}>Undo</Button>
-				<Button variant="outline" size="sm" disabled={!environmentState.graphCanRedo} onclick={() => environmentState.redoGraph()}>Redo</Button>
+				<Button size="sm" disabled={!environmentState.canUndo} onclick={() => environmentState.undo()}>Undo</Button>
+				<Button variant="outline" size="sm" disabled={!environmentState.canRedo} onclick={() => environmentState.redo()}>Redo</Button>
 				<div class="col-span-2">
 					<Button variant="outline" class="w-full" size="sm" onclick={handleClear}>Clear Graph</Button>
 				</div>

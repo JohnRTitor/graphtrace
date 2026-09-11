@@ -43,6 +43,7 @@ export class EditorState {
 		if (environmentState.environmentType === 'graph') {
 			this.applyGraphEditDown(id, x, y);
 		} else {
+			environmentState.beginGridBatch();
 			if (id) this.applyGridEdit(id);
 		}
 	}
@@ -59,6 +60,8 @@ export class EditorState {
 	onPointerUp(id: NodeId | null) {
 		if (environmentState.environmentType === 'graph') {
 			this.applyGraphEditUp(id);
+		} else {
+			environmentState.commitGridBatch();
 		}
 		this._isDrawing = false;
 		this._dragStartNode = null;
@@ -66,6 +69,9 @@ export class EditorState {
 	}
 	
 	onPointerLeave() {
+		if (environmentState.environmentType !== 'graph') {
+			environmentState.commitGridBatch();
+		}
 		this._isDrawing = false;
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
