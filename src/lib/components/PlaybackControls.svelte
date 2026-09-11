@@ -59,6 +59,8 @@
 	});
 
 	function handleProgressScrub(value: number) {
+		if (Math.abs(value - playbackState.progressPercentage) < 0.1) return;
+		
 		playbackState.seekPercentage(value);
 		if (executionStore.isComparing) {
 			comparePlaybackState.seekPercentage(value);
