@@ -9,6 +9,29 @@ import type { ManualGraph } from '../graph/manual';
 export class ExecutionStore {
 	private executions = $state<Map<ExecutionId, Execution>>(new Map());
 	private _activeId = $state<ExecutionId | null>(null);
+	private _compareId = $state<ExecutionId | null>(null);
+	private _isComparing = $state<boolean>(false);
+
+	get isComparing(): boolean {
+		return this._isComparing;
+	}
+
+	set isComparing(val: boolean) {
+		this._isComparing = val;
+	}
+
+	get compareId(): ExecutionId | null {
+		return this._compareId;
+	}
+
+	set compareId(id: ExecutionId | null) {
+		this._compareId = id;
+	}
+
+	get compareExecution(): Execution | null {
+		if (!this._compareId) return null;
+		return this.executions.get(this._compareId) || null;
+	}
 
 	get activeId(): ExecutionId | null {
 		return this._activeId;
@@ -31,6 +54,10 @@ export class ExecutionStore {
 		this.executions.delete(id);
 		if (this._activeId === id) {
 			this._activeId = null;
+		}
+		if (this._compareId === id) {
+			this._compareId = null;
+			this._isComparing = false;
 		}
 	}
 
@@ -74,9 +101,18 @@ export class ExecutionStore {
 		};
 
 		this.executions.set(id, execution);
-		this._activeId = id; // New runs automatically become active
+		
+		if (this._isComparing && this._activeId) {
+			this._compareId = id;
+		} else {
+			this._activeId = id; // New runs automatically become active
+		}
 		
 		return id;
+	}
+
+	getAllExecutions(): Execution[] {
+		return Array.from(this.executions.values());
 	}
 }
 

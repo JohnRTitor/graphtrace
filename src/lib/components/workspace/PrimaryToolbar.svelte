@@ -14,8 +14,47 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Move from '@lucide/svelte/icons/move';
 	import Search from '@lucide/svelte/icons/search';
+	import Save from '@lucide/svelte/icons/save';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import SplitSquareHorizontal from '@lucide/svelte/icons/split-square-horizontal';
+	import { Button } from '$lib/components/ui/button';
+	import { serializeWorkspace, deserializeWorkspace } from '$lib/persistence/save-load';
+	import { executionStore } from '$lib/state/execution-store.svelte';
 
 	import CostBrushPanel from './CostBrushPanel.svelte';
+
+	let fileInput = $state<HTMLInputElement | null>(null);
+
+	function handleSave() {
+		const json = serializeWorkspace(environmentState);
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `graphtrace-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	function handleLoad(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const json = e.target?.result as string;
+				deserializeWorkspace(json, environmentState);
+			} catch (err) {
+				console.error('Failed to load workspace:', err);
+				alert('Failed to load workspace. See console for details.');
+			}
+		};
+		reader.readAsText(file);
+		// Reset input so the same file can be loaded again if needed
+		target.value = '';
+	}
 </script>
 
 <div class="flex items-center gap-1 border-b bg-card p-2 shadow-sm">
@@ -71,4 +110,30 @@
 			</PopoverContent>
 		</Popover>
 	</ToggleGroup>
+	
+	<div class="flex-1"></div>
+	
+	<div class="flex items-center gap-2 pr-2">
+		<Button 
+			variant={executionStore.isComparing ? "secondary" : "ghost"} 
+			size="sm" 
+			class="h-8 gap-1" 
+			onclick={() => executionStore.isComparing = !executionStore.isComparing}
+		>
+			<SplitSquareHorizontal class="h-4 w-4" />
+			Compare
+		</Button>
+		
+		<div class="w-px h-6 bg-border mx-1"></div>
+
+		<input type="file" accept=".json" class="hidden" bind:this={fileInput} onchange={handleLoad} />
+		<Button variant="outline" size="sm" class="h-8 gap-1" onclick={() => fileInput?.click()}>
+			<FolderOpen class="h-3.5 w-3.5" />
+			Load
+		</Button>
+		<Button variant="default" size="sm" class="h-8 gap-1" onclick={handleSave}>
+			<Save class="h-3.5 w-3.5" />
+			Save
+		</Button>
+	</div>
 </div>

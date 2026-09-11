@@ -5,11 +5,13 @@
 	import Inspector from '$lib/components/workspace/Inspector.svelte';
 	import AlgorithmCompatibilityBanner from '$lib/components/workspace/AlgorithmCompatibilityBanner.svelte';
 	import PlaybackControls from '$lib/components/PlaybackControls.svelte';
+	import ComparisonView from '$lib/components/workspace/ComparisonView.svelte';
 	import CanvasView from '$lib/components/CanvasView.svelte';
 	import StatsPanel from '$lib/components/StatsPanel.svelte';
 	import KeyboardShortcutsDialog from '$lib/components/KeyboardShortcutsDialog.svelte';
 	import { generateDefaultPreset } from '$lib/generators/presets';
 	import { environmentState } from '$lib/state/environment.svelte';
+	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { onMount } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 
@@ -47,7 +49,11 @@
 			</div>
 			
 			<div class="relative flex-1 overflow-hidden">
-				<CanvasView />
+				{#if executionStore.isComparing}
+					<ComparisonView />
+				{:else}
+					<CanvasView />
+				{/if}
 				
 				<!-- Stats overlay floating panel -->
 				<StatsPanel />

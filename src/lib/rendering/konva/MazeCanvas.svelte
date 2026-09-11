@@ -12,6 +12,9 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import MazeContextMenu from './MazeContextMenu.svelte';
 	import type { NodeId } from '$lib/graph/types';
+	import type { PlaybackState } from '$lib/state/playback.svelte';
+
+	let { playback = playbackState } = $props<{ playback?: PlaybackState }>();
 
 	let container = $state<HTMLDivElement | null>(null);
 	let renderer = $state<MazeRenderer | null>(null);
@@ -83,7 +86,7 @@
 	// Re-render visualization when vizState changes
 	$effect(() => {
 		if (renderer) {
-			renderer.renderVisualization(playbackState.vizState, environmentState.grid);
+			renderer.renderVisualization(playback.vizState, environmentState.grid);
 		}
 	});
 

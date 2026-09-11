@@ -16,6 +16,9 @@
 	import RenameNodeDialog from './RenameNodeDialog.svelte';
 	import type { GraphContextTarget } from '$lib/state/context-menu-targets';
 	import type { NodeId } from '$lib/graph/types';
+	import type { PlaybackState } from '$lib/state/playback.svelte';
+
+	let { playback = playbackState } = $props<{ playback?: PlaybackState }>();
 
 	const nodeTypes: NodeTypes = {
 		custom: GraphNodeComponent
@@ -76,16 +79,16 @@
 	});
 
 	let pathEdges = $derived.by(() => {
-		if (!playbackState.vizState?.pathNodes || playbackState.vizState.pathNodes.size === 0) return new Set<string>();
-		return extractPathEdges(Array.from(playbackState.vizState.pathNodes), environmentState.graph);
+		if (!playback.vizState?.pathNodes || playback.vizState.pathNodes.size === 0) return new Set<string>();
+		return extractPathEdges(Array.from(playback.vizState.pathNodes), environmentState.graph);
 	});
 
 	let nodes = $derived.by(() => {
-		return toFlowNodes(environmentState.graph, playbackState.vizState, environmentState.showCosts, colors);
+		return toFlowNodes(environmentState.graph, playback.vizState, environmentState.showCosts, colors);
 	});
 
 	let edges = $derived.by(() => {
-		return toFlowEdges(environmentState.graph, playbackState.vizState, pathEdges, colors);
+		return toFlowEdges(environmentState.graph, playback.vizState, pathEdges, colors);
 	});
 
 	function handlePaneClick({ event }: { event: MouseEvent | TouchEvent }) {

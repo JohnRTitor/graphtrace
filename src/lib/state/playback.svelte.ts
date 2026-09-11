@@ -12,8 +12,10 @@ export class PlaybackState {
 	private _currentStep = $state(0);
 	private _totalSteps = $state(0);
 	private _speed = $state(50); // events per second
+	private _executionType: 'active' | 'compare';
 
-	constructor() {
+	constructor(executionType: 'active' | 'compare' = 'active') {
+		this._executionType = executionType;
 		this.engine = new PlaybackEngine({
 			onStateChange: (state, status) => {
 				this._vizState = state;
@@ -26,18 +28,6 @@ export class PlaybackState {
 		});
 		
 		this.engine.setSpeed(this._speed);
-
-		// Synchronize engine with the active execution
-		$effect.root(() => {
-			$effect(() => {
-				const exec = executionStore.activeExecution;
-				if (exec) {
-					// Check if we need to load (prevent reloading same execution repeatedly)
-					// We'll just load it. loadEvents calls pause() and reset() internally.
-					// To avoid doing it repeatedly, we can track the loaded ID.
-				}
-			});
-		});
 	}
 
 	// Internal tracker for the loaded execution
@@ -47,7 +37,9 @@ export class PlaybackState {
 	public initEffects() {
 		$effect.root(() => {
 			$effect(() => {
-				const exec = executionStore.activeExecution;
+				const exec = this._executionType === 'active' 
+					? executionStore.activeExecution 
+					: executionStore.compareExecution;
 				if (exec && this._loadedExecutionId !== exec.id) {
 					this._loadedExecutionId = exec.id;
 					this._totalSteps = exec.trace.length;
@@ -127,7 +119,10 @@ export class PlaybackState {
 	}
 }
 
-// Global singleton
-export const playbackState = new PlaybackState();
-// Initialize the effect root
+// Global singletons
+export const playbackState = new PlaybackState('active');
+export const comparePlaybackState = new PlaybackState('compare');
+
+// Initialize the effect roots
 playbackState.initEffects();
+comparePlaybackState.initEffects();
