@@ -68,6 +68,9 @@
 					menuOpen = false;
 				}
 			});
+			renderer.resize(container.clientWidth, container.clientHeight);
+			renderer.renderEnvironment(renderGrid);
+			renderer.fitToView();
 		});
 
 		return () => {

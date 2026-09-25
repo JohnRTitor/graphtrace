@@ -24,6 +24,7 @@
 	import CostBrushPanel from './CostBrushPanel.svelte';
 
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let loadError = $state<string | null>(null);
 
 	function handleSave() {
 		const json = serializeWorkspace(environmentState);
@@ -37,19 +38,22 @@
 	}
 
 	function handleLoad(e: Event) {
+		loadError = null;
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 		if (!file) return;
 
 		const reader = new FileReader();
+		reader.onerror = () => {
+			loadError = 'Unable to read the selected workspace file.';
+		};
 		reader.onload = (e) => {
 			try {
 				const json = e.target?.result as string;
 				deserializeWorkspace(json, environmentState);
 				editorState.mode = getCompatibleEditorMode(editorState.mode, environmentState.environmentType);
 			} catch (err) {
-				console.error('Failed to load workspace:', err);
-				alert('Failed to load workspace. See console for details.');
+				loadError = err instanceof Error ? err.message : 'Unable to load the selected workspace.';
 			}
 		};
 		reader.readAsText(file);
@@ -58,7 +62,12 @@
 	}
 </script>
 
-<div class="flex items-center gap-1 border-b bg-card p-2 shadow-sm">
+<div class="relative flex items-center gap-1 border-b bg-card p-2 shadow-sm">
+	{#if loadError}
+		<p class="absolute right-2 top-14 z-30 max-w-[min(90vw,28rem)] rounded-md border border-destructive/30 bg-background px-3 py-2 text-xs text-destructive shadow-lg" role="alert">
+			{loadError}
+		</p>
+	{/if}
 	<ToggleGroup 
 		type="single" 
 		value={editorState.mode} 
