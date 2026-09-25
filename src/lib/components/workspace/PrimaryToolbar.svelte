@@ -35,7 +35,7 @@
 		a.href = url;
 		a.download = `graphtrace-workspace-${new Date().toISOString().slice(0, 10)}.json`;
 		a.click();
-		URL.revokeObjectURL(url);
+		setTimeout(() => URL.revokeObjectURL(url), 0);
 	}
 
 	function handleLoad(e: Event) {
