@@ -24,6 +24,20 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 	
 	const nodes: GraphNode[] = [];
 	const edges: GraphEdge[] = [];
+	const nodeIds = new Set<string>();
+	const edgeIds = new Set<string>();
+	const genNodeId = () => {
+		let id = '';
+		do id = `node-${genId()}`; while (nodeIds.has(id));
+		nodeIds.add(id);
+		return id;
+	};
+	const genEdgeId = () => {
+		let id = '';
+		do id = `edge-${genId()}`; while (edgeIds.has(id));
+		edgeIds.add(id);
+		return id;
+	};
 	
 	const N = Math.max(2, Math.min(100, Math.floor(Number.isFinite(options.nodeCount) ? options.nodeCount : 2)));
 	
@@ -53,7 +67,7 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 		}
 		
 		nodes.push({
-			id: `node-${genId()}`,
+			id: genNodeId(),
 			x,
 			y,
 			label: String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : '')
@@ -78,7 +92,7 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 		
 		edgeSet.add(key);
 		edges.push({
-			id: `edge-${genId()}`,
+			id: genEdgeId(),
 			source: s,
 			target: t,
 			weight: options.weighted ? prng.nextInt(1, 10) : 1, // 1 to 9
