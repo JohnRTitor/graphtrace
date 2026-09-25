@@ -25,7 +25,7 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 	const nodes: GraphNode[] = [];
 	const edges: GraphEdge[] = [];
 	
-	const N = Math.max(2, options.nodeCount); // At least 2 nodes for start/goal
+	const N = Math.max(2, Math.min(100, Math.floor(Number.isFinite(options.nodeCount) ? options.nodeCount : 2)));
 	
 	// Canvas logical size (Svelte Flow can zoom/pan, so this is just a reasonable spread)
 	const WIDTH = 800;
@@ -109,7 +109,8 @@ export function generateRandomGraph(options: RandomGraphOptions): GraphSnapshot 
 	
 	// 4. Fill remaining density
 	// We use the edgeMultiplier from options to determine the target edges.
-	let targetEdges = Math.floor(options.edgeMultiplier * N);
+	const edgeMultiplier = Number.isFinite(options.edgeMultiplier) ? Math.max(0, Math.min(10, options.edgeMultiplier)) : 0;
+	let targetEdges = Math.floor(edgeMultiplier * N);
 	
 	const maxPossibleEdges = options.directed ? N * (N - 1) : (N * (N - 1)) / 2;
 	targetEdges = Math.min(targetEdges, maxPossibleEdges);

@@ -8,14 +8,16 @@ export function generateRandomGrid(
 	cols: number,
 	options: GeneratorOptions
 ): Grid {
-	const density = (options.obstacleDensity ?? 30) / 100;
-	const grid = createGrid(rows, cols);
+	const safeRows = Math.max(1, Math.min(1000, Math.floor(Number.isFinite(rows) ? rows : 1)));
+	const safeCols = Math.max(1, Math.min(1000, Math.floor(Number.isFinite(cols) ? cols : 1)));
+	const density = Math.max(0, Math.min(1, (options.obstacleDensity ?? 30) / 100));
+	const grid = createGrid(safeRows, safeCols);
 	const prng = new PRNG(options.seed);
 
-	const startR = Math.floor(rows / 2);
-	const startC = Math.floor(cols / 4);
-	const goalR = Math.floor(rows / 2);
-	const goalC = Math.floor((cols * 3) / 4);
+	const startR = Math.floor(safeRows / 2);
+	const startC = Math.floor(safeCols / 4);
+	const goalR = Math.floor(safeRows / 2);
+	const goalC = Math.floor((safeCols * 3) / 4);
 	
 	const startId = `${startR},${startC}`;
 	const goalId = `${goalR},${goalC}`;
@@ -43,12 +45,14 @@ export function generateBlankGrid(
 	cols: number,
 	options: GeneratorOptions
 ): Grid {
-	const grid = createGrid(rows, cols);
+	const safeRows = Math.max(1, Math.min(1000, Math.floor(Number.isFinite(rows) ? rows : 1)));
+	const safeCols = Math.max(1, Math.min(1000, Math.floor(Number.isFinite(cols) ? cols : 1)));
+	const grid = createGrid(safeRows, safeCols);
 
-	const startR = Math.floor(rows / 2);
-	const startC = Math.floor(cols / 4);
-	const goalR = Math.floor(rows / 2);
-	const goalC = Math.floor((cols * 3) / 4);
+	const startR = Math.floor(safeRows / 2);
+	const startC = Math.floor(safeCols / 4);
+	const goalR = Math.floor(safeRows / 2);
+	const goalC = Math.floor((safeCols * 3) / 4);
 	
 	setStart(grid, `${startR},${startC}`);
 	setGoal(grid, `${goalR},${goalC}`);

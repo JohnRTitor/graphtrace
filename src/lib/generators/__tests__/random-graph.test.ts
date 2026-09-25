@@ -170,4 +170,19 @@ describe('generateRandomGraph', () => {
 		const modifiedEdge = graph.edges.get(firstEdgeId);
 		expect(modifiedEdge?.directed).toBe(false);
 	});
+
+	it('normalizes invalid generation options', () => {
+		const snapshot = generateRandomGraph({
+			nodeCount: Number.NaN,
+			edgeMultiplier: Number.NaN,
+			weighted: true,
+			ensurePath: true,
+			directed: false,
+			seed: Number.NaN
+		});
+
+		expect(snapshot.nodes.length).toBeGreaterThanOrEqual(2);
+		expect(snapshot.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y))).toBe(true);
+		expect(snapshot.edges.every((edge) => Number.isFinite(edge.weight) && edge.weight >= 0)).toBe(true);
+	});
 });

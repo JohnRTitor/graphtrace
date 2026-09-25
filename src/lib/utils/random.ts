@@ -2,8 +2,8 @@ export class PRNG {
 	private seed: number;
 
 	constructor(seed: number) {
-		// Basic splitmix32 hash to initialize state if seed is not well distributed
-		this.seed = this.splitmix32(seed)();
+		const safeSeed = Number.isFinite(seed) ? Math.trunc(seed) : 0;
+		this.seed = this.splitmix32(safeSeed)();
 	}
 
 	private splitmix32(a: number) {
@@ -32,7 +32,10 @@ export class PRNG {
 
 	// Returns an integer between min (inclusive) and max (exclusive)
 	public nextInt(min: number, max: number): number {
-		return Math.floor(this.nextFloat() * (max - min)) + min;
+		const safeMin = Number.isFinite(min) ? Math.trunc(min) : 0;
+		const safeMax = Number.isFinite(max) ? Math.trunc(max) : safeMin;
+		if (safeMax <= safeMin) return safeMin;
+		return Math.floor(this.nextFloat() * (safeMax - safeMin)) + safeMin;
 	}
 
 	// Fisher-Yates shuffle

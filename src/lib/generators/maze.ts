@@ -4,6 +4,8 @@ import { PRNG } from '../utils/random';
 import type { GeneratorOptions } from './types';
 
 export function generatePerfectMaze(rows: number, cols: number, options: GeneratorOptions): Grid {
+	rows = Math.max(3, Math.min(1000, Math.floor(Number.isFinite(rows) ? rows : 3)));
+	cols = Math.max(3, Math.min(1000, Math.floor(Number.isFinite(cols) ? cols : 3)));
 	const grid = createGrid(rows, cols);
 	const prng = new PRNG(options.seed);
 	
@@ -100,7 +102,8 @@ export function generateBraidedMaze(rows: number, cols: number, options: Generat
 	const grid = generatePerfectMaze(rows, cols, options);
 	const prng = new PRNG(options.seed);
 	
-	const loopDensity = (options.loopDensity ?? 10) / 100; // 0.0 to 1.0
+	const requestedLoopDensity = options.loopDensity ?? 10;
+	const loopDensity = Math.max(0, Math.min(1, (Number.isFinite(requestedLoopDensity) ? requestedLoopDensity : 10) / 100));
 	
 	// A perfect maze has walls on even rows/cols that separate odd rows/cols.
 	// To create loops, we randomly remove some of these internal walls.
