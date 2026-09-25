@@ -67,4 +67,43 @@ describe('save-load', () => {
 		expect(edge.source).toBe(nodeA);
 		expect(edge.target).toBe(nodeB);
 	});
+
+	it('rejects malformed grid data before changing the environment', () => {
+		const malformed = JSON.stringify({
+			schemaVersion: '1.0',
+			environmentType: 'blank',
+			environmentSeed: 1,
+			grid: {
+				data: {
+					rows: 2,
+					cols: 2,
+					nodes: [['0,0', { id: '0,0', row: 0, col: 0, walkable: true, cost: 1 }]],
+					start: '0,0',
+					goal: null
+				}
+			}
+		});
+
+		expect(() => deserializeWorkspace(malformed, envState)).toThrow();
+		expect(envState.environmentType).toBe('blank');
+	});
+
+	it('rejects graph edges with missing endpoints', () => {
+		const malformed = JSON.stringify({
+			schemaVersion: '1.0',
+			environmentType: 'graph',
+			environmentSeed: 1,
+			graph: {
+				data: {
+					nodes: [['A', { id: 'A', x: 0, y: 0, label: 'A' }]],
+					edges: [['bad', { id: 'bad', source: 'A', target: 'missing', weight: 1, directed: false }]],
+					start: 'A',
+					goal: null
+				}
+			}
+		});
+
+		expect(() => deserializeWorkspace(malformed, envState)).toThrow();
+		expect(envState.environmentType).not.toBe('graph');
+	});
 });

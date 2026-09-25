@@ -195,7 +195,7 @@ describe('playback execution lifecycle', () => {
 		expect(playbackState.hasLoadedTrace).toBe(true);
 		expect(comparePlaybackState.hasLoadedTrace).toBe(true);
 
-		environmentState.environmentType = 'blank';
+		environmentState.environmentType = 'graph';
 
 		expect(playbackState.hasLoadedTrace).toBe(false);
 		expect(comparePlaybackState.hasLoadedTrace).toBe(false);
@@ -203,6 +203,7 @@ describe('playback execution lifecycle', () => {
 		expect(comparePlaybackState.isIdle).toBe(true);
 		expect(executionStore.activeId).toBeNull();
 		expect(executionStore.compareId).toBeNull();
+		environmentState.environmentType = 'blank';
 	});
 
 	it('invalidates traces on algorithm changes', () => {
