@@ -60,25 +60,12 @@ import {
 } from "../graph/game-tree";
 import { PRNG } from "../utils/random";
 import { defaultAlgorithmId, familyForEnvironment, getFamily } from "../families/registry";
+import { isGraphLikeEnvironment } from "./editor-modes";
 import { invertGraphCommand } from "../graph/manual";
 import type { EnvCommand } from "../domain/command";
 import type { GridCommand, GridSnapshot } from "../graph/commands";
 
 export type RunAlgorithmMode = "autoplay" | "step";
-
-/** Environment types drawn with a node-edge canvas rather than the cell grid. */
-const GRAPH_LIKE_ENVIRONMENTS = new Set<EnvironmentType>([
-  "graph",
-  "manual_tree",
-  "tic_tac_toe",
-  "tic_tac_toe_limited",
-  "nim",
-  "random_tree",
-]);
-
-export function isGraphLikeEnvironment(type: EnvironmentType): boolean {
-  return GRAPH_LIKE_ENVIRONMENTS.has(type);
-}
 
 
 function finiteOr(value: number, fallback: number): number {
@@ -229,6 +216,47 @@ export class EnvironmentState {
   get gridGoal(): NodeId | null {
     this._gridVersion;
     return this._grid.goal;
+  }
+
+  /**
+   * Bumped whenever anything about the grid's appearance changes.
+   *
+   * The renderer is not reactive: it repaints only when a component effect hands
+   * it a grid it considers changed, and that test is this number. The grid object
+   * itself is mutated in place for performance, so its identity is not a usable
+   * change signal - painting a wall would leave the identity untouched and the
+   * canvas would never hear about it.
+   */
+  get gridVersion(): number {
+    return this._gridVersion;
+  }
+
+  /**
+   * Applies a cell edit immediately, for live feedback mid-drag, without
+   * recording history.
+   *
+   * A drag records one batched command and replays it on commit, so routing
+   * these through `executeCommand` would leave an undo entry per painted cell.
+   * The version bump is the point of this method: without it the model changes
+   * while the user is still dragging and the wall stays invisible until they
+   * release the mouse.
+   */
+  applyGridCellLive(id: NodeId, walkable: boolean, cost: number): void {
+    setWall(this._grid, id, walkable);
+    setCost(this._grid, id, cost);
+    this._gridVersion++;
+  }
+
+  /** Live counterpart to {@link setGridStart}; see {@link applyGridCellLive}. */
+  setGridStartLive(id: NodeId | null): void {
+    setGridStart(this._grid, id);
+    this._gridVersion++;
+  }
+
+  /** Live counterpart to {@link setGridGoal}; see {@link applyGridCellLive}. */
+  setGridGoalLive(id: NodeId | null): void {
+    setGridGoal(this._grid, id);
+    this._gridVersion++;
   }
 
   resizeGrid(rows: number, cols: number): void {

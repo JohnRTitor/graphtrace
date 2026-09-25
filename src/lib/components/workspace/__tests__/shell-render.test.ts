@@ -8,6 +8,8 @@ import PlaybackControls from '../../PlaybackControls.svelte';
 import ComparisonView from '../ComparisonView.svelte';
 import AlgorithmPalette from '../AlgorithmPalette.svelte';
 import { families } from '../../../families/registry';
+import { environmentState } from '../../../state/environment.svelte';
+import { editorState } from '../../../state/editor.svelte';
 
 /**
  * Server-render smoke tests.
@@ -118,5 +120,92 @@ describe('app shell renders', () => {
 	it('renders the comparison view with no panes rather than crashing', () => {
 		// With nothing mounted the grid is empty; the point is that it does not throw.
 		expect(() => render(ComparisonView)).not.toThrow();
+	});
+
+	describe('tool strip', () => {
+		/**
+		 * The strip used to hard-code which tools to show per family, while the
+		 * editor validated the active tool with a separate rule. The two could
+		 * disagree, and did: the strip rendered with none of its buttons active and
+		 * clicks on the canvas did nothing, which read as a broken wall brush.
+		 *
+		 * Tools are icon-only, so they are identified by their accessible label
+		 * rather than by text content.
+		 */
+		const labels = (body: string) =>
+			Array.from(body.matchAll(/aria-label="([^"]+)"/g)).map((match) => match[1]);
+
+		const activeTool = (body: string) => {
+			// A selected toggle item is marked `data-state="on"`; grab its label.
+			const on = body.match(/data-state="on"[^>]*aria-label="([^"]+)"/);
+			if (on) return on[1];
+			const reversed = body.match(/aria-label="([^"]+)"[^>]*data-state="on"/);
+			return reversed?.[1] ?? null;
+		};
+
+		it('always renders exactly one active tool for a grid', () => {
+			environmentState.familyId = 'pathfinding';
+			environmentState.environmentType = 'perfect_maze';
+			editorState.mode = 'remove'; // a graph-only tool, carried over
+
+			const { body } = render(PrimaryToolbar);
+
+			expect(activeTool(body)).toBe('Draw Walls');
+		});
+
+		it('shows the wall and erase tools on a grid', () => {
+			environmentState.familyId = 'pathfinding';
+			environmentState.environmentType = 'blank';
+			editorState.mode = 'wall';
+
+			const found = labels(render(PrimaryToolbar).body);
+
+			expect(found).toContain('Draw Walls');
+			expect(found).toContain('Erase');
+			expect(found).not.toContain('Add Edge');
+		});
+
+		it('shows topology tools on a manual graph', () => {
+			environmentState.familyId = 'pathfinding';
+			environmentState.environmentType = 'graph';
+			editorState.mode = 'wall'; // a grid-only tool, carried over
+
+			const { body } = render(PrimaryToolbar);
+			const found = labels(body);
+
+			expect(found).toContain('Add Node');
+			expect(found).toContain('Add Edge');
+			expect(found).not.toContain('Draw Walls');
+			expect(activeTool(body)).toBe('Add Node');
+		});
+
+		it('offers no paint or marker tools on a game tree', () => {
+			environmentState.familyId = 'adversarial';
+			environmentState.environmentType = 'manual_tree';
+			editorState.mode = 'wall';
+
+			const { body } = render(PrimaryToolbar);
+			const found = labels(body);
+
+			expect(found).not.toContain('Draw Walls');
+			expect(found).not.toContain('Erase');
+			expect(found).not.toContain('Set Start');
+			expect(found).not.toContain('Set Goal');
+			expect(found).toContain('Remove');
+			expect(activeTool(body)).toBe('Remove');
+		});
+
+		it('keeps exactly one tool active through a family round trip', () => {
+			environmentState.familyId = 'pathfinding';
+			environmentState.environmentType = 'perfect_maze';
+			editorState.mode = 'wall';
+			expect(activeTool(render(PrimaryToolbar).body)).toBe('Draw Walls');
+
+			environmentState.familyId = 'adversarial';
+			expect(activeTool(render(PrimaryToolbar).body)).toBe('Remove');
+
+			environmentState.familyId = 'pathfinding';
+			expect(activeTool(render(PrimaryToolbar).body)).toBe('Draw Walls');
+		});
 	});
 });

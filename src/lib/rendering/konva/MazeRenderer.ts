@@ -5,7 +5,7 @@ import { MazeViewport } from './maze-viewport';
 import { MazeInteraction } from './maze-interaction';
 import type { EditorState } from '$lib/state/editor.svelte';
 import type { EnvironmentState } from '$lib/state/environment.svelte';
-import { stageToCellId } from './maze-coords';
+import { stageToCellId, viewportCoverRect } from './maze-coords';
 import { tracePaletteFor } from '$lib/theme/tokens';
 
 type InputEvent = MouseEvent | TouchEvent | PointerEvent;
@@ -44,6 +44,24 @@ export class MazeRenderer {
 	private paintedStates = new Map<NodeId, string>();
 	private activeCellIds = new Set<NodeId>();
 
+	/**
+	 * The Konva nodes currently drawn for each cell that has a wall or a cost.
+	 *
+	 * Painting a wall now repaints on every cell the pointer crosses, so this
+	 * function cannot rebuild the grid each time - on a 31x41 maze that is
+	 * several hundred nodes per pointermove. Instead each cell's nodes are
+	 * created once and then updated in place, and a cell is only touched when
+	 * its own appearance actually differs.
+	 */
+	private cellChrome = new Map<NodeId, { wall: Konva.Rect; cost: Konva.Text | null }>();
+	private cellGroup: Konva.Group;
+	private markerGroup: Konva.Group;
+	private gridLines: Konva.Shape | null = null;
+	private gridLinesKey = '';
+	/** Which cell the start/goal outlines were last drawn for. */
+	private markerStartId: NodeId | null = null;
+	private markerGoalId: NodeId | null = null;
+
 	private hoverRect: Konva.Rect;
 	private selectionRect: Konva.Rect;
 	private hitRect: Konva.Rect;
@@ -79,6 +97,10 @@ export class MazeRenderer {
 		this.interactionLayer = new Konva.Layer();
 
 		this.gridGroup = new Konva.Group();
+		this.cellGroup = new Konva.Group();
+		this.markerGroup = new Konva.Group();
+		this.gridGroup.add(this.cellGroup);
+		this.gridGroup.add(this.markerGroup);
 		this.environmentLayer.add(this.gridGroup);
 
 		this.algoGroup = new Konva.Group();
@@ -334,8 +356,20 @@ export class MazeRenderer {
 			this.interactionLayer.batchDraw();
 			return;
 		}
+		// A start or goal cell already carries an outline that *means* something.
+		// The selection is a cursor, not a marker, and it lives in the topmost
+		// layer - so drawing it there would paint over the marker and, if it shared
+		// its colour, be mistaken for one.
+		if (selection.id === grid.start || selection.id === grid.goal) {
+			this.selectionRect.visible(false);
+			this.interactionLayer.batchDraw();
+			return;
+		}
 		this.selectionRect.position({ x: node.col * this.cellSize, y: node.row * this.cellSize });
-		this.selectionRect.stroke(this.getColors().path);
+		// `selection`, not `path`: in both themes `path` is the solution-path green
+		// and is the exact same value as `start`, so a selection drawn in it reads
+		// as a start marker.
+		this.selectionRect.stroke(this.getColors().selection);
 		this.selectionRect.visible(true);
 		this.interactionLayer.batchDraw();
 	}
@@ -343,8 +377,8 @@ export class MazeRenderer {
 	public resize(width: number, height: number) {
 		this.stage.width(Math.max(0, Number.isFinite(width) ? width : 0));
 		this.stage.height(Math.max(0, Number.isFinite(height) ? height : 0));
-		this.hitRect.width(this.stage.width());
-		this.hitRect.height(this.stage.height());
+		// `updateBackground` owns the hit rect's geometry: it has to be in stage-local
+		// space to span the viewport, not in screen pixels.
 		this.updateBackground();
 		this.stage.batchDraw();
 	}
@@ -369,11 +403,25 @@ export class MazeRenderer {
 	public updateTheme(theme: 'light' | 'dark') {
 		this.currentTheme = theme;
 		this.hoverRect.fill(this.getColors().hover);
-		// Every painted colour is now wrong, so the diff cache has to be dropped
-		// or `renderVisualization` would correctly - and wrongly - skip the repaint.
+		// Every painted colour is now wrong, so the diff caches have to be dropped
+		// or the incremental repaint would correctly - and wrongly - skip them.
 		this.paintedStates.clear();
+		this.resetCellChrome();
+		this.markerGroup.destroyChildren();
+		this.markerStartId = null;
+		this.markerGoalId = null;
+		this.gridLinesKey = '';
 		this.renderEnvironment(this.currentGrid);
 		this.renderVisualization(this.currentVizState, this.currentGrid);
+	}
+
+	/** Throws away the drawn cell nodes so the next repaint rebuilds them. */
+	private resetCellChrome() {
+		for (const entry of this.cellChrome.values()) {
+			entry.wall.destroy();
+			entry.cost?.destroy();
+		}
+		this.cellChrome.clear();
 	}
 
 	public updateShowCosts(showCosts: boolean) {
@@ -382,21 +430,29 @@ export class MazeRenderer {
 	}
 
 	private updateBackground() {
-		const scaleX = Number.isFinite(this.stage.scaleX()) && this.stage.scaleX() > 0
-			? this.stage.scaleX()
-			: 1;
-		const scaleY = Number.isFinite(this.stage.scaleY()) && this.stage.scaleY() > 0
-			? this.stage.scaleY()
-			: 1;
-		const width = Math.max(0, Number.isFinite(this.stage.width()) ? this.stage.width() : 0);
-		const height = Math.max(0, Number.isFinite(this.stage.height()) ? this.stage.height() : 0);
-		this.backgroundRect.position({
-			x: -this.stage.x() / scaleX,
-			y: -this.stage.y() / scaleY,
-		});
-		this.backgroundRect.width(width / scaleX);
-		this.backgroundRect.height(height / scaleY);
+		const cover = viewportCoverRect(
+			this.stage.x(),
+			this.stage.y(),
+			this.stage.scaleX(),
+			this.stage.scaleY(),
+			this.stage.width(),
+			this.stage.height()
+		);
+
+		this.backgroundRect.position({ x: cover.x, y: cover.y });
+		this.backgroundRect.width(cover.width);
+		this.backgroundRect.height(cover.height);
 		this.backgroundRect.fill(this.getColors().background);
+
+		// The hit surface has to span the viewport for the same reason. Left at the
+		// origin in stage-local coordinates it shrinks to a corner as soon as
+		// `fitToView` scales the stage down, so pointer events stop reaching the
+		// editor over most of the maze - painting looks broken while the cells
+		// nearest the top-left still work.
+		this.hitRect.position({ x: cover.x, y: cover.y });
+		this.hitRect.width(cover.width);
+		this.hitRect.height(cover.height);
+
 		this.backgroundLayer.batchDraw();
 	}
 
@@ -410,15 +466,21 @@ export class MazeRenderer {
 		this.currentGrid = grid;
 		this.updateBackground();
 		if (!grid) {
-			this.gridGroup.destroyChildren();
+			// Empty the *contents* of the groups rather than destroying the groups:
+			// `cellGroup`/`markerGroup` are long-lived and reused by the next grid.
+			this.resetCellChrome();
+			this.markerGroup.destroyChildren();
+			this.markerStartId = null;
+			this.markerGoalId = null;
+			this.gridLines?.destroy();
+			this.gridLines = null;
+			this.gridLinesKey = '';
 			this.algoCellRects.forEach((rect) => rect.destroy());
 			this.algoCellRects.clear();
 			// A new grid invalidates every painted colour, so the diff cache has to be
 			// dropped with the rects it describes.
 			this.paintedStates.clear();
 			this.activeCellIds.clear();
-			this.hitRect.width(this.stage.width());
-			this.hitRect.height(this.stage.height());
 			this.selectionRect.visible(false);
 			this.clearHover();
 			this.environmentLayer.batchDraw();
@@ -426,14 +488,8 @@ export class MazeRenderer {
 		}
 
 		const colors = this.getColors();
-		this.gridGroup.destroyChildren();
-
-		const gridWidth = grid.cols * this.cellSize;
-		const gridHeight = grid.rows * this.cellSize;
 
 		// Update hit rect size
-		this.hitRect.width(this.stage.width());
-		this.hitRect.height(this.stage.height());
 		this.algoCellRects.forEach((rect, id) => {
 			if (!grid.nodes.has(id)) {
 				rect.destroy();
@@ -442,77 +498,133 @@ export class MazeRenderer {
 			}
 		});
 
-		// Draw walls and weights
-		const markersCoincide = grid.start === grid.goal;
-		grid.nodes.forEach((cell, id) => {
-			if (!cell.walkable || cell.cost !== 1) {
-				const rect = new Konva.Rect({
-					x: cell.col * this.cellSize,
-					y: cell.row * this.cellSize,
-					width: this.cellSize,
-					height: this.cellSize,
-					fill: !cell.walkable ? colors.barrier : colors.surface,
-				});
-				this.gridGroup.add(rect);
-				
-				if (cell.walkable && cell.cost !== 1 && this.showCosts) {
-					const text = new Konva.Text({
-						x: cell.col * this.cellSize,
-						y: cell.row * this.cellSize + this.cellSize / 2 - 6,
-						width: this.cellSize,
-						text: cell.cost.toString(),
+		// Draw walls and weights, diffed against what is already on the canvas.
+		// A drag repaints per cell, so rebuilding every node here would make
+		// painting feel like dragging through treacle.
+		const cs = this.cellSize;
+		const chrome = this.cellChrome;
+
+		for (const [id, cell] of grid.nodes) {
+			const needsFill = !cell.walkable || cell.cost !== 1;
+			let entry = chrome.get(id);
+
+			if (!needsFill) {
+				if (entry) {
+					entry.wall.destroy();
+					entry.cost?.destroy();
+					chrome.delete(id);
+				}
+				continue;
+			}
+
+			if (!entry) {
+				entry = { wall: new Konva.Rect({ width: cs, height: cs }), cost: null };
+				this.cellGroup.add(entry.wall);
+				chrome.set(id, entry);
+			}
+
+			entry.wall.position({ x: cell.col * cs, y: cell.row * cs });
+			const fill = cell.walkable ? colors.surface : colors.barrier;
+			if (entry.wall.fill() !== fill) entry.wall.fill(fill);
+
+			const wantCost = cell.walkable && cell.cost !== 1 && this.showCosts;
+			if (wantCost) {
+				if (!entry.cost) {
+					entry.cost = new Konva.Text({
+						x: cell.col * cs,
+						y: cell.row * cs + cs / 2 - 6,
+						width: cs,
 						fontSize: 10,
 						fontFamily: 'sans-serif',
-						fill: colors.mutedText,
 						align: 'center',
 					});
-					this.gridGroup.add(text);
+					this.cellGroup.add(entry.cost);
 				}
+				const label = cell.cost.toString();
+				if (entry.cost.text() !== label) entry.cost.text(label);
+				if (entry.cost.fill() !== colors.mutedText) entry.cost.fill(colors.mutedText);
+			} else if (entry.cost) {
+				entry.cost.destroy();
+				entry.cost = null;
 			}
-			
-			// Draw start and goal borders on environment layer so they are always visible
-			if (id === grid.start) {
-				this.gridGroup.add(new Konva.Rect({
-					x: cell.col * this.cellSize,
-					y: cell.row * this.cellSize,
-					width: this.cellSize,
-					height: this.cellSize,
-					stroke: colors.start,
-					lineWidth: markersCoincide ? 1 : 2,
-					dash: markersCoincide ? [4, 2] : undefined,
-				}));
-			}
-			if (id === grid.goal) {
-				this.gridGroup.add(new Konva.Rect({
-					x: cell.col * this.cellSize,
-					y: cell.row * this.cellSize,
-					width: this.cellSize,
-					height: this.cellSize,
-					stroke: colors.goal,
-					lineWidth: 2,
-				}));
-			}
-		});
+		}
 
-		// Draw grid lines
-		const lines = new Konva.Shape({
-			sceneFunc: (context, shape) => {
-				context.beginPath();
-				for (let i = 0; i <= grid.cols; i++) {
-					context.moveTo(i * this.cellSize, 0);
-					context.lineTo(i * this.cellSize, gridHeight);
+		// Cells that no longer exist (a resize, or a clear).
+		for (const [id, entry] of chrome) {
+			if (!grid.nodes.has(id)) {
+				entry.wall.destroy();
+				entry.cost?.destroy();
+				chrome.delete(id);
+			}
+		}
+
+		// Start and goal outlines live in their own group so moving a marker
+		// re-draws two nodes rather than the whole grid.
+		if (this.markerStartId !== grid.start || this.markerGoalId !== grid.goal) {
+			this.markerGroup.destroyChildren();
+			this.markerStartId = grid.start;
+			this.markerGoalId = grid.goal;
+			const markersCoincide = grid.start === grid.goal;
+
+			if (grid.start !== null) {
+				const cell = grid.nodes.get(grid.start);
+				if (cell) {
+					this.markerGroup.add(
+						new Konva.Rect({
+							x: cell.col * cs,
+							y: cell.row * cs,
+							width: cs,
+							height: cs,
+							stroke: colors.start,
+							lineWidth: markersCoincide ? 1 : 2,
+							dash: markersCoincide ? [4, 2] : undefined,
+						})
+					);
 				}
-				for (let j = 0; j <= grid.rows; j++) {
-					context.moveTo(0, j * this.cellSize);
-					context.lineTo(gridWidth, j * this.cellSize);
+			}
+			if (grid.goal !== null) {
+				const cell = grid.nodes.get(grid.goal);
+				if (cell) {
+					this.markerGroup.add(
+						new Konva.Rect({
+							x: cell.col * cs,
+							y: cell.row * cs,
+							width: cs,
+							height: cs,
+							stroke: colors.goal,
+							lineWidth: 2,
+						})
+					);
 				}
-				context.strokeStyle = colors.structure;
-				context.lineWidth = 1;
-				context.stroke();
-			},
-		});
-		this.gridGroup.add(lines);
-		
+			}
+		}
+
+		// Grid lines depend only on the dimensions and the theme.
+		const linesKey = `${grid.rows}x${grid.cols}x${cs}x${this.currentTheme}`;
+		if (linesKey !== this.gridLinesKey) {
+			this.gridLinesKey = linesKey;
+			this.gridLines?.destroy();
+			const gridWidth = grid.cols * cs;
+			const gridHeight = grid.rows * cs;
+			this.gridLines = new Konva.Shape({
+				sceneFunc: (context, shape) => {
+					context.beginPath();
+					for (let i = 0; i <= grid.cols; i++) {
+						context.moveTo(i * cs, 0);
+						context.lineTo(i * cs, gridHeight);
+					}
+					for (let j = 0; j <= grid.rows; j++) {
+						context.moveTo(0, j * cs);
+						context.lineTo(gridWidth, j * cs);
+					}
+					context.strokeStyle = colors.structure;
+					context.lineWidth = 1;
+					context.stroke();
+				},
+			});
+			this.gridGroup.add(this.gridLines);
+		}
+
 		this.environmentLayer.batchDraw();
 	}
 
@@ -603,6 +715,7 @@ export class MazeRenderer {
 		this.algoCellRects.clear();
 		this.paintedStates.clear();
 		this.activeCellIds.clear();
+		this.resetCellChrome();
 		this.currentGrid = null;
 		this.currentVizState = null;
 		this.stage.destroy();

@@ -95,6 +95,13 @@
 
 	// Re-render environment when grid changes
 	$effect(() => {
+		// Depend on the version, not on the grid's identity. Cells are edited in
+		// place, so `renderGrid` hands back the same object reference before and
+		// after a wall is painted - and Svelte discards a derived that recomputes
+		// to an equal value, so an effect watching only `renderGrid` never re-runs.
+		// The result was a canvas one edit behind: the model was right, the pixels
+		// were stale until switching tools forced a catch-up repaint.
+		void environmentState.gridVersion;
 		if (renderer && renderGrid) {
 			renderer.renderEnvironment(renderGrid);
 		}

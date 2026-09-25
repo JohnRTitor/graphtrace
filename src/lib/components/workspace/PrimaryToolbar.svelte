@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { editorState, getCompatibleEditorMode, type EditMode } from '$lib/state/editor.svelte';
+	import { editorState, availableEditModes, type EditMode } from '$lib/state/editor.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
@@ -29,16 +29,39 @@
 	let loadError = $state<string | null>(null);
 
 	/**
-	 * The tool strip is family-aware: a game tree is edited by selecting a node
-	 * rather than painting, so the wall/erase tools only exist for grids, and the
-	 * cost brush is shown wherever the family has something to cost.
+	 * The tools are derived from `availableEditModes`, the same function the editor
+	 * uses to validate the active mode. Strip and state therefore cannot disagree:
+	 * whatever the strip renders, clicking the canvas will act on, and one of the
+	 * buttons is always highlighted.
 	 */
-	let isGrid = $derived(
-		!environmentState.isAdversarialFamily && environmentState.environmentType !== 'graph'
-	);
-	let isPathfindingGraph = $derived(environmentState.isPathfindingGraph);
-	let showCostBrush = $derived(!environmentState.isAdversarialFamily);
-	let showMarkers = $derived(!environmentState.isAdversarialFamily);
+	let tools = $derived(availableEditModes(environmentState.environmentType));
+
+	const TOOL_ICONS: Record<EditMode, typeof MousePointer2> = {
+		wall: MousePointer2,
+		erase: Eraser,
+		start: Flag,
+		goal: Target,
+		cost: Weight,
+		node: Circle,
+		edge: ArrowRight,
+		remove: Trash2,
+		move: Move
+	};
+
+	const TOOL_LABELS: Record<EditMode, string> = {
+		wall: 'Draw Walls',
+		erase: 'Erase',
+		start: 'Set Start',
+		goal: 'Set Goal',
+		cost: 'Cost Brush',
+		node: 'Add Node',
+		edge: 'Add Edge',
+		remove: 'Remove',
+		move: 'Move Node'
+	};
+
+	/** Dividers between the "paint", "markers" and "cost" groups. */
+	const DIVIDERS_AFTER = new Set<EditMode>(['erase', 'goal']);
 
 	function handleSave() {
 		const json = serializeWorkspace(environmentState);
@@ -65,7 +88,9 @@
 			try {
 				const json = e.target?.result as string;
 				deserializeWorkspace(json, environmentState);
-				editorState.mode = getCompatibleEditorMode(editorState.mode, environmentState.environmentType);
+				// No mode reconciliation needed: the editor resolves the active tool against
+				// the environment on read, so a loaded workspace cannot leave a tool
+				// selected that the loaded environment cannot act on.
 			} catch (err) {
 				loadError = err instanceof Error ? err.message : 'Unable to load the selected workspace.';
 			}
@@ -93,64 +118,38 @@
 		<ToggleGroup
 			type="single"
 			value={editorState.mode}
-			onValueChange={(v) => { if (v) editorState.mode = v as EditMode; }}			class="justify-start flex-wrap gap-1"
+			onValueChange={(v) => { if (v) editorState.mode = v as EditMode; }}
+			class="justify-start flex-wrap gap-1"
 		>
-			{#if isPathfindingGraph}
-				<ToggleGroupItem value="move" aria-label="Move Node" title="Move Node">
-					<Move class="h-4 w-4" />
+			{#each tools as tool (tool)}
+				{@const Icon = TOOL_ICONS[tool]}
+				<ToggleGroupItem
+					value={tool}
+					aria-label={TOOL_LABELS[tool]}
+					title={TOOL_LABELS[tool]}
+				>
+					<span class={tool === 'goal' ? 'text-red-500' : tool === 'start' ? 'text-green-500' : ''}>
+						<Icon class="h-4 w-4" />
+					</span>
 				</ToggleGroupItem>
-				<ToggleGroupItem value="node" aria-label="Add Node" title="Add Node">
-					<Circle class="h-4 w-4" />
-				</ToggleGroupItem>
-				<ToggleGroupItem value="edge" aria-label="Add Edge" title="Add Edge">
-					<ArrowRight class="h-4 w-4" />
-				</ToggleGroupItem>
-				<ToggleGroupItem value="remove" aria-label="Remove" title="Remove">
-					<Trash2 class="h-4 w-4" />
-				</ToggleGroupItem>
-			{:else if isGrid}
-				<ToggleGroupItem value="wall" aria-label="Draw Walls" title="Draw Walls">
-					<MousePointer2 class="h-4 w-4" />
-				</ToggleGroupItem>
-				<ToggleGroupItem value="erase" aria-label="Erase" title="Erase">
-					<Eraser class="h-4 w-4" />
-				</ToggleGroupItem>
-			{:else}
-				<!--
-					A game tree has no paint modes: adding a move, re-rooting and removing
-					are actions on a selected node, driven from the tree canvas panel.
-				-->
-				<ToggleGroupItem value="remove" aria-label="Remove Node" title="Remove Node">
-					<Trash2 class="h-4 w-4" />
-				</ToggleGroupItem>
-			{/if}
-
-			{#if showMarkers}
-				<div class="mx-1 h-6 w-px bg-border"></div>
-				<ToggleGroupItem value="start" aria-label="Set Start" title="Set Start">
-					<Flag class="h-4 w-4" />
-				</ToggleGroupItem>
-				<ToggleGroupItem value="goal" aria-label="Set Goal" title="Set Goal">
-					<Target class="h-4 w-4" />
-				</ToggleGroupItem>
-			{/if}
-
-			{#if showCostBrush}
-				<div class="mx-1 h-6 w-px bg-border"></div>
-				<ToggleGroupItem value="cost" aria-label="Cost Brush" title="Cost Brush">
-					<Weight class="h-4 w-4" />
-				</ToggleGroupItem>
-				<Popover>
-					<PopoverTrigger aria-label="Open cost brush settings" class="flex h-10 items-center justify-center rounded-md px-2 gt-transition-feedback hover:bg-accent hover:text-accent-foreground sm:h-9">
-						<SlidersHorizontal class="h-3.5 w-3.5" />
-					</PopoverTrigger>
-					<PopoverContent class="w-80" side="bottom" align="start">
-						<CostBrushPanel />
-					</PopoverContent>
-				</Popover>
-			{/if}
+				{#if DIVIDERS_AFTER.has(tool)}
+					<div class="mx-1 h-6 w-px bg-border"></div>
+				{/if}
+				{#if tool === 'cost'}
+					<Popover>
+						<PopoverTrigger
+							aria-label="Open cost brush settings"
+							class="flex h-10 items-center justify-center rounded-md px-2 gt-transition-feedback hover:bg-accent hover:text-accent-foreground sm:h-9"
+						>
+							<SlidersHorizontal class="h-3.5 w-3.5" />
+						</PopoverTrigger>
+						<PopoverContent class="w-80" side="bottom" align="start">
+							<CostBrushPanel />
+						</PopoverContent>
+					</Popover>
+				{/if}
+			{/each}
 		</ToggleGroup>
-
 		<div class="flex-1"></div>
 
 		<div class="flex items-center gap-2 pr-1">

@@ -4,6 +4,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { comparePlaybackStates, playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
+	import { availableEditModes } from '$lib/state/editor-modes';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { onMount, onDestroy } from 'svelte';
@@ -87,13 +88,19 @@
 				e.preventDefault();
 				resetPlayback();
 				break;
-			case 'e':
-				// Wall/erase only exist for grid environments; a game tree and a
-				// manual graph have no paint tools to toggle between.
-				if (environmentState.isAdversarialFamily || environmentState.isPathfindingGraph) return;
+			case 'e': {
+				// Toggle between the two paint tools, and only when this environment
+				// actually has them. Derived from the same table the toolbar renders,
+				// so a new environment cannot leave a shortcut writing a tool its
+				// canvas does not implement - which is how this rule drifted before.
+				const paint = availableEditModes(environmentState.environmentType).filter(
+					(mode) => mode === 'wall' || mode === 'erase'
+				);
+				if (paint.length < 2) return;
 				e.preventDefault();
-				editorState.mode = editorState.mode === 'wall' ? 'erase' : 'wall';
+				editorState.mode = editorState.mode === paint[0] ? paint[1] : paint[0];
 				break;
+			}
 		}
 	}
 

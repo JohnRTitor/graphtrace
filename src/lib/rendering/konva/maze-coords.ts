@@ -36,6 +36,43 @@ export function resolveCellId(
 }
 
 /**
+ * The rectangle, expressed in a child of the stage's own local coordinates,
+ * that covers the entire visible viewport under the stage's current scale and
+ * pan.
+ *
+ * Children of the stage inherit its transform, so a rectangle sized in screen
+ * pixels is *not* a screen-sized rectangle once the stage is zoomed: `fitToView`
+ * scales the stage down to fit the maze, and a rect left at the origin with the
+ * stage's pixel dimensions ends up covering only a corner of the canvas. Anything
+ * that has to span the viewport regardless of zoom - the background, and the
+ * transparent `hitRect` that receives pointer events - must be placed with this.
+ */
+export function viewportCoverRect(
+	stageX: number,
+	stageY: number,
+	scaleX: number,
+	scaleY: number,
+	width: number,
+	height: number
+): { x: number; y: number; width: number; height: number } {
+	const sx = Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1;
+	const sy = Number.isFinite(scaleY) && scaleY > 0 ? scaleY : 1;
+	const px = Number.isFinite(stageX) ? stageX : 0;
+	const py = Number.isFinite(stageY) ? stageY : 0;
+	const w = Math.max(0, Number.isFinite(width) ? width : 0);
+	const h = Math.max(0, Number.isFinite(height) ? height : 0);
+
+	// A local point `p` lands at `p * s + offset` on screen, so the screen span
+	// [0, size] inverts to [-offset / s, (size - offset) / s] locally.
+	return {
+		x: -px / sx,
+		y: -py / sy,
+		width: w / sx,
+		height: h / sy
+	};
+}
+
+/**
  * Authoritative screen -> grid-local transform, shared by every consumer
  * that needs to know "which cell is the pointer over" (painting, hover
  * highlight, context menu). Do not duplicate this transform elsewhere.

@@ -1,32 +1,23 @@
 import type { NodeId } from '../graph/types';
-import { environmentState, isGraphLikeEnvironment } from './environment.svelte';
+import { environmentState } from './environment.svelte';
 import { invalidatePlaybackIfNeeded } from './invalidate';
 import { Interactor } from '../interaction/interactor';
-import { getNode, setWall, setCost, setStart, setGoal } from '../graph/grid';
-import type { EnvironmentType } from '../generators/types';
+import { getNode } from '../graph/grid';
+import { getCompatibleEditorMode, isGraphLikeEnvironment, type EditMode } from './editor-modes';
 
-export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'cost' | 'node' | 'edge' | 'remove' | 'move';
-
-/**
- * Reconciles the active edit tool with the environment.
- *
- * Grid environments get the wall/erase tools; every node-edge environment -
- * manual graphs and the adversarial family's game trees alike - gets the
- * node/edge/remove/move tools. This is the one place that knows a game tree
- * behaves like a graph as far as *pointing at things* is concerned.
- */
-export function getCompatibleEditorMode(mode: EditMode, environmentType: EnvironmentType): EditMode {
-	const graphLike = isGraphLikeEnvironment(environmentType);
-	if (graphLike && (mode === 'wall' || mode === 'erase')) return 'node';
-	if (!graphLike && (mode === 'node' || mode === 'edge' || mode === 'remove' || mode === 'move')) return 'wall';
-	return mode;
-}
+// Re-exported so the tool vocabulary has one definition while existing imports
+// (`interactor.ts`, the toolbar, tests) keep working.
+export {
+	availableEditModes,
+	getCompatibleEditorMode,
+	isGraphLikeEnvironment,
+	type EditMode
+} from './editor-modes';
 
 export class EditorState {
 	private _mode = $state<EditMode>('wall');
 	private _costValue = $state(5); // Default cost for cost mode
 	private _isDrawing = $state(false);
-	
 	private _interactor = new Interactor(
 		(cmd) => environmentState.executeCommand(cmd),
 		(cmd) => environmentState.revertGridCommand(cmd)
@@ -42,10 +33,28 @@ export class EditorState {
 	// Global Selection
 	private _selection = $state<{type: 'node' | 'edge' | 'cell', id: string} | null>(null);
 
-	get mode() { return this._mode; }
-	set mode(m: EditMode) { 
+	/**
+	 * The active tool, guaranteed to be one the current environment handles.
+	 *
+	 * The invariant is enforced *here*, on read, rather than by reconciling at each
+	 * place that changes the environment. Every previous attempt to do that -
+	 * including one in the environment dropdown - was a rule some other code path
+	 * could forget, and forgetting it is invisible: the tool strip would render
+	 * with none of its buttons active, and a click on the canvas would be routed to
+	 * a handler that does not exist for that environment and do nothing at all.
+	 * Which is indistinguishable, to a user, from a broken wall brush.
+	 *
+	 * Reconciling on read also means the tool is *restored* rather than lost: a
+	 * graph-only tool carried onto a grid reports the grid's default, and comes
+	 * back when the graph is shown again.
+	 */
+	get mode(): EditMode {
+		return getCompatibleEditorMode(this._mode, environmentState.environmentType);
+	}
+
+	set mode(m: EditMode) {
 		this.cancelGraphMove();
-		this._mode = m; 
+		this._mode = m;
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
 		this._isDrawing = false;
@@ -141,36 +150,42 @@ export class EditorState {
 		this.selection = { type: 'cell', id };
 		if (id === environmentState.gridStart || id === environmentState.gridGoal) return;
 
-		switch (this._mode) {
+		// The resolved mode, not the raw one, so what a click does always matches
+		// the tool the strip is showing.
+		//
+		// These go through the *live* setters rather than the raw grid mutators:
+		// a drag batches its edits into one history entry and replays them on
+		// commit, but the canvas still has to repaint on every cell it crosses.
+		// Mutating the grid directly here is what made a dragged wall stay
+		// invisible until the mouse came up.
+		switch (this.mode) {
 			case 'wall':
 				this._interactor.recordGridEdit(id, node.walkable, false, node.cost, node.cost);
-				setWall(environmentState.grid, id, false);
+				environmentState.applyGridCellLive(id, false, node.cost);
 				break;
 			case 'erase':
 				this._interactor.recordGridEdit(id, node.walkable, true, node.cost, 1);
-				setWall(environmentState.grid, id, true);
-				setCost(environmentState.grid, id, 1);
+				environmentState.applyGridCellLive(id, true, 1);
 				break;
 			case 'start':
 				if (!node.walkable) {
 					this._interactor.recordGridEdit(id, false, true, node.cost, node.cost);
-					setWall(environmentState.grid, id, true);
+					environmentState.applyGridCellLive(id, true, node.cost);
 				}
 				this._interactor.setGridStart(id);
-				setStart(environmentState.grid, id);
+				environmentState.setGridStartLive(id);
 				break;
 			case 'goal':
 				if (!node.walkable) {
 					this._interactor.recordGridEdit(id, false, true, node.cost, node.cost);
-					setWall(environmentState.grid, id, true);
+					environmentState.applyGridCellLive(id, true, node.cost);
 				}
 				this._interactor.setGridGoal(id);
-				setGoal(environmentState.grid, id);
+				environmentState.setGridGoalLive(id);
 				break;
 			case 'cost':
 				this._interactor.recordGridEdit(id, node.walkable, true, node.cost, this._costValue);
-				setWall(environmentState.grid, id, true);
-				setCost(environmentState.grid, id, this._costValue);
+				environmentState.applyGridCellLive(id, true, this._costValue);
 				break;
 		}
 	}
@@ -197,7 +212,9 @@ export class EditorState {
 			this.selection = null;
 		}
 		
-		switch (this._mode) {
+		// The resolved mode, not the raw one, so what a click does always matches
+		// the tool the strip is showing.
+		switch (this.mode) {
 			case 'node':
 				if (id === null) {
 					this._nodeCount++;
@@ -244,7 +261,9 @@ export class EditorState {
 	private applyGraphEditMove(id: NodeId | null, x: number, y: number) {
 		if (!this._isDrawing) return;
 
-		switch (this._mode) {
+		// The resolved mode, not the raw one, so what a click does always matches
+		// the tool the strip is showing.
+		switch (this.mode) {
 			case 'edge':
 				if (this._dragStartNode) {
 					this._edgePreviewTo = { x, y };
@@ -263,7 +282,9 @@ export class EditorState {
 	}
 
 	private applyGraphEditUp(id: NodeId | null, x: number, y: number) {
-		switch (this._mode) {
+		// The resolved mode, not the raw one, so what a click does always matches
+		// the tool the strip is showing.
+		switch (this.mode) {
 			case 'edge': {
 				const source = this._dragStartNode;
 				if (
