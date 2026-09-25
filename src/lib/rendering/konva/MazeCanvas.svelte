@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
@@ -17,7 +17,7 @@
 	let { playback = playbackState } = $props<{ playback?: PlaybackState }>();
 
 	let container = $state<HTMLDivElement | null>(null);
-	let renderer = $state<MazeRenderer | null>(null);
+	let renderer = $state.raw<MazeRenderer | null>(null);
 
 	// Watch theme
 	let isDark = $state(false);
@@ -96,7 +96,7 @@
 	{#if browser}
 		<ContextMenu.Root bind:open={menuOpen}>
 			<ContextMenu.Trigger class="block w-full h-full">
-				<div bind:this={container} class="w-full h-full cursor-crosshair"></div>
+				<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none"></div>
 			</ContextMenu.Trigger>
 			<ContextMenu.Content>
 				{#if mazeCellTarget}

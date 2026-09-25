@@ -1,4 +1,8 @@
-import Konva from 'konva';
+import type Konva from 'konva';
+
+function finiteOr(value: number, fallback: number) {
+	return Number.isFinite(value) ? value : fallback;
+}
 
 export class MazeViewport {
 	private stage: Konva.Stage;
@@ -9,16 +13,23 @@ export class MazeViewport {
 		this.stage = stage;
 	}
 
+	private clampScale(scale: number) {
+		return Math.max(this.minScale, Math.min(finiteOr(scale, this.minScale), this.maxScale));
+	}
+
 	public fitToView(gridCols: number, gridRows: number, cellSize: number, padding: number = 20) {
-		const width = this.stage.width();
-		const height = this.stage.height();
-
-		const contentWidth = gridCols * cellSize;
-		const contentHeight = gridRows * cellSize;
-
-		const scaleX = (width - padding * 2) / contentWidth;
-		const scaleY = (height - padding * 2) / contentHeight;
-		const scale = Math.min(scaleX, scaleY, this.maxScale); // Cap max scale at initial zoom
+		const width = Math.max(0, finiteOr(this.stage.width(), 0));
+		const height = Math.max(0, finiteOr(this.stage.height(), 0));
+		const safeCellSize = Number.isFinite(cellSize) && cellSize > 0 ? cellSize : 1;
+		const safeCols = Number.isFinite(gridCols) && gridCols > 0 ? gridCols : 1;
+		const safeRows = Number.isFinite(gridRows) && gridRows > 0 ? gridRows : 1;
+		const contentWidth = Math.max(1, finiteOr(safeCols * safeCellSize, Number.MAX_SAFE_INTEGER));
+		const contentHeight = Math.max(1, finiteOr(safeRows * safeCellSize, Number.MAX_SAFE_INTEGER));
+		const safePadding = Math.max(0, finiteOr(padding, 0));
+		const effectivePadding = Math.min(safePadding, width / 2, height / 2);
+		const availableWidth = Math.max(0, width - effectivePadding * 2);
+		const availableHeight = Math.max(0, height - effectivePadding * 2);
+		const scale = this.clampScale(Math.min(availableWidth / contentWidth, availableHeight / contentHeight));
 
 		this.stage.scale({ x: scale, y: scale });
 
@@ -30,38 +41,27 @@ export class MazeViewport {
 	}
 
 	public handleWheel(e: Konva.KonvaEventObject<WheelEvent>) {
-		e.evt.preventDefault();
-		
-		// Only zoom on Ctrl+Wheel or Pinch-to-zoom (which often maps to Ctrl+Wheel in browsers)
-		// Or if we want default wheel to zoom:
-		
-		const scaleBy = 1.05;
-		const oldScale = this.stage.scaleX();
+		const event = e.evt;
+		if (!event.ctrlKey && !event.metaKey) return;
+		event.preventDefault();
 
+		const oldScale = this.clampScale(this.stage.scaleX());
 		const pointer = this.stage.getPointerPosition();
-		if (!pointer) return;
+		if (!pointer || !Number.isFinite(event.deltaY) || event.deltaY === 0) return;
 
 		const mousePointTo = {
 			x: (pointer.x - this.stage.x()) / oldScale,
 			y: (pointer.y - this.stage.y()) / oldScale,
 		};
-
-		let direction = e.evt.deltaY > 0 ? -1 : 1;
-		if (e.evt.ctrlKey) {
-			direction = -direction;
-		}
-
-		let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
-		
-		newScale = Math.max(this.minScale, Math.min(newScale, this.maxScale));
+		const direction = event.deltaY > 0 ? -1 : 1;
+		const newScale = this.clampScale(direction > 0 ? oldScale * 1.05 : oldScale / 1.05);
 
 		this.stage.scale({ x: newScale, y: newScale });
 
-		const newPos = {
+		this.stage.position({
 			x: pointer.x - mousePointTo.x * newScale,
 			y: pointer.y - mousePointTo.y * newScale,
-		};
-		this.stage.position(newPos);
+		});
 		this.stage.batchDraw();
 	}
 
@@ -74,13 +74,11 @@ export class MazeViewport {
 	}
 
 	private zoomByCenter(factor: number) {
-		const oldScale = this.stage.scaleX();
-		let newScale = oldScale * factor;
-		newScale = Math.max(this.minScale, Math.min(newScale, this.maxScale));
-
+		const oldScale = this.clampScale(this.stage.scaleX());
+		const newScale = this.clampScale(oldScale * factor);
 		const center = {
-			x: this.stage.width() / 2,
-			y: this.stage.height() / 2,
+			x: Math.max(0, finiteOr(this.stage.width(), 0)) / 2,
+			y: Math.max(0, finiteOr(this.stage.height(), 0)) / 2,
 		};
 
 		const mousePointTo = {
@@ -89,12 +87,10 @@ export class MazeViewport {
 		};
 
 		this.stage.scale({ x: newScale, y: newScale });
-
-		const newPos = {
+		this.stage.position({
 			x: center.x - mousePointTo.x * newScale,
 			y: center.y - mousePointTo.y * newScale,
-		};
-		this.stage.position(newPos);
+		});
 		this.stage.batchDraw();
 	}
 

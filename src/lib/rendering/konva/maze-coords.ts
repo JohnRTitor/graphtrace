@@ -16,6 +16,17 @@ export function resolveCellId(
 	rows: number,
 	cols: number
 ): NodeId | null {
+	if (
+		!Number.isFinite(localX) ||
+		!Number.isFinite(localY) ||
+		!Number.isFinite(cellSize) ||
+		cellSize <= 0 ||
+		!Number.isFinite(rows) ||
+		!Number.isFinite(cols) ||
+		rows <= 0 ||
+		cols <= 0
+	) return null;
+
 	const col = Math.floor(localX / cellSize);
 	const row = Math.floor(localY / cellSize);
 

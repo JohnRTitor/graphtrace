@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import type { Grid, GridCell, NodeId } from '$lib/graph/types';
+import type { Grid, NodeId } from '$lib/graph/types';
 import type { VisualizationState } from '$lib/visualization/types';
 import { MazeViewport } from './maze-viewport';
 import { MazeInteraction } from './maze-interaction';
@@ -7,9 +7,28 @@ import type { EditorState } from '$lib/state/editor.svelte';
 import type { EnvironmentState } from '$lib/state/environment.svelte';
 import { stageToCellId } from './maze-coords';
 
+type InputEvent = MouseEvent | TouchEvent | PointerEvent;
+
+function isTouchInput(event: InputEvent) {
+	return (
+		(typeof event.type === 'string' && event.type.startsWith('touch')) ||
+		'touches' in event ||
+		(event as PointerEvent).pointerType === 'touch'
+	);
+}
+
+function isNonPrimaryButton(event: InputEvent) {
+	return 'button' in event && event.button !== 0;
+}
+
+function isPanInput(event: InputEvent) {
+	return isTouchInput(event) || ('button' in event && event.button === 1);
+}
+
 export class MazeRenderer {
 	private stage: Konva.Stage;
 	private backgroundLayer: Konva.Layer;
+	private backgroundRect: Konva.Rect;
 	private environmentLayer: Konva.Layer;
 	private algorithmLayer: Konva.Layer;
 	private interactionLayer: Konva.Layer;
@@ -42,7 +61,16 @@ export class MazeRenderer {
 		this.viewport = new MazeViewport(this.stage);
 		this.interaction = new MazeInteraction(this.cellSize);
 
-		this.backgroundLayer = new Konva.Layer();
+		this.backgroundLayer = new Konva.Layer({ listening: false });
+		this.backgroundRect = new Konva.Rect({
+			x: 0,
+			y: 0,
+			width: this.stage.width(),
+			height: this.stage.height(),
+			fill: this.getColors().bg,
+			listening: false,
+		});
+		this.backgroundLayer.add(this.backgroundRect);
 		this.environmentLayer = new Konva.Layer({ listening: false });
 		this.algorithmLayer = new Konva.Layer({ listening: false });
 		this.interactionLayer = new Konva.Layer();
@@ -58,6 +86,7 @@ export class MazeRenderer {
 			width: this.cellSize, height: this.cellSize,
 			fill: 'rgba(255, 255, 255, 0.2)',
 			listening: false,
+			visible: false,
 		});
 		
 		this.hitRect = new Konva.Rect({
@@ -98,71 +127,137 @@ export class MazeRenderer {
 	}
 
 	private setupEvents() {
+		let isPanning = false;
+		let panPointerId: number | null = null;
+		let lastPos = { x: 0, y: 0 };
+
+		const beginPan = (e: Konva.KonvaEventObject<InputEvent>) => {
+			if (!isPanInput(e.evt)) return;
+			if (isPanning && panPointerId === e.pointerId) return;
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			isPanning = true;
+			panPointerId = e.pointerId;
+			const pos = this.stage.getPointerPosition();
+			if (pos) lastPos = { x: pos.x, y: pos.y };
+		};
+
+		const endPan = (_e?: Konva.KonvaEventObject<InputEvent>) => {
+			isPanning = false;
+			panPointerId = null;
+		};
+
 		this.stage.on('wheel', (e) => {
 			this.viewport.handleWheel(e);
+			this.updateBackground();
 		});
 
 		this.hitRect.on('pointerdown', (e) => {
+			if (isPanInput(e.evt)) {
+				beginPan(e);
+				return;
+			}
+			if (isNonPrimaryButton(e.evt)) {
+				if (this.editorStateRef) {
+					this.interaction.handlePointerCancel(this.editorStateRef);
+				}
+				return;
+			}
 			if (!this.editorStateRef || !this.envStateRef) return;
 			this.interaction.handlePointerDown(e, this.editorStateRef, this.envStateRef);
 		});
 
 		this.hitRect.on('pointermove', (e) => {
-			this.updateHoverHighlight(e);
+			if (isPanning) return;
+			this.updateHoverHighlight();
 			if (!this.editorStateRef || !this.envStateRef) return;
 			this.interaction.handlePointerMove(e, this.editorStateRef, this.envStateRef);
 		});
 
-		this.hitRect.on('pointerup', () => {
-			if (!this.editorStateRef) return;
-			this.interaction.handlePointerUp(this.editorStateRef);
+		this.hitRect.on('pointerup', (e) => {
+			if (isPanInput(e.evt) || isPanning) {
+				endPan(e);
+				return;
+			}
+			if (isNonPrimaryButton(e.evt)) return;
+			if (this.editorStateRef) {
+				this.interaction.handlePointerUp(this.editorStateRef);
+			}
+		});
+
+		this.hitRect.on('pointercancel', (e) => {
+			endPan(e);
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			this.clearHover();
 		});
 
 		this.hitRect.on('pointerout', () => {
 			if (this.editorStateRef) {
-				this.interaction.handlePointerUp(this.editorStateRef);
+				this.interaction.handlePointerCancel(this.editorStateRef);
 			}
-			this.hoverRect.position({ x: -100, y: -100 });
-			this.interactionLayer.batchDraw();
+			this.clearHover();
 		});
-		
-		// Pan logic (middle click). Right click is reserved for the context
-		// menu and must never start a pan or paint - see setupContextMenu().
-		let isPanning = false;
-		let lastPos = { x: 0, y: 0 };
-		
+
 		this.stage.on('pointerdown', (e) => {
-			if (e.evt instanceof MouseEvent && e.evt.button === 1) {
-				isPanning = true;
-				const pos = this.stage.getPointerPosition();
-				if (pos) lastPos = pos;
+			if (isPanInput(e.evt)) {
+				beginPan(e);
 			}
 		});
 
 		this.stage.on('pointermove', (e) => {
-			if (isPanning) {
-				const pos = this.stage.getPointerPosition();
-				if (!pos) return;
-				const dx = pos.x - lastPos.x;
-				const dy = pos.y - lastPos.y;
-				this.stage.x(this.stage.x() + dx);
-				this.stage.y(this.stage.y() + dy);
-				this.stage.batchDraw();
-				lastPos = pos;
-			}
+			if (!isPanning) return;
+			if (panPointerId !== null && e.pointerId !== panPointerId) return;
+			const pos = this.stage.getPointerPosition();
+			if (!pos) return;
+			const dx = pos.x - lastPos.x;
+			const dy = pos.y - lastPos.y;
+			this.stage.x(this.stage.x() + dx);
+			this.stage.y(this.stage.y() + dy);
+			lastPos = { x: pos.x, y: pos.y };
+			this.updateBackground();
 		});
 
-		this.stage.on('pointerup', () => {
-			isPanning = false;
+		this.stage.on('pointerup', (e) => {
+			if (isNonPrimaryButton(e.evt) && this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			endPan(e);
+		});
+
+		this.stage.on('pointercancel', (e) => {
+			endPan(e);
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			this.clearHover();
+		});
+
+		this.stage.on('lostpointercapture', (e) => {
+			endPan(e);
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			this.clearHover();
+		});
+
+		this.stage.on('pointerleave', () => {
+			endPan();
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			this.clearHover();
 		});
 
 		this.stage.on('contextmenu', (e) => {
-			// Suppress the native browser menu and stop the pan/paint logic
-			// above from reacting to this pointer sequence; the shadcn-svelte
-			// ContextMenu, wired up by the wrapping Trigger in MazeCanvas.svelte,
-			// owns the resulting UI.
 			e.evt.preventDefault();
-			isPanning = false;
+			endPan();
+			if (this.editorStateRef) {
+				this.interaction.handlePointerUp(this.editorStateRef);
+			}
+			this.clearHover();
 
 			if (!this.currentGrid) {
 				this.contextMenuHandler?.(null);
@@ -179,46 +274,60 @@ export class MazeRenderer {
 		});
 	}
 
-	private updateHoverHighlight(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
-		const stage = e.target.getStage();
-		if (!stage || !this.currentGrid) return;
-		const pointerPosition = stage.getPointerPosition();
-		if (!pointerPosition) return;
+	private clearHover() {
+		this.hoverRect.position({ x: -100, y: -100 });
+		this.hoverRect.visible(false);
+		this.interactionLayer.batchDraw();
+	}
 
-		const transform = stage.getAbsoluteTransform().copy();
-		transform.invert();
-		const pos = transform.point(pointerPosition);
-
-		const col = Math.floor(pos.x / this.cellSize);
-		const row = Math.floor(pos.y / this.cellSize);
-
-		if (row >= 0 && row < this.currentGrid.rows && col >= 0 && col < this.currentGrid.cols) {
-			this.hoverRect.position({
-				x: col * this.cellSize,
-				y: row * this.cellSize,
-			});
-			this.interactionLayer.batchDraw();
+	private updateHoverHighlight() {
+		if (!this.currentGrid) {
+			this.clearHover();
+			return;
 		}
+
+		const cellId = stageToCellId(
+			this.stage,
+			this.cellSize,
+			this.currentGrid.rows,
+			this.currentGrid.cols
+		);
+		if (!cellId) {
+			this.clearHover();
+			return;
+		}
+
+		const [row, col] = cellId.split(',').map(Number);
+		this.hoverRect.position({
+			x: col * this.cellSize,
+			y: row * this.cellSize,
+		});
+		this.hoverRect.visible(true);
+		this.interactionLayer.batchDraw();
 	}
 
 	public resize(width: number, height: number) {
-		this.stage.width(width);
-		this.stage.height(height);
+		this.stage.width(Math.max(0, Number.isFinite(width) ? width : 0));
+		this.stage.height(Math.max(0, Number.isFinite(height) ? height : 0));
+		this.updateBackground();
 		this.stage.batchDraw();
 	}
 
 	public fitToView() {
 		if (this.currentGrid) {
 			this.viewport.fitToView(this.currentGrid.cols, this.currentGrid.rows, this.cellSize);
+			this.updateBackground();
 		}
 	}
 	
 	public zoomIn() {
 		this.viewport.zoomIn();
+		this.updateBackground();
 	}
 	
 	public zoomOut() {
 		this.viewport.zoomOut();
+		this.updateBackground();
 	}
 
 	public updateTheme(theme: 'light' | 'dark') {
@@ -229,8 +338,26 @@ export class MazeRenderer {
 
 	public updateShowCosts(showCosts: boolean) {
 		this.showCosts = showCosts;
-		// Re-render visualization to show/hide costs
-		this.renderVisualization(this.currentVizState, this.currentGrid);
+		this.renderEnvironment(this.currentGrid);
+	}
+
+	private updateBackground() {
+		const scaleX = Number.isFinite(this.stage.scaleX()) && this.stage.scaleX() > 0
+			? this.stage.scaleX()
+			: 1;
+		const scaleY = Number.isFinite(this.stage.scaleY()) && this.stage.scaleY() > 0
+			? this.stage.scaleY()
+			: 1;
+		const width = Math.max(0, Number.isFinite(this.stage.width()) ? this.stage.width() : 0);
+		const height = Math.max(0, Number.isFinite(this.stage.height()) ? this.stage.height() : 0);
+		this.backgroundRect.position({
+			x: -this.stage.x() / scaleX,
+			y: -this.stage.y() / scaleY,
+		});
+		this.backgroundRect.width(width / scaleX);
+		this.backgroundRect.height(height / scaleY);
+		this.backgroundRect.fill(this.getColors().bg);
+		this.backgroundLayer.batchDraw();
 	}
 
 	private getColors() {
@@ -263,8 +390,12 @@ export class MazeRenderer {
 
 	public renderEnvironment(grid: Grid | null) {
 		this.currentGrid = grid;
+		this.updateBackground();
 		if (!grid) {
 			this.gridGroup.destroyChildren();
+			this.hitRect.width(0);
+			this.hitRect.height(0);
+			this.clearHover();
 			this.environmentLayer.batchDraw();
 			return;
 		}
@@ -280,6 +411,7 @@ export class MazeRenderer {
 		this.hitRect.height(gridHeight);
 
 		// Draw walls and weights
+		const markersCoincide = grid.start === grid.goal;
 		grid.nodes.forEach((cell, id) => {
 			if (!cell.walkable || cell.cost > 1) {
 				const rect = new Konva.Rect({
@@ -314,9 +446,11 @@ export class MazeRenderer {
 					width: this.cellSize,
 					height: this.cellSize,
 					stroke: colors.start,
-					lineWidth: 2,
+					lineWidth: markersCoincide ? 1 : 2,
+					dash: markersCoincide ? [4, 2] : undefined,
 				}));
-			} else if (id === grid.goal) {
+			}
+			if (id === grid.goal) {
 				this.gridGroup.add(new Konva.Rect({
 					x: cell.col * this.cellSize,
 					y: cell.row * this.cellSize,
