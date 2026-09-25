@@ -78,6 +78,11 @@
 </script>
 
 <div class="flex flex-col gap-4">
+		{#if environmentState.runError}
+			<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+				{environmentState.runError}
+			</p>
+		{/if}
 	<div class="flex items-center justify-between">
 		<h3 class="text-sm font-medium">Playback</h3>
 		<span class="text-xs text-muted-foreground">{Math.round(playbackState.progressPercentage)}%</span>

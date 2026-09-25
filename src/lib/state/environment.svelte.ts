@@ -71,6 +71,7 @@ export class EnvironmentState {
   private _graphEnsurePath = $state<boolean>(true);
   private _graphWeighted = $state<boolean>(true);
   private _defaultEdgeDirected = $state<boolean>(false);
+  private _runError = $state<string | null>(null);
 
   // --- History State ---
   private _history: HistoryStore<EnvCommand>;
@@ -381,6 +382,7 @@ export class EnvironmentState {
 
   // Unified history execution
   executeCommand(cmd: EnvCommand) {
+    this._runError = null;
     const scope = cmd.type;
     if (this._historyScope !== null && this._historyScope !== scope) {
       this._history.clear();
@@ -629,12 +631,17 @@ export class EnvironmentState {
   }
   set selectedAlgorithmId(id: string) {
     if (this._selectedAlgorithmId === id) return;
+    this._runError = null;
     this._selectedAlgorithmId = id;
     invalidatePlaybackIfNeeded();
   }
 
   get currentAlgorithm() {
     return getAlgorithm(this._selectedAlgorithmId);
+  }
+
+  get runError(): string | null {
+    return this._runError;
   }
 
   get showCosts() {
@@ -650,6 +657,7 @@ export class EnvironmentState {
   set environmentType(val: EnvironmentType) {
     if (this._environmentType === val) return;
     this._environmentType = val;
+    this._runError = null;
     this._history.clear();
     this._historyScope = null;
     invalidatePlaybackIfNeeded();
@@ -745,8 +753,12 @@ export class EnvironmentState {
   }
 
   runAlgorithm(mode?: RunAlgorithmMode): ExecutionId | null {
+    this._runError = null;
     const algo = this.currentAlgorithm;
-    if (!algo) return null;
+    if (!algo) {
+      this._runError = 'Select an algorithm before running.';
+      return null;
+    }
 
     const problem = this.getProblem();
 
@@ -770,7 +782,7 @@ export class EnvironmentState {
 
       return executionId;
     } catch (e) {
-      console.warn("Run failed:", e);
+      this._runError = e instanceof Error ? e.message : 'Unable to run the selected algorithm.';
       return null;
     }
   }
