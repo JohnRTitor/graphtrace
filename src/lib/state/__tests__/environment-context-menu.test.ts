@@ -51,6 +51,20 @@ describe('EnvironmentState - maze context menu commands', () => {
 		expect(node?.cost).toBe(1);
 	});
 
+	it('undoes grid replacement and clear operations', () => {
+		environmentState.setGridWall('2,2', true);
+		environmentState.clearGrid();
+		expect(environmentState.grid.nodes.get('2,2')?.walkable).toBe(true);
+
+		environmentState.undo();
+		expect(environmentState.grid.nodes.get('2,2')?.walkable).toBe(false);
+
+		environmentState.resizeGrid(6, 6);
+		environmentState.undo();
+		expect(environmentState.gridRows).toBe(5);
+		expect(environmentState.gridCols).toBe(5);
+	});
+
 	it('clearGridCell refuses to act on the start/goal cell (avoids a contradictory state)', () => {
 		environmentState.setGridStart('1,1');
 		environmentState.clearGridCell('1,1');

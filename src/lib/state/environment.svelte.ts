@@ -7,7 +7,7 @@ import {
   clearGrid,
   getNode,
 } from "../graph/grid";
-import type { Grid, NodeId } from "../graph/types";
+import type { Grid, GridCell, NodeId } from "../graph/types";
 import { HistoryStore } from "./history-store.svelte";
 import {
   ManualGraph,
@@ -33,6 +33,7 @@ import { generateRandomGraph } from "../generators/random-graph";
 import { getAlgorithm } from "../algorithms";
 import { invertGraphCommand } from "../graph/manual";
 import type { EnvCommand } from "../domain/command";
+import type { GridSnapshot } from "../graph/commands";
 
 export type RunAlgorithmMode = "autoplay" | "step";
 
@@ -73,6 +74,7 @@ export class EnvironmentState {
 
   // --- History State ---
   private _history: HistoryStore<EnvCommand>;
+  private _historyScope: 'grid' | 'graph' | null = null;
 
   constructor() {
     this._history = new HistoryStore(
@@ -80,6 +82,75 @@ export class EnvironmentState {
       (cmd) => this.invertCommandLocally(cmd)
     );
     this.resetGridToDefaults(31, 41);
+  }
+
+  private snapshotGrid(grid: Grid): GridSnapshot {
+    return {
+      rows: grid.rows,
+      cols: grid.cols,
+      nodes: Array.from(grid.nodes.values(), (cell) => ({ ...cell })),
+      start: grid.start,
+      goal: grid.goal
+    };
+  }
+
+  private gridFromSnapshot(snapshot: GridSnapshot): Grid {
+    const nodes = new Map<NodeId, GridCell>();
+    for (const cell of snapshot.nodes) {
+      if (
+        typeof cell.id === 'string' &&
+        Number.isInteger(cell.row) &&
+        Number.isInteger(cell.col) &&
+        cell.row >= 0 && cell.row < snapshot.rows &&
+        cell.col >= 0 && cell.col < snapshot.cols &&
+        typeof cell.walkable === 'boolean' &&
+        isValidCost(cell.cost)
+      ) {
+        nodes.set(cell.id, { ...cell });
+      }
+    }
+    const start = nodes.get(snapshot.start ?? '');
+    const goal = nodes.get(snapshot.goal ?? '');
+    return {
+      rows: snapshot.rows,
+      cols: snapshot.cols,
+      nodes,
+      start: start?.walkable ? start.id : null,
+      goal: goal?.walkable ? goal.id : null
+    };
+  }
+
+  private isValidGridSnapshot(snapshot: GridSnapshot): boolean {
+    if (
+      !Number.isInteger(snapshot.rows) ||
+      !Number.isInteger(snapshot.cols) ||
+      snapshot.rows < 0 ||
+      snapshot.cols < 0 ||
+      snapshot.nodes.length !== snapshot.rows * snapshot.cols
+    ) return false;
+    const ids = new Set<NodeId>();
+    for (const cell of snapshot.nodes) {
+      if (
+        typeof cell.id !== 'string' ||
+        ids.has(cell.id) ||
+        !Number.isInteger(cell.row) ||
+        !Number.isInteger(cell.col) ||
+        cell.row < 0 || cell.row >= snapshot.rows ||
+        cell.col < 0 || cell.col >= snapshot.cols ||
+        typeof cell.walkable !== 'boolean' ||
+        !isValidCost(cell.cost)
+      ) return false;
+      ids.add(cell.id);
+    }
+    const start = snapshot.start === null ? null : snapshot.nodes.find((cell) => cell.id === snapshot.start);
+    const goal = snapshot.goal === null ? null : snapshot.nodes.find((cell) => cell.id === snapshot.goal);
+    return (snapshot.start === null || (start?.walkable === true)) &&
+      (snapshot.goal === null || (goal?.walkable === true));
+  }
+
+  private restoreGrid(snapshot: GridSnapshot): void {
+    this._grid = this.gridFromSnapshot(snapshot);
+    this._gridVersion++;
   }
 
   // === Grid Getters & Methods ===
@@ -103,25 +174,34 @@ export class EnvironmentState {
   }
 
   resizeGrid(rows: number, cols: number): void {
-    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows < 1 || cols < 1) return;
+    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows < 1 || cols < 1 || rows > 1000 || cols > 1000) return;
     const safeRows = Math.trunc(rows);
     const safeCols = Math.trunc(cols);
-    invalidatePlaybackIfNeeded();
-    this._grid = createGrid(safeRows, safeCols);
-    this.resetGridToDefaults(safeRows, safeCols);
-    this._gridVersion++;
+    this._gridRowsSetting = clampSetting(safeRows, 5, 100, this._gridRowsSetting);
+    this._gridColsSetting = clampSetting(safeCols, 5, 100, this._gridColsSetting);
+    const nextGrid = createGrid(safeRows, safeCols);
+    this.resetGridToDefaults(safeRows, safeCols, nextGrid);
+    this.replaceGrid(nextGrid);
   }
 
   clearGrid(): void {
-    invalidatePlaybackIfNeeded();
-    clearGrid(this._grid);
-    this._gridVersion++;
+    const nextGrid = this.gridFromSnapshot(this.snapshotGrid(this._grid));
+    clearGrid(nextGrid);
+    this.replaceGrid(nextGrid);
   }
 
   replaceGrid(newGrid: Grid): void {
-    invalidatePlaybackIfNeeded();
-    this._grid = newGrid;
-    this._gridVersion++;
+    const nextSnapshot = this.snapshotGrid(newGrid);
+    const previousSnapshot = this.snapshotGrid(this._grid);
+    if (!this.isValidGridSnapshot(nextSnapshot)) return;
+    this.executeCommand({
+      type: 'grid',
+      cmd: {
+        type: 'replace',
+        oldGrid: previousSnapshot,
+        newGrid: nextSnapshot
+      }
+    });
   }
 
   toggleGridWall(id: NodeId): void {
@@ -252,13 +332,13 @@ export class EnvironmentState {
     });
   }
 
-  private resetGridToDefaults(rows: number, cols: number): void {
+  private resetGridToDefaults(rows: number, cols: number, target: Grid = this._grid): void {
     const startR = Math.floor(rows / 2);
     const startC = Math.floor(cols / 4);
     const goalR = Math.floor(rows / 2);
     const goalC = Math.floor((cols * 3) / 4);
-    setGridStart(this._grid, `${startR},${startC}`);
-    setGridGoal(this._grid, `${goalR},${goalC}`);
+    setGridStart(target, `${startR},${startC}`);
+    setGridGoal(target, `${goalR},${goalC}`);
   }
 
   // === Graph Getters & Methods ===
@@ -301,6 +381,11 @@ export class EnvironmentState {
 
   // Unified history execution
   executeCommand(cmd: EnvCommand) {
+    const scope = cmd.type;
+    if (this._historyScope !== null && this._historyScope !== scope) {
+      this._history.clear();
+    }
+    this._historyScope = scope;
     invalidatePlaybackIfNeeded();
     this._history.execute(cmd);
   }
@@ -319,6 +404,8 @@ export class EnvironmentState {
         if (gcmd.newStart !== undefined) setGridStart(this._grid, gcmd.newStart);
         if (gcmd.newGoal !== undefined) setGridGoal(this._grid, gcmd.newGoal);
         this._gridVersion++;
+      } else if (gcmd.type === 'replace') {
+        this.restoreGrid(gcmd.newGrid);
       }
     }
   }
@@ -338,6 +425,8 @@ export class EnvironmentState {
         if (gcmd.oldStart !== undefined) setGridStart(this._grid, gcmd.oldStart);
         if (gcmd.oldGoal !== undefined) setGridGoal(this._grid, gcmd.oldGoal);
         this._gridVersion++;
+      } else if (gcmd.type === 'replace') {
+        this.restoreGrid(gcmd.oldGrid);
       }
     }
   }
@@ -374,8 +463,26 @@ export class EnvironmentState {
     newStart: NodeId | null,
     newGoal: NodeId | null,
   ) {
-    const oldNodes = Array.from(this._graph.nodes.values());
-    const oldEdges = Array.from(this._graph.edges.values());
+    const validNodes = newNodes.map((node) => ({ ...node }));
+    const validEdges = newEdges.map((edge) => ({ ...edge }));
+    const nodeIds = new Set(validNodes.map((node) => node.id));
+    if (
+      nodeIds.size !== validNodes.length ||
+      new Set(validEdges.map((edge) => edge.id)).size !== validEdges.length ||
+      validNodes.some((node) =>
+        !node.id || typeof node.label !== 'string' || !node.label.trim() || !Number.isFinite(node.x) || !Number.isFinite(node.y) ||
+        (node.cost !== undefined && !isValidCost(node.cost))
+      ) ||
+      validEdges.some((edge) =>
+        !edge.id || !nodeIds.has(edge.source) || !nodeIds.has(edge.target) ||
+        !isValidCost(edge.weight)
+      ) ||
+      (newStart !== null && !nodeIds.has(newStart)) ||
+      (newGoal !== null && !nodeIds.has(newGoal))
+    ) return;
+
+    const oldNodes = Array.from(this._graph.nodes.values(), (node) => ({ ...node }));
+    const oldEdges = Array.from(this._graph.edges.values(), (edge) => ({ ...edge }));
     this.executeCommand({
       type: "graph",
       cmd: {
@@ -384,8 +491,8 @@ export class EnvironmentState {
         oldEdges,
         oldStart: this._graph.start,
         oldGoal: this._graph.goal,
-        newNodes,
-        newEdges,
+        newNodes: validNodes,
+        newEdges: validEdges,
         newStart,
         newGoal,
       },
@@ -493,10 +600,16 @@ export class EnvironmentState {
     });
   }
 
-  loadGraph(data: any) {
-    invalidatePlaybackIfNeeded();
-    this._graph.load(data);
-    this._graphVersion++;
+  loadGraph(data: unknown): boolean {
+    const loadedGraph = new ManualGraph();
+    if (!loadedGraph.load(data)) return false;
+    this.replaceGraph(
+      Array.from(loadedGraph.nodes.values(), (node) => ({ ...node })),
+      Array.from(loadedGraph.edges.values(), (edge) => ({ ...edge })),
+      loadedGraph.start,
+      loadedGraph.goal,
+    );
+    return true;
   }
 
   // === Settings Getters & Methods ===
@@ -527,6 +640,7 @@ export class EnvironmentState {
     if (this._environmentType === val) return;
     this._environmentType = val;
     this._history.clear();
+    this._historyScope = null;
     invalidatePlaybackIfNeeded();
   }
 

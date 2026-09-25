@@ -1,4 +1,4 @@
-import type { NodeId } from './types';
+import type { GridCell, NodeId } from './types';
 
 export type GridCellEdit = {
 	id: NodeId;
@@ -6,6 +6,14 @@ export type GridCellEdit = {
 	newWalkable: boolean;
 	oldCost: number;
 	newCost: number;
+};
+
+export type GridSnapshot = {
+	rows: number;
+	cols: number;
+	nodes: GridCell[];
+	start: NodeId | null;
+	goal: NodeId | null;
 };
 
 export type GridCommand =
@@ -18,13 +26,7 @@ export type GridCommand =
 			newGoal: NodeId | null;
 	  }
 	| {
-			type: 'resize';
-			oldRows: number;
-			oldCols: number;
-			newRows: number;
-			newCols: number;
-	  }
-	| {
-			type: 'clear';
-			oldGridSnapshot: any;
+			type: 'replace';
+			oldGrid: GridSnapshot;
+			newGrid: GridSnapshot;
 	  };

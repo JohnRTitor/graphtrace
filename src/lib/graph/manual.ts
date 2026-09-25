@@ -281,11 +281,11 @@ export class ManualGraph implements BaseGraph {
 		});
 	}
 
-	load(data: unknown) {
+	load(data: unknown): boolean {
 		const normalized = normalizeGraphData(data);
 		if (!normalized) {
 			console.error('Invalid graph data');
-			return;
+			return false;
 		}
 
 		this.nodes.clear();
@@ -295,6 +295,7 @@ export class ManualGraph implements BaseGraph {
 		this.start = normalized.start;
 		this.goal = normalized.goal;
 		this._version++;
+		return true;
 	}
 }
 
