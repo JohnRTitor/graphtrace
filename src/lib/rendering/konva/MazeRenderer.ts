@@ -56,6 +56,7 @@ export class MazeRenderer {
 			container,
 			width: container.clientWidth,
 			height: container.clientHeight,
+			pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
 		});
 
 		this.viewport = new MazeViewport(this.stage);
@@ -133,6 +134,7 @@ export class MazeRenderer {
 
 		const beginPan = (e: Konva.KonvaEventObject<InputEvent>) => {
 			if (!isPanInput(e.evt)) return;
+			if ('button' in e.evt) e.evt.preventDefault();
 			if (isPanning && panPointerId === e.pointerId) return;
 			if (this.editorStateRef) {
 				this.interaction.handlePointerCancel(this.editorStateRef);
@@ -514,9 +516,9 @@ export class MazeRenderer {
 		const activeIds = new Set<NodeId>();
 
 		for (const [id, state] of vizState.cellStates.entries()) {
-			activeIds.add(id);
 			const node = grid.nodes.get(id);
 			if (!node) continue;
+			activeIds.add(id);
 
 			const cellState: CellVisualState = state;
 			let fill = '';
@@ -565,6 +567,9 @@ export class MazeRenderer {
 	}
 
 	public destroy() {
+		this.algoCellRects.clear();
+		this.currentGrid = null;
+		this.currentVizState = null;
 		this.stage.destroy();
 	}
 }

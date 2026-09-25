@@ -104,7 +104,11 @@
 		editorState.selection = null;
 		if (editorState.mode !== 'node') return;
 		
-		const position = screenToFlowPosition({ x: ('clientX' in event ? event.clientX : event.touches[0].clientX), y: ('clientY' in event ? event.clientY : event.touches[0].clientY) });
+		const point = 'clientX' in event
+			? { clientX: event.clientX, clientY: event.clientY }
+			: event.touches[0] ?? event.changedTouches[0];
+		if (!point) return;
+		const position = screenToFlowPosition({ x: point.clientX, y: point.clientY });
 		environmentState.addGraphNode(position.x, position.y, `N${environmentState.graph.nodes.size + 1}`);
 	}
 

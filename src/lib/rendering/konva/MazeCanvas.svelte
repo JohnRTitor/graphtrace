@@ -154,6 +154,8 @@
 				role="grid"
 				aria-label="Graph grid editor"
 				aria-describedby="maze-grid-instructions"
+				aria-rowcount={environmentState.gridRows}
+				aria-colcount={environmentState.gridCols}
 				tabindex="0"
 				onkeydown={handleGridKeydown}
 			></div>
