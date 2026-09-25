@@ -52,7 +52,19 @@ describe('Flow Adapter', () => {
 		const graph = new ManualGraph();
 		graph.execute({ type: 'add-node', node: { id: 'A', x: 10, y: 20, label: 'A' } });
 		
-		const colors = { bg: 'white', text: 'black' };
+		const colors = {
+			bg: 'white',
+			wall: 'gray',
+			gridLines: 'lightgray',
+			weight: 'gray',
+			text: 'black',
+			start: 'green',
+			goal: 'red',
+			discovered: 'blue',
+			expanded: 'indigo',
+			path: 'gold',
+			current: 'magenta'
+		};
 		const flowNodes = toFlowNodes(graph, null, false, colors);
 		
 		expect(flowNodes).toHaveLength(1);

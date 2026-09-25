@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Component } from 'svelte';
 	import { browser } from '$app/environment';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
@@ -175,7 +175,7 @@
 		/>
 	{/if}
 
-	{#snippet zoomButton(Icon: any, label: string, onClick: () => void)}
+	{#snippet zoomButton(Icon: Component<{ class?: string }>, label: string, onClick: () => void)}
 		<Button variant="ghost" size="icon" class="h-8 w-8" onclick={onClick} title={label}>
 			<Icon class="h-4 w-4" />
 			<span class="sr-only">{label}</span>

@@ -1,6 +1,6 @@
 import type { ManualGraph } from '$lib/graph/manual';
 import type { VisualizationState } from '$lib/visualization/types';
-import type { CustomNode, CustomEdge } from './types';
+import type { CustomNode, CustomEdge, GraphColors } from './types';
 import type { NodeId } from '$lib/graph/types';
 import { MarkerType } from '@xyflow/svelte';
 
@@ -27,7 +27,7 @@ export function toFlowNodes(
 	graph: ManualGraph, 
 	vizState: VisualizationState | null, 
 	showCosts: boolean,
-	colors: any
+	colors: GraphColors
 ): CustomNode[] {
 	return Array.from(graph.nodes.values()).map(node => {
 		const cellState = vizState?.cellStates.get(node.id);
@@ -63,7 +63,7 @@ export function toFlowEdges(
 	graph: ManualGraph,
 	vizState: VisualizationState | null,
 	pathEdges: Set<string>,
-	colors: any
+	colors: GraphColors
 ): CustomEdge[] {
 	return Array.from(graph.edges.values()).map(edge => {
 		

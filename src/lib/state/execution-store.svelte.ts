@@ -72,7 +72,7 @@ export class ExecutionStore {
 		this.executions.clear();
 	}
 
-	run(problem: Problem, algorithmId: string, config?: any): ExecutionId {
+	run(problem: Problem, algorithmId: string, config?: Record<string, unknown>): ExecutionId {
 		const algo = getAlgorithm(algorithmId);
 		if (!algo) {
 			throw new Error(`Algorithm ${algorithmId} not found`);

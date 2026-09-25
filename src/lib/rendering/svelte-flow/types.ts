@@ -1,6 +1,20 @@
 import type { Node, Edge } from '@xyflow/svelte';
 import type { NodeId } from '$lib/graph/types';
 
+export type GraphColors = {
+	bg: string;
+	wall: string;
+	gridLines: string;
+	weight: string;
+	text: string;
+	start: string;
+	goal: string;
+	discovered: string;
+	expanded: string;
+	path: string;
+	current: string;
+};
+
 export type GraphNodeData = {
 	label: string;
 	isStart: boolean;
@@ -10,14 +24,14 @@ export type GraphNodeData = {
 	h?: number; // Heuristic to goal
 	f?: number; // Total cost (g + h)
 	showCosts: boolean;
-	colors: any;
+	colors: GraphColors;
 };
 
 export type GraphEdgeData = {
 	weight: number;
 	isPath: boolean;
 	state?: 'discovered' | 'expanded' | 'current' | 'path' | 'none';
-	colors: any;
+	colors: GraphColors;
 };
 
 export type CustomNode = Node<GraphNodeData>;

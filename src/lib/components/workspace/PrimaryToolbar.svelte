@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { editorState, getCompatibleEditorMode } from '$lib/state/editor.svelte';
+	import { editorState, getCompatibleEditorMode, type EditMode } from '$lib/state/editor.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
@@ -71,7 +71,7 @@
 	<ToggleGroup 
 		type="single" 
 		value={editorState.mode} 
-		onValueChange={(v) => { if (v) editorState.mode = v as any; }}
+		onValueChange={(v) => { if (v) editorState.mode = v as EditMode; }}
 		class="justify-start flex-wrap gap-1"
 	>
 		{#if environmentState.environmentType === 'graph'}

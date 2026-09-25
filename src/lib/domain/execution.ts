@@ -7,7 +7,7 @@ export type Execution = {
 	id: ExecutionId;
 	problemSnapshot: Problem;
 	algorithmId: string;
-	algorithmConfig?: any; // For future when algorithms have configurable params
+	algorithmConfig?: Record<string, unknown>;
 	seed?: number;
 	trace: AlgorithmEvent[];
 	metrics: AlgorithmMetrics;
