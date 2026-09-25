@@ -426,7 +426,7 @@ export class MazeRenderer {
 		// Draw walls and weights
 		const markersCoincide = grid.start === grid.goal;
 		grid.nodes.forEach((cell, id) => {
-			if (!cell.walkable || cell.cost > 1) {
+			if (!cell.walkable || cell.cost !== 1) {
 				const rect = new Konva.Rect({
 					x: cell.col * this.cellSize,
 					y: cell.row * this.cellSize,
@@ -436,7 +436,7 @@ export class MazeRenderer {
 				});
 				this.gridGroup.add(rect);
 				
-				if (cell.walkable && cell.cost > 1 && this.showCosts) {
+				if (cell.walkable && cell.cost !== 1 && this.showCosts) {
 					const text = new Konva.Text({
 						x: cell.col * this.cellSize,
 						y: cell.row * this.cellSize + this.cellSize / 2 - 6,

@@ -51,7 +51,7 @@
 	style="stroke: {strokeColor}; stroke-width: {strokeWidth}px; {style || ''}"
 />
 
-{#if data?.weight !== undefined && data.weight > 1}
+{#if data?.weight !== undefined && data.weight !== 1}
 	<EdgeLabel>
 		<div
 			style:transform="translate(-50%, -50%) translate({labelX}px,{labelY}px)"

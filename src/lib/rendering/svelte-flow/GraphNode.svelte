@@ -40,6 +40,10 @@
 		return data.colors.text;
 	});
 
+	function formatCost(value: number): string {
+		return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+	}
+
 	let showHandles = $derived(editorState.mode === 'edge');
 	let handleClass = $derived(`w-3 h-3 bg-muted-foreground/50 transition-opacity ${showHandles ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 hover:opacity-100!'}`);
 
@@ -62,13 +66,13 @@
 	{#if data.showCosts && (data.g !== undefined || data.h !== undefined)}
 		<div class="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] bg-background/80 px-1 rounded shadow-sm" style:color={data.colors.text}>
 			{#if data.f !== undefined}
-				<span class="font-bold">f:{Math.round(data.f)}</span>
+				<span class="font-bold">f:{formatCost(data.f)}</span>
 			{/if}
 			{#if data.g !== undefined}
-				<span class="text-muted-foreground ml-1">g:{Math.round(data.g)}</span>
+				<span class="text-muted-foreground ml-1">g:{formatCost(data.g)}</span>
 			{/if}
 			{#if data.h !== undefined}
-				<span class="text-muted-foreground ml-1">h:{Math.round(data.h)}</span>
+				<span class="text-muted-foreground ml-1">h:{formatCost(data.h)}</span>
 			{/if}
 		</div>
 	{/if}
