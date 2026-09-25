@@ -44,6 +44,7 @@ export class MazeRenderer {
 	private algoCellRects: Map<NodeId, Konva.Rect> = new Map();
 
 	private hoverRect: Konva.Rect;
+	private selectionRect: Konva.Rect;
 	private hitRect: Konva.Rect;
 
 	private currentGrid: Grid | null = null;
@@ -90,6 +91,17 @@ export class MazeRenderer {
 			visible: false,
 		});
 		
+		this.selectionRect = new Konva.Rect({
+			x: -100,
+			y: -100,
+			width: this.cellSize,
+			height: this.cellSize,
+			stroke: '#eab308',
+			lineWidth: 2,
+			listening: false,
+			visible: false
+		});
+
 		this.hitRect = new Konva.Rect({
 			x: 0, y: 0,
 			width: 0, height: 0,
@@ -99,6 +111,7 @@ export class MazeRenderer {
 
 		this.interactionLayer.add(this.hitRect);
 		this.interactionLayer.add(this.hoverRect);
+		this.interactionLayer.add(this.selectionRect);
 
 		this.stage.add(this.backgroundLayer);
 		this.stage.add(this.environmentLayer);
@@ -308,6 +321,24 @@ export class MazeRenderer {
 		this.interactionLayer.batchDraw();
 	}
 
+	public updateSelection(selection: { type: string; id: string } | null, grid: Grid | null): void {
+		if (!selection || selection.type !== 'cell' || !grid) {
+			this.selectionRect.visible(false);
+			this.interactionLayer.batchDraw();
+			return;
+		}
+		const node = grid.nodes.get(selection.id);
+		if (!node) {
+			this.selectionRect.visible(false);
+			this.interactionLayer.batchDraw();
+			return;
+		}
+		this.selectionRect.position({ x: node.col * this.cellSize, y: node.row * this.cellSize });
+		this.selectionRect.stroke(this.getColors().path);
+		this.selectionRect.visible(true);
+		this.interactionLayer.batchDraw();
+	}
+
 	public resize(width: number, height: number) {
 		this.stage.width(Math.max(0, Number.isFinite(width) ? width : 0));
 		this.stage.height(Math.max(0, Number.isFinite(height) ? height : 0));
@@ -404,6 +435,7 @@ export class MazeRenderer {
 			this.algoCellRects.clear();
 			this.hitRect.width(this.stage.width());
 			this.hitRect.height(this.stage.height());
+			this.selectionRect.visible(false);
 			this.clearHover();
 			this.environmentLayer.batchDraw();
 			return;

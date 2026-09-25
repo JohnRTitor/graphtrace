@@ -16,7 +16,7 @@ export function extractPathEdges(pathNodes: NodeId[], graph: ManualGraph): Set<s
 				(edge.source === u && edge.target === v) ||
 				(edge.source === v && edge.target === u && !edge.directed)
 			)
-			.sort(([leftId], [rightId]) => leftId < rightId ? -1 : leftId > rightId ? 1 : 0);
+			.sort(([leftId, left], [rightId, right]) => left.weight - right.weight || (leftId < rightId ? -1 : leftId > rightId ? 1 : 0));
 		const foundEdgeId = matches[0]?.[0];
 		if (foundEdgeId !== undefined) pathEdges.add(foundEdgeId);
 	}

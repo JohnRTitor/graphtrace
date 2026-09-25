@@ -92,6 +92,11 @@
 		return extractPathEdges(Array.from(playback.vizState.pathNodes), renderGraph);
 	});
 
+	$effect(() => {
+		environmentState.graph;
+		if (browser) fitView({ duration: 0 });
+	});
+
 	let nodes = $derived.by(() => {
 		return toFlowNodes(renderGraph, playback.vizState, environmentState.showCosts, colors);
 	});

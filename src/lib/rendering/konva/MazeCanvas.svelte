@@ -107,6 +107,12 @@
 		}
 	});
 
+	$effect(() => {
+		if (renderer) {
+			renderer.updateSelection(editorState.selection, renderGrid);
+		}
+	});
+
 	function handleMenuOpenChange(open: boolean) {
 		menuOpen = open && mazeCellTarget !== null;
 	}
