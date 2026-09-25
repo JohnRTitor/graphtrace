@@ -127,9 +127,9 @@ export class EditorState {
 	}
 
 	private applyGridEdit(id: NodeId) {
-		this.selection = { type: 'cell', id };
 		const node = getNode(environmentState.grid, id);
 		if (!node) return;
+		this.selection = { type: 'cell', id };
 		if (id === environmentState.gridStart || id === environmentState.gridGoal) return;
 
 		switch (this._mode) {

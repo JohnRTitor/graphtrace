@@ -157,13 +157,11 @@
 	let menuOpen = $state(false);
 	let graphContextTarget = $state<GraphContextTarget | null>(null);
 
-	function onNodeContextMenu({ node, event }: { node: Node; event: MouseEvent }) {
-		event.stopPropagation();
+	function onNodeContextMenu({ node }: { node: Node; event: MouseEvent }) {
 		graphContextTarget = { type: 'node', nodeId: node.id };
 	}
 
-	function onEdgeContextMenu({ edge, event }: { edge: Edge; event: MouseEvent }) {
-		event.stopPropagation();
+	function onEdgeContextMenu({ edge }: { edge: Edge; event: MouseEvent }) {
 		graphContextTarget = { type: 'edge', edgeId: edge.id };
 	}
 

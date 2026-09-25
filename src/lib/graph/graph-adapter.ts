@@ -3,11 +3,15 @@ import { type MovementModel, getMovementOffsets } from '../domain/movement-model
 import { type CostModel, defaultGridCostModel } from '../domain/cost-model';
 
 export class GridAdapter implements BaseGraph {
+	private readonly minimumCellCost: number;
+
 	constructor(
 		private grid: Grid,
 		private movementModel?: MovementModel,
 		private costModel: CostModel = defaultGridCostModel
-	) {}
+	) {
+		this.minimumCellCost = this.computeMinimumCellCost();
+	}
 
 	getNode(id: NodeId): BaseGraphNode | undefined {
 		const node = this.grid.nodes.get(id);
@@ -62,7 +66,7 @@ export class GridAdapter implements BaseGraph {
 
 		const dr = Math.abs(r1 - r2);
 		const dc = Math.abs(c1 - c2);
-		const minimumCost = this.getMinimumCellCost();
+		const minimumCost = this.minimumCellCost;
 		if (this.movementModel?.type === 'eightWay') {
 			const diagonalMultiplier = this.getDiagonalMultiplier();
 			return minimumCost * (Math.min(dr, dc) * diagonalMultiplier + Math.abs(dr - dc));
@@ -76,7 +80,7 @@ export class GridAdapter implements BaseGraph {
 		return multiplier !== undefined && Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1;
 	}
 
-	private getMinimumCellCost(): number {
+	private computeMinimumCellCost(): number {
 		let minimum = Infinity;
 		for (const cell of this.grid.nodes.values()) {
 			if (!cell.walkable) continue;

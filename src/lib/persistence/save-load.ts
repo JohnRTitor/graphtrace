@@ -21,8 +21,8 @@ function parseGridData(value: unknown): Grid {
 	assertValid(isRecord(value), 'Invalid grid data');
 	const rows = value.rows;
 	const cols = value.cols;
-	assertValid(Number.isInteger(rows) && (rows as number) > 0 && (rows as number) <= 1000, 'Invalid grid rows');
-	assertValid(Number.isInteger(cols) && (cols as number) > 0 && (cols as number) <= 1000, 'Invalid grid columns');
+	assertValid(Number.isInteger(rows) && (rows as number) > 0 && (rows as number) <= 100, 'Invalid grid rows');
+	assertValid(Number.isInteger(cols) && (cols as number) > 0 && (cols as number) <= 100, 'Invalid grid columns');
 	assertValid(Array.isArray(value.nodes), 'Invalid grid nodes');
 	const nodes = new Map<NodeId, GridCell>();
 	for (const entry of value.nodes as unknown[]) {

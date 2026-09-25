@@ -86,6 +86,8 @@
 				<div class="text-xs">{edge.directed ? 'Directed' : 'Undirected'}</div>
 			</div>
 		</div>
+	{:else}
+		<div class="py-8 text-center text-sm text-muted-foreground">The selected element is no longer available.</div>
 	{/if}
 
 	{#if vizState || costData}

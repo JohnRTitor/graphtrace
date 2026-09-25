@@ -176,7 +176,7 @@ export class EnvironmentState {
   }
 
   resizeGrid(rows: number, cols: number): void {
-    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows < 1 || cols < 1 || rows > 1000 || cols > 1000) return;
+    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows < 1 || cols < 1 || rows > 100 || cols > 100) return;
     const safeRows = Math.trunc(rows);
     const safeCols = Math.trunc(cols);
     this._gridRowsSetting = clampSetting(safeRows, 5, 100, this._gridRowsSetting);
@@ -635,7 +635,7 @@ export class EnvironmentState {
     return this._selectedAlgorithmId;
   }
   set selectedAlgorithmId(id: string) {
-    if (this._selectedAlgorithmId === id) return;
+    if (this._selectedAlgorithmId === id || !getAlgorithm(id)) return;
     this._runError = null;
     this._selectedAlgorithmId = id;
     invalidatePlaybackIfNeeded();
@@ -660,6 +660,7 @@ export class EnvironmentState {
     return this._environmentType;
   }
   set environmentType(val: EnvironmentType) {
+    if (!['perfect_maze', 'braided_maze', 'random_obstacles', 'blank', 'graph'].includes(val)) return;
     if (this._environmentType === val) return;
     this._environmentType = val;
     this._runError = null;

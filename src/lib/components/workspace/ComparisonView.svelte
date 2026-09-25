@@ -18,7 +18,7 @@
 	);
 </script>
 
-<div class="flex h-full w-full flex-col">
+<div class="flex h-full w-full flex-col pb-48 sm:pb-44">
 	<div class="flex min-h-0 flex-1 flex-col md:flex-row">
 		<div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b md:border-b-0 md:border-r">
 			<div class="absolute left-2 top-2 z-10">
