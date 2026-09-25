@@ -117,39 +117,36 @@
 </script>
 
 <div class="relative w-full h-full bg-background">
-	{#if browser}
-		<ContextMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange}>
-			<ContextMenu.Trigger class="block w-full h-full">
-				<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none" role="application" aria-label="Graph grid editor"></div>
-			</ContextMenu.Trigger>
-			<ContextMenu.Content>
-				{#if mazeCellTarget !== null}
-					<MazeContextMenu cellId={mazeCellTarget} onEditCost={openMazeCostDialog} />
-				{/if}
-			</ContextMenu.Content>
-		</ContextMenu.Root>
+	<ContextMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange}>
+		<ContextMenu.Trigger class="block w-full h-full">
+			<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none" role="application" aria-label="Graph grid editor"></div>
+		</ContextMenu.Trigger>
+		<ContextMenu.Content>
+			{#if mazeCellTarget !== null}
+				<MazeContextMenu cellId={mazeCellTarget} onEditCost={openMazeCostDialog} />
+			{/if}
+		</ContextMenu.Content>
+	</ContextMenu.Root>
 
-		{#if mazeCostCellId !== null}
-			<EditCostDialog
-				bind:open={mazeCostOpen}
-				initialCost={environmentState.grid.nodes.get(mazeCostCellId)?.cost ?? 1}
-				title="Edit Cell Cost"
-				onSave={saveMazeCost}
-			/>
-		{/if}
-
-		<!-- Zoom Controls -->
-		{#snippet zoomButton(Icon: any, label: string, onClick: () => void)}
-			<Button variant="ghost" size="icon" class="h-8 w-8" onclick={onClick} title={label}>
-				<Icon class="h-4 w-4" />
-				<span class="sr-only">{label}</span>
-			</Button>
-		{/snippet}
-
-		<div class="absolute bottom-20 right-4 z-10 flex flex-col gap-2 rounded-md border bg-background/80 p-1 shadow-sm backdrop-blur-sm sm:bottom-4">
-			{@render zoomButton(ZoomIn, 'Zoom In', () => renderer?.zoomIn())}
-			{@render zoomButton(ZoomOut, 'Zoom Out', () => renderer?.zoomOut())}
-			{@render zoomButton(Maximize, 'Fit to View', () => renderer?.fitToView())}
-		</div>
+	{#if mazeCostCellId !== null}
+		<EditCostDialog
+			bind:open={mazeCostOpen}
+			initialCost={environmentState.grid.nodes.get(mazeCostCellId)?.cost ?? 1}
+			title="Edit Cell Cost"
+			onSave={saveMazeCost}
+		/>
 	{/if}
+
+	{#snippet zoomButton(Icon: any, label: string, onClick: () => void)}
+		<Button variant="ghost" size="icon" class="h-8 w-8" onclick={onClick} title={label}>
+			<Icon class="h-4 w-4" />
+			<span class="sr-only">{label}</span>
+		</Button>
+	{/snippet}
+
+	<div class="absolute bottom-20 right-4 z-10 flex flex-col gap-2 rounded-md border bg-background/80 p-1 shadow-sm backdrop-blur-sm sm:bottom-4">
+		{@render zoomButton(ZoomIn, 'Zoom In', () => renderer?.zoomIn())}
+		{@render zoomButton(ZoomOut, 'Zoom Out', () => renderer?.zoomOut())}
+		{@render zoomButton(Maximize, 'Fit to View', () => renderer?.fitToView())}
+	</div>
 </div>

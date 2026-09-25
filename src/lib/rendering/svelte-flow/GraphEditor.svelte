@@ -197,65 +197,63 @@
 </script>
 
 <div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''} ${executionStore.isComparing ? 'pointer-events-none' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
-	{#if browser}
-		<ContextMenu.Root bind:open={menuOpen}>
-			<ContextMenu.Trigger class="block w-full h-full">
-				<SvelteFlow
-					{nodes}
-					{edges}
-					{nodeTypes}
-					{edgeTypes}
-					colorMode={isDark ? 'dark' : 'light'}
-					onpaneclick={handlePaneClick}
-					onnodeclick={handleNodeClick}
-					onedgeclick={handleEdgeClick}
-					onconnect={handleConnect}
-					onnodedragstop={handleNodeDragStop}
-					onnodecontextmenu={onNodeContextMenu}
-					onedgecontextmenu={onEdgeContextMenu}
-					onpanecontextmenu={onPaneContextMenu}
-					nodesDraggable={editorState.mode === 'move'}
-					nodesConnectable={editorState.mode === 'edge'}
-					connectionMode={ConnectionMode.Loose}
-					elementsSelectable={true}
-					fitView
-				>
-					<Background variant={BackgroundVariant.Dots} />
-					<Controls />
-				</SvelteFlow>
-			</ContextMenu.Trigger>
-			<ContextMenu.Content>
-				{#if graphContextTarget?.type === 'background'}
-					<GraphBackgroundMenu
-						flowX={graphContextTarget.flowX}
-						flowY={graphContextTarget.flowY}
-						onFitView={handleFitView}
-						onClearSelection={handleClearSelection}
-					/>
-				{:else if graphContextTarget?.type === 'node'}
-					<GraphNodeMenu
-						nodeId={graphContextTarget.nodeId}
-						onRename={openRenameDialog}
-						onEditCost={openNodeCostDialog}
-					/>
-				{:else if graphContextTarget?.type === 'edge'}
-					<GraphEdgeMenu edgeId={graphContextTarget.edgeId} />
-				{/if}
-			</ContextMenu.Content>
-		</ContextMenu.Root>
+	<ContextMenu.Root bind:open={menuOpen}>
+		<ContextMenu.Trigger class="block w-full h-full">
+			<SvelteFlow
+				{nodes}
+				{edges}
+				{nodeTypes}
+				{edgeTypes}
+				colorMode={isDark ? 'dark' : 'light'}
+				onpaneclick={handlePaneClick}
+				onnodeclick={handleNodeClick}
+				onedgeclick={handleEdgeClick}
+				onconnect={handleConnect}
+				onnodedragstop={handleNodeDragStop}
+				onnodecontextmenu={onNodeContextMenu}
+				onedgecontextmenu={onEdgeContextMenu}
+				onpanecontextmenu={onPaneContextMenu}
+				nodesDraggable={editorState.mode === 'move' && !executionStore.isComparing}
+				nodesConnectable={editorState.mode === 'edge' && !executionStore.isComparing}
+				connectionMode={ConnectionMode.Loose}
+				elementsSelectable={true}
+				fitView
+			>
+				<Background variant={BackgroundVariant.Dots} />
+				<Controls />
+			</SvelteFlow>
+		</ContextMenu.Trigger>
+		<ContextMenu.Content>
+			{#if graphContextTarget?.type === 'background'}
+				<GraphBackgroundMenu
+					flowX={graphContextTarget.flowX}
+					flowY={graphContextTarget.flowY}
+					onFitView={handleFitView}
+					onClearSelection={handleClearSelection}
+				/>
+			{:else if graphContextTarget?.type === 'node'}
+				<GraphNodeMenu
+					nodeId={graphContextTarget.nodeId}
+					onRename={openRenameDialog}
+					onEditCost={openNodeCostDialog}
+				/>
+			{:else if graphContextTarget?.type === 'edge'}
+				<GraphEdgeMenu edgeId={graphContextTarget.edgeId} />
+			{/if}
+		</ContextMenu.Content>
+	</ContextMenu.Root>
 
-		{#if nodeCostNodeId !== null}
-			<EditCostDialog
-				bind:open={nodeCostOpen}
-				initialCost={environmentState.graph.nodes.get(nodeCostNodeId)?.cost ?? 0}
-				title="Edit Node Cost"
-				onSave={saveNodeCost}
-			/>
-		{/if}
+	{#if nodeCostNodeId !== null}
+		<EditCostDialog
+			bind:open={nodeCostOpen}
+			initialCost={environmentState.graph.nodes.get(nodeCostNodeId)?.cost ?? 0}
+			title="Edit Node Cost"
+			onSave={saveNodeCost}
+		/>
+	{/if}
 
-		{#if renameNodeId}
-			<RenameNodeDialog bind:open={renameOpen} nodeId={renameNodeId} initialLabel={renameInitialLabel} />
-		{/if}
+	{#if renameNodeId}
+		<RenameNodeDialog bind:open={renameOpen} nodeId={renameNodeId} initialLabel={renameInitialLabel} />
 	{/if}
 </div>
 
