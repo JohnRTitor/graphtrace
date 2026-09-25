@@ -9,20 +9,13 @@ import { stageToCellId } from './maze-coords';
 
 type InputEvent = MouseEvent | TouchEvent | PointerEvent;
 
-function isTouchInput(event: InputEvent) {
-	return (
-		(typeof event.type === 'string' && event.type.startsWith('touch')) ||
-		'touches' in event ||
-		(event as PointerEvent).pointerType === 'touch'
-	);
-}
-
 function isNonPrimaryButton(event: InputEvent) {
 	return 'button' in event && event.button !== 0;
 }
 
 function isPanInput(event: InputEvent) {
-	return isTouchInput(event) || ('button' in event && event.button === 1);
+	const touchCount = 'touches' in event ? event.touches.length : 0;
+	return touchCount > 1 || ('button' in event && event.button === 1);
 }
 
 export class MazeRenderer {
