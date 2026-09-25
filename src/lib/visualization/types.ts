@@ -20,6 +20,7 @@ export type VisualizationState = {
 	cellStates: Map<NodeId, CellVisualState>;
 	currentNode: NodeId | null;
 	pathNodes: Set<NodeId>;
+	pathEdges: Set<string>;
 	costData: Map<NodeId, CostData>;
 	expansionHistory: NodeId[];
 };
@@ -31,6 +32,7 @@ export function createInitialVisualizationState(): VisualizationState {
 		cellStates: new Map(),
 		currentNode: null,
 		pathNodes: new Set(),
+		pathEdges: new Set(),
 		costData: new Map(),
 		expansionHistory: []
 	};

@@ -30,14 +30,17 @@ export const astar: Algorithm = {
 
 		const openSet = new MinHeap<NodeId>();
 		const frontier = new Set<NodeId>();
+		const pendingEntries = new Map<NodeId, number>();
 		const gScore = new Map<NodeId, number>();
 		const fScore = new Map<NodeId, number>();
 		const parentMap = new Map<NodeId, NodeId>();
+		const parentEdgeMap = new Map<NodeId, string>();
 		const closedSet = new Set<NodeId>();
 
 		gScore.set(start, 0);
 		fScore.set(start, graph.getHeuristic(start, goal));
 		openSet.insert(start, fScore.get(start)!);
+		pendingEntries.set(start, 1);
 		frontier.add(start);
 		metrics.maxFrontierSize = 1;
 
@@ -46,8 +49,15 @@ export const astar: Algorithm = {
 		while (!openSet.isEmpty()) {
 			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, frontier.size);
 			
-			const current = openSet.extractMin()!;
-			frontier.delete(current);
+			const entry = openSet.extractMinEntry()!;
+			const current = entry.value;
+			const remainingEntries = (pendingEntries.get(current) ?? 1) - 1;
+			if (remainingEntries <= 0) {
+				pendingEntries.delete(current);
+				frontier.delete(current);
+			} else {
+				pendingEntries.set(current, remainingEntries);
+			}
 
 			// In a priority queue with duplicates (because we don't do decrease-key), 
 			// we might extract a node we've already fully processed.
@@ -77,8 +87,9 @@ export const astar: Algorithm = {
 						closedSet.delete(neighbor.target);
 					}
 
-					parentMap.set(neighbor.target, current);
-					gScore.set(neighbor.target, tentativeGScore);
+						parentMap.set(neighbor.target, current);
+						if (neighbor.id) parentEdgeMap.set(neighbor.target, neighbor.id);
+						gScore.set(neighbor.target, tentativeGScore);
 					
 					const h = graph.getHeuristic(neighbor.target, goal);
 					const f = tentativeGScore + h;
@@ -91,12 +102,14 @@ export const astar: Algorithm = {
 					}
 					
 					openSet.insert(neighbor.target, f);
+					pendingEntries.set(neighbor.target, (pendingEntries.get(neighbor.target) ?? 0) + 1);
 					frontier.add(neighbor.target);
 					metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, frontier.size);
 					events.push({ 
 						type: 'update', 
-						node: neighbor.target, 
+						node: neighbor.target,
 						parent: current,
+						edge: neighbor.id,
 						g: tentativeGScore,
 						h: h,
 						f: f
@@ -109,12 +122,17 @@ export const astar: Algorithm = {
 
 		if (found) {
 			const path: NodeId[] = [];
+			const pathEdges: string[] = [];
 			let curr: NodeId | undefined = goal;
 			while (curr) {
 				path.unshift(curr);
-				curr = parentMap.get(curr);
+				const parent = parentMap.get(curr);
+				const edgeId = parentEdgeMap.get(curr);
+				if (edgeId) pathEdges.push(edgeId);
+				curr = parent;
 			}
-			events.push({ type: 'path', nodes: path });
+			pathEdges.reverse();
+			events.push({ type: 'path', nodes: path, ...(pathEdges.length > 0 ? { edges: pathEdges } : {}) });
 			metrics.pathLength = path.length;
 			metrics.pathCost = gScore.get(goal) ?? 0;
 		} else {

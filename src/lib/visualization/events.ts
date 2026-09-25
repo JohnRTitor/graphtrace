@@ -40,10 +40,13 @@ export function applyEvent(state: VisualizationState, event: AlgorithmEvent): vo
 			break;
 			
 		case 'path':
-			for (const node of event.nodes) {
-				state.cellStates.set(node, 'path');
-				state.pathNodes.add(node);
-			}
+		for (const node of event.nodes) {
+			state.cellStates.set(node, 'path');
+			state.pathNodes.add(node);
+		}
+		for (const edge of event.edges ?? []) {
+			state.pathEdges.add(edge);
+		}
 			if (state.currentNode) {
 				state.cellStates.set(state.currentNode, 'expanded');
 				state.currentNode = null;

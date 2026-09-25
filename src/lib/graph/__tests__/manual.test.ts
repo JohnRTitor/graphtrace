@@ -146,8 +146,8 @@ describe('ManualGraph', () => {
 
 		graph.execute({ type: 'add-edge', edge: { id: 'ab', source: 'A', target: 'B', weight: 2, directed: false } });
 
-		expect(graph.getNeighbors('A')).toEqual([{ target: 'B', weight: 7 }]);
-		expect(graph.getNeighbors('B')).toEqual([{ target: 'A', weight: 104 }]);
+		expect(graph.getNeighbors('A')).toEqual([{ id: 'ab', target: 'B', weight: 7 }]);
+		expect(graph.getNeighbors('B')).toEqual([{ id: 'ab', target: 'A', weight: 104 }]);
 	});
 
 	it('uses movementCost as the total graph entry cost when provided', () => {
@@ -156,7 +156,7 @@ describe('ManualGraph', () => {
 		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
 		graph.execute({ type: 'add-edge', edge: { id: 'ab', source: 'A', target: 'B', weight: 9, directed: true } });
 
-		expect(graph.getNeighbors('A')).toEqual([{ target: 'B', weight: 0.5 }]);
+		expect(graph.getNeighbors('A')).toEqual([{ id: 'ab', target: 'B', weight: 0.5 }]);
 	});
 
 	it('rejects invalid command costs, weights, and endpoint references', () => {

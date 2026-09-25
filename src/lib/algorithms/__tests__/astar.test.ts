@@ -48,6 +48,11 @@ describe('A* Algorithm', () => {
 		const result = astar.run(graph, 'A', 'C');
 		expect(result.metrics.pathLength).toBe(3);
 		expect(result.metrics.pathCost).toBe(10); // A -> B -> C is 10, A -> C is 15
+		expect(result.events.find((event) => event.type === 'path')).toEqual({
+			type: 'path',
+			nodes: ['A', 'B', 'C'],
+			edges: ['e1', 'e2']
+		});
 	});
 
 	it('charges entered node costs without charging the start node', () => {

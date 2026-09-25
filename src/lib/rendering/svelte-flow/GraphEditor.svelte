@@ -82,7 +82,9 @@
 	});
 
 	let pathEdges = $derived.by(() => {
-		if (!playback.vizState?.pathNodes || playback.vizState.pathNodes.size === 0) return new Set<string>();
+		if (!playback.vizState) return new Set<string>();
+		if (playback.vizState.pathEdges.size > 0) return new Set<string>(playback.vizState.pathEdges);
+		if (playback.vizState.pathNodes.size === 0) return new Set<string>();
 		return extractPathEdges(Array.from(playback.vizState.pathNodes), environmentState.graph);
 	});
 

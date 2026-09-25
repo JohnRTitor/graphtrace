@@ -9,16 +9,23 @@ export class MinHeap<T> {
 	}
 
 	extractMin(): T | undefined {
-		if (this.heap.length === 0) return undefined;
-		if (this.heap.length === 1) return this.heap.pop()?.value;
+		return this.extractMinEntry()?.value;
+	}
 
-		const min = this.heap[0].value;
+	extractMinEntry(): { value: T; priority: number } | undefined {
+		if (this.heap.length === 0) return undefined;
+		if (this.heap.length === 1) {
+			const entry = this.heap.pop();
+			return entry ? { ...entry } : undefined;
+		}
+
+		const min = this.heap[0];
 		const last = this.heap.pop();
 		if (last !== undefined) {
 			this.heap[0] = last;
 			this.sinkDown(0);
 		}
-		return min;
+		return { ...min };
 	}
 
 	peek(): T | undefined {

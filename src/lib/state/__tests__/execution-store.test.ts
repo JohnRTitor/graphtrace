@@ -34,7 +34,8 @@ describe('ExecutionStore', () => {
 		expect(execution?.metrics.pathCost).toBe(7);
 		expect(execution?.trace.find((event) => event.type === 'path')).toEqual({
 			type: 'path',
-			nodes: ['A', 'B', 'C']
+			nodes: ['A', 'B', 'C'],
+			edges: ['ab', 'bc']
 		});
 	});
 

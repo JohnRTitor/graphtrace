@@ -31,6 +31,7 @@ export type BaseGraphNode = {
 };
 
 export type BaseGraphEdge = {
+	id?: string;
 	target: NodeId;
 	weight: number;
 };

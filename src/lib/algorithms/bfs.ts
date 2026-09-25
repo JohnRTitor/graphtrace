@@ -31,6 +31,7 @@ export const bfs: Algorithm = {
 		let head = 0;
 		const visited = new Set<NodeId>([start]);
 		const parentMap = new Map<NodeId, NodeId>();
+		const parentEdgeMap = new Map<NodeId, string>();
 		
 		let found = false;
 
@@ -55,8 +56,9 @@ export const bfs: Algorithm = {
 				if (!visited.has(neighbor.target)) {
 					visited.add(neighbor.target);
 					parentMap.set(neighbor.target, current);
+					if (neighbor.id) parentEdgeMap.set(neighbor.target, neighbor.id);
 					queue.push(neighbor.target);
-					events.push({ type: 'discover', node: neighbor.target, from: current });
+					events.push({ type: 'discover', node: neighbor.target, from: current, edge: neighbor.id });
 					metrics.nodesDiscovered++;
 				} else {
 					events.push({ type: 'skip', node: neighbor.target });
@@ -66,12 +68,17 @@ export const bfs: Algorithm = {
 
 		if (found) {
 			const path: NodeId[] = [];
+			const pathEdges: string[] = [];
 			let curr: NodeId | undefined = goal;
 			while (curr) {
 				path.unshift(curr);
-				curr = parentMap.get(curr);
+				const parent = parentMap.get(curr);
+				const edgeId = parentEdgeMap.get(curr);
+				if (edgeId) pathEdges.push(edgeId);
+				curr = parent;
 			}
-			events.push({ type: 'path', nodes: path });
+			pathEdges.reverse();
+			events.push({ type: 'path', nodes: path, ...(pathEdges.length > 0 ? { edges: pathEdges } : {}) });
 			metrics.pathLength = path.length;
 			metrics.pathCost = path.length - 1; // Unweighted cost
 		} else {

@@ -139,7 +139,7 @@ export class ManualGraph implements BaseGraph {
 
 			const weight = getGraphEntryCost(this.costModel, id, edge, enteredNode);
 			if (isValidCost(weight)) {
-				neighbors.push({ target, weight });
+				neighbors.push({ id: edge.id, target, weight });
 			}
 		}
 		return neighbors;

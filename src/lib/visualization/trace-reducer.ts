@@ -7,6 +7,7 @@ function cloneState(state: VisualizationState): VisualizationState {
 		cellStates: new Map(state.cellStates),
 		currentNode: state.currentNode,
 		pathNodes: new Set(state.pathNodes),
+		pathEdges: new Set(state.pathEdges),
 		costData: new Map(state.costData),
 		expansionHistory: [...state.expansionHistory]
 	};
@@ -50,6 +51,9 @@ export function applyEvent(prevState: VisualizationState, event: AlgorithmEvent)
 			for (const node of event.nodes) {
 				state.cellStates.set(node, 'path');
 				state.pathNodes.add(node);
+			}
+			for (const edge of event.edges ?? []) {
+				state.pathEdges.add(edge);
 			}
 			if (state.currentNode) {
 				state.cellStates.set(state.currentNode, 'expanded');
@@ -110,8 +114,11 @@ export function invertEvent(prevState: VisualizationState, event: AlgorithmEvent
 			
 		case 'path':
 			for (const node of event.nodes) {
-				state.cellStates.set(node, 'expanded'); // Was expanded before being part of path
+				state.cellStates.set(node, 'expanded');
 				state.pathNodes.delete(node);
+			}
+			for (const edge of event.edges ?? []) {
+				state.pathEdges.delete(edge);
 			}
 			if (state.expansionHistory.length > 0) {
 				const prevCurrent = state.expansionHistory.pop()!;
