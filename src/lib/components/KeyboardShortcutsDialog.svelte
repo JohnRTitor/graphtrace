@@ -32,7 +32,7 @@
 			{@render shortcutItem('Play / Pause', 'Space')}
 			{@render shortcutItem('Step Forward', 'N')}
 			{@render shortcutItem('Reset', 'R')}
-			{@render shortcutItem('Toggle Edit Mode (Wall/Erase)', 'E')}
+			{@render shortcutItem('Toggle Wall/Erase (Grid)', 'E')}
 			{@render shortcutItem('Cancel / Close', 'Esc')}
 		</div>
 	</DialogContent>

@@ -14,8 +14,8 @@
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<div class="flex min-h-0 flex-1">
-		<div class="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r">
+	<div class="flex min-h-0 flex-1 flex-col md:flex-row">
+		<div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b md:border-b-0 md:border-r">
 			<div class="absolute left-2 top-2 z-10">
 				<Card class="pointer-events-none bg-background/80 shadow-sm backdrop-blur-sm">
 					<CardHeader class="p-3 pb-0">
@@ -29,7 +29,7 @@
 			<CanvasView playback={playbackState} />
 		</div>
 
-		<div class="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+		<div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 			<div class="absolute left-2 top-2 z-10">
 				<Card class="pointer-events-none bg-background/80 shadow-sm backdrop-blur-sm">
 					<CardHeader class="p-3 pb-0">

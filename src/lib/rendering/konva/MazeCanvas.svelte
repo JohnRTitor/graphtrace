@@ -116,6 +116,27 @@
 		mazeCostOpen = true;
 	}
 
+	function handleGridKeydown(event: KeyboardEvent) {
+		const key = event.key;
+		if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(key)) return;
+		const selected = editorState.selection?.type === 'cell' ? editorState.selection.id : environmentState.gridStart;
+		if (!selected) return;
+		const [row, col] = selected.split(',').map(Number);
+		let nextRow = row;
+		let nextCol = col;
+		if (key === 'ArrowUp') nextRow--;
+		if (key === 'ArrowDown') nextRow++;
+		if (key === 'ArrowLeft') nextCol--;
+		if (key === 'ArrowRight') nextCol++;
+		nextRow = Math.max(0, Math.min(environmentState.gridRows - 1, nextRow));
+		nextCol = Math.max(0, Math.min(environmentState.gridCols - 1, nextCol));
+		event.preventDefault();
+		editorState.selection = { type: 'cell', id: `${nextRow},${nextCol}` };
+		if (key === 'Enter' || key === ' ') {
+			editorState.onPointerDown(`${nextRow},${nextCol}`);
+			editorState.onPointerUp(`${nextRow},${nextCol}`);
+		}
+	}
 	function saveMazeCost(cost: number) {
 		invalidatePlaybackIfNeeded();
 		if (mazeCostCellId !== null) environmentState.setGridCost(mazeCostCellId, cost);
@@ -126,7 +147,16 @@
 <div class="relative w-full h-full bg-background">
 	<ContextMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange}>
 		<ContextMenu.Trigger class="block w-full h-full">
-			<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none" role="application" aria-label="Graph grid editor"></div>
+			<div
+				bind:this={container}
+				class="w-full h-full cursor-crosshair"
+				style:touch-action="none"
+				role="grid"
+				aria-label="Graph grid editor"
+				aria-describedby="maze-grid-instructions"
+				tabindex="0"
+				onkeydown={handleGridKeydown}
+			></div>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
 			{#if mazeCellTarget !== null}
@@ -134,6 +164,7 @@
 			{/if}
 		</ContextMenu.Content>
 	</ContextMenu.Root>
+	<span id="maze-grid-instructions" class="sr-only">Use arrow keys to move between cells and Enter or Space to apply the current edit tool.</span>
 
 	{#if mazeCostCellId !== null}
 		<EditCostDialog

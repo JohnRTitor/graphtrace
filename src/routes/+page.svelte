@@ -44,7 +44,7 @@
 	<main class="flex flex-1 overflow-hidden">
 		<!-- Sidebar Controls -->
 		<aside
-			class={`fixed inset-y-0 left-0 z-50 w-[min(88vw,360px)] shrink-0 border-r bg-card shadow-lg md:static md:z-10 md:block md:w-[320px] md:shadow-sm ${mobilePanel === 'builder' ? '' : 'hidden'}`}
+			class={`fixed inset-y-14 left-0 z-40 w-[min(88vw,360px)] shrink-0 border-r bg-card shadow-lg md:static md:z-10 md:block md:w-[320px] md:shadow-sm ${mobilePanel === 'builder' ? '' : 'hidden'}`}
 			aria-label="Problem builder"
 		>
 			<ScrollArea class="h-full">
@@ -80,7 +80,7 @@
 		{#if mobilePanel}
 			<button
 				type="button"
-				class="fixed inset-0 z-40 cursor-default bg-background/60 md:hidden"
+				class="fixed inset-0 z-30 cursor-default bg-background/60 md:hidden"
 				aria-label="Close side panel"
 				onclick={() => (mobilePanel = null)}
 			></button>
@@ -88,7 +88,7 @@
 
 		<!-- Right Inspector Panel -->
 		<aside
-			class={`fixed inset-y-0 right-0 z-50 w-[min(88vw,360px)] shrink-0 border-l bg-card shadow-lg md:static md:z-10 md:block md:w-[320px] md:shadow-sm ${mobilePanel === 'inspector' ? '' : 'hidden'}`}
+			class={`fixed inset-y-14 right-0 z-40 w-[min(88vw,360px)] shrink-0 border-l bg-card shadow-lg md:static md:z-10 md:block md:w-[320px] md:shadow-sm ${mobilePanel === 'inspector' ? '' : 'hidden'}`}
 			aria-label="Inspector"
 		>
 			<ScrollArea class="h-full">

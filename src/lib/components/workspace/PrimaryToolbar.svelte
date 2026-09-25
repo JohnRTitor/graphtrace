@@ -62,7 +62,7 @@
 	}
 </script>
 
-<div class="relative flex items-center gap-1 border-b bg-card p-2 shadow-sm">
+<div class="relative flex flex-wrap items-center gap-1 border-b bg-card p-2 shadow-sm">
 	{#if loadError}
 		<p class="absolute right-2 top-14 z-30 max-w-[min(90vw,28rem)] rounded-md border border-destructive/30 bg-background px-3 py-2 text-xs text-destructive shadow-lg" role="alert">
 			{loadError}

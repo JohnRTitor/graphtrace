@@ -17,8 +17,8 @@
 	});
 
 	let borderStyle = $derived.by(() => {
-		if (data.isStart && data.isGoal) return `2px solid ${data.colors.goal}`;
 		if (selected) return `2px solid ${data.colors.text}`;
+		if (data.isStart && data.isGoal) return `2px solid ${data.colors.goal}`;
 		if (data.isStart) return `2px solid ${data.colors.start}`;
 		if (data.isGoal) return `2px solid ${data.colors.goal}`;
 		return `1px solid ${data.colors.wall}`;
