@@ -177,11 +177,7 @@ export class EditorState {
 		const move = this._graphMoveStart;
 		this._graphMoveStart = null;
 		if (!move) return;
-		const node = environmentState.graph.nodes.get(move.id);
-		if (node) {
-			node.x = move.x;
-			node.y = move.y;
-		}
+		environmentState.restoreGraphNodePosition(move.id, move.x, move.y);
 	}
 
 	private applyGraphEditDown(id: NodeId | null, x: number = 0, y: number = 0) {

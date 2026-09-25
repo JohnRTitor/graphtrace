@@ -537,19 +537,27 @@ export class EnvironmentState {
       cmd: { type: "remove-node", node, attachedEdges, wasStart, wasGoal },
     });
   }
-  moveGraphNode(id: NodeId, x: number, y: number) {
-    const node = this._graph.nodes.get(id);
-    if (!node || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    this.executeCommand({
-      type: "graph",
-      cmd: {
-        type: "move-node",
-        id,
-        from: { x: node.x, y: node.y },
-        to: { x, y },
-      },
-    });
-  }
+   moveGraphNode(id: NodeId, x: number, y: number) {
+     const node = this._graph.nodes.get(id);
+     if (!node || !Number.isFinite(x) || !Number.isFinite(y)) return;
+     this.executeCommand({
+       type: "graph",
+       cmd: {
+         type: "move-node",
+         id,
+         from: { x: node.x, y: node.y },
+         to: { x, y },
+       },
+     });
+   }
+   restoreGraphNodePosition(id: NodeId, x: number, y: number): void {
+     const node = this._graph.nodes.get(id);
+     if (!node || !Number.isFinite(x) || !Number.isFinite(y)) return;
+     node.x = x;
+     node.y = y;
+     this._graphVersion++;
+   }
+
   addGraphEdge(
     source: NodeId,
     target: NodeId,
