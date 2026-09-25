@@ -2,6 +2,7 @@ import type { EditMode } from '../state/editor.svelte';
 import type { NodeId } from '../graph/types';
 import type { EnvCommand } from '../domain/command';
 import type { GraphCommand } from '../graph/manual';
+import type { GridCommand } from '../graph/commands';
 
 export class Interactor {
 	private _activeGridBatch: (EnvCommand & { type: 'grid' }) | null = null;
@@ -11,7 +12,8 @@ export class Interactor {
 	private _dragStartPos: { x: number, y: number } | null = null;
 	
 	constructor(
-		private commitCommand: (cmd: EnvCommand) => void
+		private commitCommand: (cmd: EnvCommand) => void,
+		private rollbackGrid: (cmd: GridCommand) => void = () => {}
 	) {}
 
 	beginGridDrag(oldStart: NodeId | null, oldGoal: NodeId | null) {
@@ -35,7 +37,7 @@ export class Interactor {
 	) {
 		if (!this._activeGridBatch || this._activeGridBatch.cmd.type !== 'paint-cells') return;
 		
-		const existing = this._activeGridBatch.cmd.edits.find((e: any) => e.id === id);
+		const existing = this._activeGridBatch.cmd.edits.find((edit) => edit.id === id);
 		if (existing) {
 			existing.newWalkable = newWalkable;
 			existing.newCost = newCost;
@@ -57,6 +59,14 @@ export class Interactor {
 	setGridGoal(id: NodeId | null) {
 		if (this._activeGridBatch && this._activeGridBatch.cmd.type === 'paint-cells') {
 			this._activeGridBatch.cmd.newGoal = id;
+		}
+	}
+
+	cancelGridDrag() {
+		if (this._activeGridBatch?.cmd.type === 'paint-cells') {
+			const batch = this._activeGridBatch;
+			this._activeGridBatch = null;
+			this.rollbackGrid(batch.cmd);
 		}
 	}
 
@@ -97,7 +107,7 @@ export class Interactor {
 	}
 	
 	cancelGesture() {
-		this._activeGridBatch = null;
+		this.cancelGridDrag();
 		this._dragStartNode = null;
 		this._dragStartPos = null;
 	}

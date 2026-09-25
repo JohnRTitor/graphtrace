@@ -92,7 +92,7 @@ export class MazeInteraction {
 		if (!this.isDragging) return;
 
 		this.resetDrag();
-		editorState.onPointerLeave();
+		editorState.onPointerCancel();
 	}
 
 	private resetDrag() {

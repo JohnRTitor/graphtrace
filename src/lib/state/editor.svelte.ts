@@ -18,7 +18,10 @@ export class EditorState {
 	private _costValue = $state(5); // Default cost for cost mode
 	private _isDrawing = $state(false);
 	
-	private _interactor = new Interactor((cmd) => environmentState.executeCommand(cmd));
+	private _interactor = new Interactor(
+		(cmd) => environmentState.executeCommand(cmd),
+		(cmd) => environmentState.revertGridCommand(cmd)
+	);
 
 	// Graph mode specific states
 	private _dragStartNode: NodeId | null = $state(null);
@@ -37,6 +40,7 @@ export class EditorState {
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
 		this._isDrawing = false;
+		this._interactor.cancelGridDrag();
 		this._interactor.cancelGesture();
 	}
 	
@@ -105,6 +109,19 @@ export class EditorState {
 			this._interactor.cancelGesture();
 		}
 		this._isDrawing = false;
+		this._dragStartNode = null;
+		this._edgePreviewTo = null;
+	}
+
+	onPointerCancel() {
+		if (environmentState.environmentType === 'graph') {
+			this.cancelGraphMove();
+			this._interactor.cancelGesture();
+		} else {
+			this._interactor.cancelGridDrag();
+		}
+		this._isDrawing = false;
+		this._lastProcessedCell = null;
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
 	}

@@ -33,7 +33,7 @@ import { generateRandomGraph } from "../generators/random-graph";
 import { getAlgorithm } from "../algorithms";
 import { invertGraphCommand } from "../graph/manual";
 import type { EnvCommand } from "../domain/command";
-import type { GridSnapshot } from "../graph/commands";
+import type { GridCommand, GridSnapshot } from "../graph/commands";
 
 export type RunAlgorithmMode = "autoplay" | "step";
 
@@ -429,6 +429,17 @@ export class EnvironmentState {
         this.restoreGrid(gcmd.oldGrid);
       }
     }
+  }
+
+  revertGridCommand(cmd: GridCommand): void {
+    if (cmd.type !== 'paint-cells') return;
+    for (const edit of cmd.edits) {
+      setWall(this._grid, edit.id, edit.oldWalkable);
+      setCost(this._grid, edit.id, edit.oldCost);
+    }
+    if (cmd.oldStart !== undefined) setGridStart(this._grid, cmd.oldStart);
+    if (cmd.oldGoal !== undefined) setGridGoal(this._grid, cmd.oldGoal);
+    this._gridVersion++;
   }
 
   undo() {

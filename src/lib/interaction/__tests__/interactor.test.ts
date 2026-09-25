@@ -66,4 +66,19 @@ describe('Interactor', () => {
 		
 		expect(commands.length).toBe(0);
 	});
+
+	it('rolls back an uncommitted grid batch when canceled', () => {
+		const rollback = vi.fn();
+		const interactor = new Interactor(() => {}, rollback);
+		interactor.beginGridDrag(null, null);
+		interactor.recordGridEdit('0,0', true, false, 1, 1);
+
+		interactor.cancelGridDrag();
+
+		expect(rollback).toHaveBeenCalledOnce();
+		expect(rollback.mock.calls[0][0]).toMatchObject({
+			type: 'paint-cells',
+			edits: [{ id: '0,0', oldWalkable: true, newWalkable: false }]
+		});
+	});
 });
