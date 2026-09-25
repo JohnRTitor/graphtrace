@@ -4,6 +4,7 @@
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
+	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
 	import { MazeRenderer } from './MazeRenderer';
 	import { Button } from '$lib/components/ui/button';
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
@@ -11,6 +12,7 @@
 	import Maximize from '@lucide/svelte/icons/maximize';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import MazeContextMenu from './MazeContextMenu.svelte';
+	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
 	import type { NodeId } from '$lib/graph/types';
 	import type { PlaybackState } from '$lib/state/playback.svelte';
 
@@ -27,6 +29,8 @@
 	// transform the renderer uses for painting (see maze-coords.ts).
 	let menuOpen = $state(false);
 	let mazeCellTarget = $state<NodeId | null>(null);
+	let mazeCostOpen = $state(false);
+	let mazeCostCellId = $state<NodeId | null>(null);
 
 	onMount(() => {
 		if (!browser || !container) return;
@@ -34,7 +38,13 @@
 		renderer = new MazeRenderer(container);
 		renderer.setContext(editorState, environmentState);
 		renderer.setContextMenuHandler((cellId) => {
-			mazeCellTarget = cellId;
+			if (cellId !== null && environmentState.grid.nodes.has(cellId)) {
+				mazeCellTarget = cellId;
+				menuOpen = true;
+			} else {
+				mazeCellTarget = null;
+				menuOpen = false;
+			}
 		});
 
 		// Observe theme changes
@@ -90,21 +100,44 @@
 		}
 	});
 
+	function handleMenuOpenChange(open: boolean) {
+		menuOpen = open && mazeCellTarget !== null;
+	}
+
+	function openMazeCostDialog(cellId: NodeId) {
+		mazeCostCellId = cellId;
+		mazeCostOpen = true;
+	}
+
+	function saveMazeCost(cost: number) {
+		invalidatePlaybackIfNeeded();
+		if (mazeCostCellId !== null) environmentState.setGridCost(mazeCostCellId, cost);
+	}
+
 </script>
 
 <div class="relative w-full h-full bg-background">
 	{#if browser}
-		<ContextMenu.Root bind:open={menuOpen}>
+		<ContextMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange}>
 			<ContextMenu.Trigger class="block w-full h-full">
 				<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none"></div>
 			</ContextMenu.Trigger>
 			<ContextMenu.Content>
-				{#if mazeCellTarget}
-					<MazeContextMenu cellId={mazeCellTarget} />
+				{#if mazeCellTarget !== null}
+					<MazeContextMenu cellId={mazeCellTarget} onEditCost={openMazeCostDialog} />
 				{/if}
 			</ContextMenu.Content>
 		</ContextMenu.Root>
-		
+
+		{#if mazeCostCellId !== null}
+			<EditCostDialog
+				bind:open={mazeCostOpen}
+				initialCost={environmentState.grid.nodes.get(mazeCostCellId)?.cost ?? 1}
+				title="Edit Cell Cost"
+				onSave={saveMazeCost}
+			/>
+		{/if}
+
 		<!-- Zoom Controls -->
 		{#snippet zoomButton(Icon: any, label: string, onClick: () => void)}
 			<Button variant="ghost" size="icon" class="h-8 w-8" onclick={onClick} title={label}>

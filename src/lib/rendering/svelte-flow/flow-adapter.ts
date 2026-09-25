@@ -11,19 +11,14 @@ export function extractPathEdges(pathNodes: NodeId[], graph: ManualGraph): Set<s
 	for (let i = 0; i < pathNodes.length - 1; i++) {
 		const u = pathNodes[i];
 		const v = pathNodes[i + 1];
-
-		// Find edge between u and v
-		let foundEdgeId: string | null = null;
-		for (const [edgeId, edge] of graph.edges.entries()) {
-			if ((edge.source === u && edge.target === v) || (edge.source === v && edge.target === u)) {
-				foundEdgeId = edgeId;
-				break; // Stop after first match (could be multiple in multigraph, but graphtrace isn't one)
-			}
-		}
-
-		if (foundEdgeId) {
-			pathEdges.add(foundEdgeId);
-		}
+		const matches = Array.from(graph.edges.entries())
+			.filter(([, edge]) =>
+				(edge.source === u && edge.target === v) ||
+				(edge.source === v && edge.target === u && !edge.directed)
+			)
+			.sort(([leftId], [rightId]) => leftId < rightId ? -1 : leftId > rightId ? 1 : 0);
+		const foundEdgeId = matches[0]?.[0];
+		if (foundEdgeId !== undefined) pathEdges.add(foundEdgeId);
 	}
 	return pathEdges;
 }

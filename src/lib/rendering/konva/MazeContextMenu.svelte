@@ -10,11 +10,8 @@
 	import SquareX from '@lucide/svelte/icons/square-x';
 	import Weight from '@lucide/svelte/icons/weight';
 	import Eraser from '@lucide/svelte/icons/eraser';
-	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
 
-	let { cellId }: { cellId: NodeId } = $props();
-
-	let showCostDialog = $state(false);
+	let { cellId, onEditCost }: { cellId: NodeId; onEditCost: (cellId: NodeId) => void } = $props();
 
 	let node = $derived(environmentState.grid.nodes.get(cellId));
 	let isStart = $derived(environmentState.gridStart === cellId);
@@ -72,7 +69,7 @@
 				<CostPresetSubmenu
 					currentCost={node.cost}
 					onSelect={(w) => run(() => environmentState.setGridCost(cellId, w))}
-					onCustom={() => (showCostDialog = true)}
+					onCustom={() => onEditCost(cellId)}
 				/>
 				{#if hasCost}
 					<ContextMenu.Item onSelect={() => run(() => environmentState.setGridCost(cellId, 1))}>
@@ -93,9 +90,3 @@
 		</ContextMenu.Item>
 	{/if}
 {/if}
-
-<EditCostDialog
-	bind:open={showCostDialog}
-	initialCost={node?.cost ?? 1}
-	onSave={(val) => run(() => environmentState.setGridCost(cellId, val))}
-/>

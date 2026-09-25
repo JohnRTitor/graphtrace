@@ -10,22 +10,21 @@
 	import SquarePen from '@lucide/svelte/icons/square-pen';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Weight from '@lucide/svelte/icons/weight';
-	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
 
 	let {
 		nodeId,
-		onRename
+		onRename,
+		onEditCost
 	}: {
 		nodeId: NodeId;
 		onRename: (nodeId: NodeId, currentLabel: string) => void;
+		onEditCost: (nodeId: NodeId) => void;
 	} = $props();
 
 	let node = $derived(environmentState.graph.nodes.get(nodeId));
 	let isStart = $derived(environmentState.graphStart === nodeId);
 	let isGoal = $derived(environmentState.graphGoal === nodeId);
 	
-	let showCostDialog = $state(false);
-
 	function run(action: () => void) {
 		invalidatePlaybackIfNeeded();
 		action();
@@ -66,7 +65,7 @@
 
 	<ContextMenu.Separator />
 
-	<ContextMenu.Item onSelect={() => (showCostDialog = true)}>
+	<ContextMenu.Item onSelect={() => onEditCost(nodeId)}>
 		<Weight />
 		Edit Node Cost...
 	</ContextMenu.Item>
@@ -85,10 +84,3 @@
 		Delete
 	</ContextMenu.Item>
 {/if}
-
-<EditCostDialog
-	bind:open={showCostDialog}
-	initialCost={node?.cost ?? 0}
-	title="Edit Node Cost"
-	onSave={(val) => run(() => environmentState.setGraphNodeCost(nodeId, val))}
-/>

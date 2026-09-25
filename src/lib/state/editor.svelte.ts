@@ -16,6 +16,7 @@ export class EditorState {
 	// Graph mode specific states
 	private _dragStartNode: NodeId | null = $state(null);
 	private _edgePreviewTo: { x: number; y: number } | null = $state(null);
+	private _graphMoveStart: { id: NodeId; x: number; y: number } | null = null;
 	private _lastProcessedCell: NodeId | null = null;
 	private _nodeCount = 0;
 	
@@ -24,6 +25,7 @@ export class EditorState {
 
 	get mode() { return this._mode; }
 	set mode(m: EditMode) { 
+		this.cancelGraphMove();
 		this._mode = m; 
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
@@ -84,9 +86,11 @@ export class EditorState {
 		this._isDrawing = false;
 		this._dragStartNode = null;
 		this._edgePreviewTo = null;
+		this._graphMoveStart = null;
 	}
 	
 	onPointerLeave() {
+		this.cancelGraphMove();
 		if (environmentState.environmentType !== 'graph') {
 			this._interactor.commitGridDrag();
 			this._lastProcessedCell = null;
@@ -138,52 +142,70 @@ export class EditorState {
 		}
 	}
 
-	private applyGraphEditDown(id: NodeId | null, x: number = 0, y: number = 0) {
+	private getGraphObjectType(id: NodeId | null): 'node' | 'edge' | null {
+		if (id === null) return null;
+		if (environmentState.graph.edges.has(id)) return 'edge';
+		if (environmentState.graph.nodes.has(id)) return 'node';
+		return null;
+	}
 
-		if (id) {
-			this.selection = { type: id.startsWith('edge-') ? 'edge' : 'node', id };
+	private cancelGraphMove() {
+		const move = this._graphMoveStart;
+		this._graphMoveStart = null;
+		if (!move) return;
+		const node = environmentState.graph.nodes.get(move.id);
+		if (node) {
+			node.x = move.x;
+			node.y = move.y;
+		}
+	}
+
+	private applyGraphEditDown(id: NodeId | null, x: number = 0, y: number = 0) {
+		const objectType = this.getGraphObjectType(id);
+		if (id !== null && objectType) {
+			this.selection = { type: objectType, id };
 		} else {
 			this.selection = null;
 		}
 		
 		switch (this._mode) {
 			case 'node':
-				if (!id) {
+				if (id === null) {
 					this._nodeCount++;
 					environmentState.addGraphNode(x, y, `N${this._nodeCount}`);
 				}
 				break;
 			case 'edge':
-				if (id) {
+				if (id !== null && objectType === 'node') {
 					this._dragStartNode = id;
 					this._edgePreviewTo = { x, y };
 				}
 				break;
 			case 'remove':
-				if (id) {
-					// Hack: check if it's an edge (edges have format edge-xxxxxx or node id)
-					if (id.startsWith('edge-')) {
-						environmentState.removeGraphEdge(id);
-					} else {
-						environmentState.removeGraphNode(id);
-					}
+				if (id !== null && objectType === 'edge') {
+					environmentState.removeGraphEdge(id);
+				} else if (id !== null && objectType === 'node') {
+					environmentState.removeGraphNode(id);
 				}
 				break;
 			case 'move':
-				if (id && !id.startsWith('edge-')) {
-					this._dragStartNode = id;
+				if (id !== null && objectType === 'node') {
 					const node = environmentState.graph.nodes.get(id);
-					if (node) this._interactor.beginGraphMove(id, node.x, node.y);
+					if (node) {
+						this._dragStartNode = id;
+						this._graphMoveStart = { id, x: node.x, y: node.y };
+						this._interactor.beginGraphMove(id, node.x, node.y);
+					}
 				}
 				break;
 			case 'start':
-				if (id && !id.startsWith('edge-')) environmentState.setGraphStart(id);
+				if (id !== null && objectType === 'node') environmentState.setGraphStart(id);
 				break;
 			case 'goal':
-				if (id && !id.startsWith('edge-')) environmentState.setGraphGoal(id);
+				if (id !== null && objectType === 'node') environmentState.setGraphGoal(id);
 				break;
 			case 'cost':
-				if (id && id.startsWith('edge-')) {
+				if (id !== null && objectType === 'edge') {
 					environmentState.setGraphWeight(id, this._costValue);
 				}
 				break;
@@ -200,8 +222,7 @@ export class EditorState {
 				}
 				break;
 			case 'move':
-				if (this._dragStartNode) {
-					// update visual state but don't record history yet
+				if (this._dragStartNode && this._graphMoveStart?.id === this._dragStartNode) {
 					const node = environmentState.graph.nodes.get(this._dragStartNode);
 					if (node) {
 						node.x = x;
@@ -214,18 +235,29 @@ export class EditorState {
 
 	private applyGraphEditUp(id: NodeId | null, x: number, y: number) {
 		switch (this._mode) {
-			case 'edge':
-				if (this._dragStartNode && id && id !== this._dragStartNode && !id.startsWith('edge-')) {
-					environmentState.addGraphEdge(this._dragStartNode, id, this._costValue);
-				} else {
-					// Dragged to empty space - just connect to same node (self-loop) for now or do nothing
-					environmentState.addGraphEdge(this._dragStartNode!, this._dragStartNode!, this._costValue);
+			case 'edge': {
+				const source = this._dragStartNode;
+				if (
+					source !== null &&
+					id !== null &&
+					source !== id &&
+					this.getGraphObjectType(source) === 'node' &&
+					this.getGraphObjectType(id) === 'node'
+				) {
+					environmentState.addGraphEdge(source, id, this._costValue);
 				}
 				break;
+			}
 			case 'move':
 				if (this._dragStartNode) {
-					this._interactor.commitGraphMove(this._dragStartNode, x, y);
+					const node = environmentState.graph.nodes.get(this._dragStartNode);
+					this._interactor.commitGraphMove(
+						this._dragStartNode,
+						node?.x ?? x,
+						node?.y ?? y
+					);
 				}
+				this._graphMoveStart = null;
 				break;
 		}
 	}

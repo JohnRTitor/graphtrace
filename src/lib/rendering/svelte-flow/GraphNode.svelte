@@ -17,10 +17,18 @@
 	});
 
 	let borderStyle = $derived.by(() => {
+		if (data.isStart && data.isGoal) return `2px solid ${data.colors.goal}`;
 		if (selected) return `2px solid ${data.colors.text}`;
 		if (data.isStart) return `2px solid ${data.colors.start}`;
 		if (data.isGoal) return `2px solid ${data.colors.goal}`;
 		return `1px solid ${data.colors.wall}`;
+	});
+
+	let markerStyle = $derived.by(() => {
+		if (data.isStart && data.isGoal) {
+			return `0 0 0 2px ${data.colors.start}, 0 0 0 4px ${data.colors.goal}`;
+		}
+		return undefined;
 	});
 	
 	let textStyle = $derived.by(() => {
@@ -41,6 +49,7 @@
 	class="relative flex min-w-12.5 min-h-12.5 items-center justify-center rounded-full shadow-sm transition-colors duration-200 group"
 	style:background-color={bgStyle}
 	style:border={borderStyle}
+	style:box-shadow={markerStyle}
 	style:color={textStyle}
 >
 	<Handle type="target" position={Position.Top} class={handleClass} />

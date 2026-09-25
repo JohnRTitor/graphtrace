@@ -21,6 +21,26 @@ describe('Flow Adapter', () => {
 		expect(pathEdges.has('e2')).toBe(true);
 		expect(pathEdges.has('e3')).toBe(false);
 	});
+
+	it('does not match a directed edge against a reverse path', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
+		graph.execute({ type: 'add-edge', edge: { id: 'reverse', source: 'B', target: 'A', weight: 1, directed: true } });
+
+		expect(extractPathEdges(['A', 'B'], graph).size).toBe(0);
+	});
+
+	it('chooses the lowest valid edge id for parallel edges', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
+		graph.execute({ type: 'add-edge', edge: { id: 'edge-z', source: 'A', target: 'B', weight: 1, directed: false } });
+		graph.execute({ type: 'add-edge', edge: { id: 'edge-a', source: 'A', target: 'B', weight: 1, directed: false } });
+
+		const pathEdges = extractPathEdges(['A', 'B'], graph);
+		expect(Array.from(pathEdges)).toEqual(['edge-a']);
+	});
 	
 	it('should handle empty paths', () => {
 		const graph = new ManualGraph();

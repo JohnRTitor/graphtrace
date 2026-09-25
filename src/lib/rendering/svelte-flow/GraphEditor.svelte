@@ -4,6 +4,7 @@
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
+	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
 	import GraphNodeComponent from './GraphNode.svelte';
 	import GraphEdgeComponent from './GraphEdge.svelte';
 	import { toFlowNodes, toFlowEdges, extractPathEdges } from './flow-adapter';
@@ -14,6 +15,7 @@
 	import GraphNodeMenu from './GraphNodeMenu.svelte';
 	import GraphEdgeMenu from './GraphEdgeMenu.svelte';
 	import RenameNodeDialog from './RenameNodeDialog.svelte';
+	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
 	import type { GraphContextTarget } from '$lib/state/context-menu-targets';
 	import type { NodeId } from '$lib/graph/types';
 	import type { PlaybackState } from '$lib/state/playback.svelte';
@@ -178,6 +180,19 @@
 		renameOpen = true;
 	}
 
+	let nodeCostOpen = $state(false);
+	let nodeCostNodeId = $state<NodeId | null>(null);
+
+	function openNodeCostDialog(nodeId: NodeId) {
+		nodeCostNodeId = nodeId;
+		nodeCostOpen = true;
+	}
+
+	function saveNodeCost(cost: number) {
+		invalidatePlaybackIfNeeded();
+		if (nodeCostNodeId !== null) environmentState.setGraphNodeCost(nodeCostNodeId, cost);
+	}
+
 </script>
 
 <div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
@@ -217,12 +232,25 @@
 						onClearSelection={handleClearSelection}
 					/>
 				{:else if graphContextTarget?.type === 'node'}
-					<GraphNodeMenu nodeId={graphContextTarget.nodeId} onRename={openRenameDialog} />
+					<GraphNodeMenu
+						nodeId={graphContextTarget.nodeId}
+						onRename={openRenameDialog}
+						onEditCost={openNodeCostDialog}
+					/>
 				{:else if graphContextTarget?.type === 'edge'}
 					<GraphEdgeMenu edgeId={graphContextTarget.edgeId} />
 				{/if}
 			</ContextMenu.Content>
 		</ContextMenu.Root>
+
+		{#if nodeCostNodeId !== null}
+			<EditCostDialog
+				bind:open={nodeCostOpen}
+				initialCost={environmentState.graph.nodes.get(nodeCostNodeId)?.cost ?? 0}
+				title="Edit Node Cost"
+				onSave={saveNodeCost}
+			/>
+		{/if}
 
 		{#if renameNodeId}
 			<RenameNodeDialog bind:open={renameOpen} nodeId={renameNodeId} initialLabel={renameInitialLabel} />
