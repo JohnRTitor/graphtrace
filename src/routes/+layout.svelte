@@ -31,7 +31,7 @@
 
 	function isInteractiveTarget(target: EventTarget | null): boolean {
 		return target instanceof HTMLElement && target.closest(
-			'input, textarea, select, button, a[href], [role="button"], [role="radio"], [role="switch"], [role="slider"], [role="menuitem"], [contenteditable="true"]'
+			'input, textarea, select, button, a[href], [role="button"], [role="radio"], [role="switch"], [role="slider"], [role="grid"], [role="menuitem"], [contenteditable="true"]'
 		) !== null;
 	}
 

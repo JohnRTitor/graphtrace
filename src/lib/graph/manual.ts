@@ -231,7 +231,7 @@ export class ManualGraph implements BaseGraph {
 				break;
 			case 'set-label': {
 				const labelNode = this.nodes.get(cmd.id);
-				if (labelNode && typeof cmd.to === 'string') labelNode.label = cmd.to;
+				if (labelNode && typeof cmd.to === 'string' && cmd.to.trim()) labelNode.label = cmd.to;
 				break;
 			}
 			case 'clear':

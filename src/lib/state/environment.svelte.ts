@@ -252,8 +252,9 @@ export class EnvironmentState {
     });
   }
 
-  setGridStart(id: NodeId): void {
-    const node = getNode(this._grid, id);
+   setGridStart(id: NodeId): void {
+     if (id === this._grid.start) return;
+     const node = getNode(this._grid, id);
     if (!node) return;
     
     const edits = [];
@@ -272,8 +273,9 @@ export class EnvironmentState {
     });
   }
 
-  setGridGoal(id: NodeId): void {
-    const node = getNode(this._grid, id);
+   setGridGoal(id: NodeId): void {
+     if (id === this._grid.goal) return;
+     const node = getNode(this._grid, id);
     if (!node) return;
 
     const edits = [];
