@@ -161,6 +161,24 @@
 		}
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+		if (!panelElement || !panelElement.parentElement) return;
+		if (x === undefined || y === undefined) {
+			const parentRect = panelElement.parentElement.getBoundingClientRect();
+			const rect = panelElement.getBoundingClientRect();
+			x = rect.left - parentRect.left;
+			y = rect.top - parentRect.top;
+		}
+		if (e.key === 'ArrowUp') y -= 10;
+		if (e.key === 'ArrowDown') y += 10;
+		if (e.key === 'ArrowLeft') x -= 10;
+		if (e.key === 'ArrowRight') x += 10;
+		e.preventDefault();
+		checkBounds();
+		savePosition();
+	}
+
 	function handlePointerCancel(e: PointerEvent) {
 		if (!isDragging) return;
 		isDragging = false;
@@ -185,7 +203,10 @@
 		<!-- Header/Handle -->
 		<div
 			class="cursor-grab active:cursor-grabbing touch-none"
-			role="presentation"
+			role="button"
+			tabindex="0"
+			aria-label={`Move ${id} panel`}
+			onkeydown={handleKeydown}
 			onpointerdown={handlePointerDown}
 			onpointermove={handlePointerMove}
 			onpointerup={handlePointerUp}
