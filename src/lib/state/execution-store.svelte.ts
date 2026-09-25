@@ -136,10 +136,6 @@ export class ExecutionStore {
 		
 		return id;
 	}
-
-	getAllExecutions(): Execution[] {
-		return Array.from(this.executions.values());
-	}
 }
 
 export const executionStore = new ExecutionStore();

@@ -31,10 +31,6 @@ export class MazeInteraction {
 		this.cellSize = cellSize;
 	}
 
-	public setCellSize(size: number) {
-		this.cellSize = size;
-	}
-
 	private getCellIdFromEvent(
 		e: KonvaEventObject<InputEvent>,
 		environmentState: EnvironmentState

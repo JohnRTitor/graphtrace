@@ -1,11 +1,5 @@
 import type { NodeId } from '../graph/types';
 
-/** The single thing a maze context menu can be about: one grid cell. */
-export type MazeContextTarget = {
-	type: 'cell';
-	cellId: NodeId;
-};
-
 /**
  * The thing a manual-graph context menu is about. The context-clicked
  * object is always the source of truth for the target - it is resolved

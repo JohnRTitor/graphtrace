@@ -93,12 +93,4 @@ export class MazeViewport {
 		});
 		this.stage.batchDraw();
 	}
-
-	public getTransform() {
-		return {
-			x: this.stage.x(),
-			y: this.stage.y(),
-			scale: this.stage.scaleX()
-		};
-	}
 }
