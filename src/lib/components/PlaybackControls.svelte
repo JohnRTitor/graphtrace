@@ -90,6 +90,7 @@
 	
 	<div class="px-2">
 		<Slider
+			aria-label="Playback progress"
 			type="single"
 			value={progressValue}
 			onValueChange={(v) => handleProgressScrub(v)}

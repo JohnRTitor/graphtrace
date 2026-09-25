@@ -211,7 +211,7 @@
 
 </script>
 
-<div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''} ${executionStore.isComparing ? 'pointer-events-none' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
+<div class={`relative h-full w-full ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''} ${executionStore.isComparing ? 'pointer-events-none' : ''}`} role="application" aria-label="Manual graph editor" style:color-scheme={isDark ? 'dark' : 'light'}>
 	<ContextMenu.Root bind:open={menuOpen}>
 		<ContextMenu.Trigger class="block w-full h-full">
 			<SvelteFlow
