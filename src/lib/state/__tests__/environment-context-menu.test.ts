@@ -18,6 +18,7 @@ beforeEach(() => {
 	vi.stubGlobal('cancelAnimationFrame', (id: number) => {
 		frames.delete(id);
 	});
+
 });
 
 afterEach(() => {
@@ -68,6 +69,7 @@ describe('EnvironmentState - maze context menu commands', () => {
 		expect(environmentState.gridStart).toBeNull();
 		expect(environmentState.gridGoal).toBe('2,2');
 	});
+
 });
 
 describe('EnvironmentState - manual graph context menu commands', () => {
@@ -198,5 +200,20 @@ describe('playback execution lifecycle', () => {
 		expect(playbackState.hasLoadedTrace).toBe(false);
 		expect(playbackState.isIdle).toBe(true);
 		expect(executionStore.activeId).toBeNull();
+	});
+
+	it('ignores invalid numeric settings and graph mutations', () => {
+		const rows = environmentState.gridRowsSetting;
+		environmentState.gridRowsSetting = Number.NaN;
+		expect(environmentState.gridRowsSetting).toBe(rows);
+
+		const nodeA = environmentState.addGraphNode(0, 0, 'A');
+		const nodeB = environmentState.addGraphNode(10, 0, 'B');
+		environmentState.addGraphEdge(nodeA, nodeB, -1);
+		environmentState.setGraphStart('missing');
+		environmentState.setGraphGoal('missing');
+		expect(environmentState.graph.edges.size).toBe(0);
+		expect(environmentState.graphStart).toBeNull();
+		expect(environmentState.graphGoal).toBeNull();
 	});
 });

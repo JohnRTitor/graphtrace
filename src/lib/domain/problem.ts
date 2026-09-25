@@ -22,6 +22,12 @@ export type GraphProblem = {
 
 export type Problem = GridProblem | GraphProblem;
 
+let fallbackVersion = 0;
+
 export function createProblemVersion(): ProblemVersionId {
-	return crypto.randomUUID();
+	if (typeof globalThis.crypto?.randomUUID === 'function') {
+		return globalThis.crypto.randomUUID();
+	}
+	fallbackVersion++;
+	return `problem-${Date.now()}-${fallbackVersion}`;
 }

@@ -25,6 +25,7 @@ import { createProblemVersion, type Problem } from "../domain/problem";
 import {
   defaultGridCostModel,
   defaultGraphCostModel,
+  isValidCost,
 } from "../domain/cost-model";
 import { defaultMovementModel } from "../domain/movement-model";
 import type { EnvironmentType } from "../generators/types";
@@ -34,6 +35,15 @@ import { invertGraphCommand } from "../graph/manual";
 import type { EnvCommand } from "../domain/command";
 
 export type RunAlgorithmMode = "autoplay" | "step";
+
+function finiteOr(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function clampSetting(value: number, min: number, max: number, fallback: number): number {
+  const safeValue = Number.isFinite(value) ? Math.trunc(value) : fallback;
+  return Math.max(min, Math.min(max, safeValue));
+}
 
 export class EnvironmentState {
   // --- Grid State ---
@@ -93,9 +103,12 @@ export class EnvironmentState {
   }
 
   resizeGrid(rows: number, cols: number): void {
+    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows < 1 || cols < 1) return;
+    const safeRows = Math.trunc(rows);
+    const safeCols = Math.trunc(cols);
     invalidatePlaybackIfNeeded();
-    this._grid = createGrid(rows, cols);
-    this.resetGridToDefaults(rows, cols);
+    this._grid = createGrid(safeRows, safeCols);
+    this.resetGridToDefaults(safeRows, safeCols);
     this._gridVersion++;
   }
 
@@ -142,6 +155,7 @@ export class EnvironmentState {
   }
 
   setGridCost(id: NodeId, cost: number): void {
+    if (!isValidCost(cost)) return;
     if (id === this._grid.start || id === this._grid.goal) return;
     const node = getNode(this._grid, id);
     if (!node || node.cost === cost) return;
@@ -378,10 +392,13 @@ export class EnvironmentState {
     });
   }
   addGraphNode(x: number, y: number, label: string): NodeId {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return '';
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) return '';
     const id = `node-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
-      cmd: { type: "add-node", node: { id, x, y, label } },
+      cmd: { type: "add-node", node: { id, x, y, label: trimmedLabel } },
     });
     return id;
   }
@@ -398,7 +415,7 @@ export class EnvironmentState {
   }
   moveGraphNode(id: NodeId, x: number, y: number) {
     const node = this._graph.nodes.get(id);
-    if (!node) return;
+    if (!node || !Number.isFinite(x) || !Number.isFinite(y)) return;
     this.executeCommand({
       type: "graph",
       cmd: {
@@ -415,6 +432,7 @@ export class EnvironmentState {
     weight: number = 1,
     directed: boolean = this.defaultEdgeDirected,
   ): string {
+    if (!isValidCost(weight) || !this._graph.nodes.has(source) || !this._graph.nodes.has(target)) return '';
     const id = `edge-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
@@ -431,12 +449,16 @@ export class EnvironmentState {
     this.executeCommand({ type: "graph", cmd: { type: "remove-edge", edge } });
   }
   setGraphStart(id: NodeId | null) {
+    if (id !== null && !this._graph.nodes.has(id)) return;
+    if (id === this._graph.start) return;
     this.executeCommand({
       type: "graph",
       cmd: { type: "set-start", from: this._graph.start, to: id },
     });
   }
   setGraphGoal(id: NodeId | null) {
+    if (id !== null && !this._graph.nodes.has(id)) return;
+    if (id === this._graph.goal) return;
     this.executeCommand({
       type: "graph",
       cmd: { type: "set-goal", from: this._graph.goal, to: id },
@@ -445,7 +467,7 @@ export class EnvironmentState {
 
 	setGraphWeight(edgeId: string, weight: number) {
 		const edge = this._graph.edges.get(edgeId);
-		if (!edge || edge.weight === weight) return;
+		if (!edge || !isValidCost(weight) || edge.weight === weight) return;
 		this.executeCommand({ type: 'graph', cmd: { type: 'set-weight', edgeId, from: edge.weight, to: weight } });
 	}
 
@@ -457,7 +479,7 @@ export class EnvironmentState {
 
 	setGraphNodeCost(nodeId: NodeId, cost: number) {
 		const node = this._graph.nodes.get(nodeId);
-		if (!node || node.cost === cost) return;
+		if (!node || !isValidCost(cost) || node.cost === cost) return;
 		this.executeCommand({ type: 'graph', cmd: { type: 'set-node-cost', nodeId, from: node.cost, to: cost } });
 	}
 
@@ -504,6 +526,7 @@ export class EnvironmentState {
   set environmentType(val: EnvironmentType) {
     if (this._environmentType === val) return;
     this._environmentType = val;
+    this._history.clear();
     invalidatePlaybackIfNeeded();
   }
 
@@ -511,49 +534,49 @@ export class EnvironmentState {
     return this._environmentSeed;
   }
   set environmentSeed(val: number) {
-    this._environmentSeed = val;
+    this._environmentSeed = Number.isFinite(val) ? Math.trunc(val) : this._environmentSeed;
   }
 
   get loopDensity() {
     return this._loopDensity;
   }
   set loopDensity(val: number) {
-    this._loopDensity = Math.max(0, Math.min(100, val));
+    this._loopDensity = Math.max(0, Math.min(100, finiteOr(val, this._loopDensity)));
   }
 
   get obstacleDensity() {
     return this._obstacleDensity;
   }
   set obstacleDensity(val: number) {
-    this._obstacleDensity = Math.max(0, Math.min(100, val));
+    this._obstacleDensity = Math.max(0, Math.min(100, finiteOr(val, this._obstacleDensity)));
   }
 
   get gridRowsSetting() {
     return this._gridRowsSetting;
   }
   set gridRowsSetting(val: number) {
-    this._gridRowsSetting = Math.max(5, Math.min(100, val));
+    this._gridRowsSetting = clampSetting(val, 5, 100, this._gridRowsSetting);
   }
 
   get gridColsSetting() {
     return this._gridColsSetting;
   }
   set gridColsSetting(val: number) {
-    this._gridColsSetting = Math.max(5, Math.min(100, val));
+    this._gridColsSetting = clampSetting(val, 5, 100, this._gridColsSetting);
   }
 
   get graphNodeCount() {
     return this._graphNodeCount;
   }
   set graphNodeCount(val: number) {
-    this._graphNodeCount = Math.max(5, Math.min(100, val));
+    this._graphNodeCount = clampSetting(val, 5, 100, this._graphNodeCount);
   }
 
   get graphEdgeMultiplier() {
     return this._graphEdgeMultiplier;
   }
   set graphEdgeMultiplier(val: number) {
-    this._graphEdgeMultiplier = Math.max(0, Math.min(10, val));
+    this._graphEdgeMultiplier = Math.max(0, Math.min(10, finiteOr(val, this._graphEdgeMultiplier)));
   }
 
   get graphEnsurePath() {
@@ -581,14 +604,14 @@ export class EnvironmentState {
     if (this.environmentType === "graph") {
       return {
         type: "graph",
-        graph: this._graph,
+        graph: this.graph,
         costModel: defaultGraphCostModel,
         version: createProblemVersion(),
       };
     } else {
       return {
         type: "grid",
-        grid: this._grid,
+        grid: this.grid,
         movementModel: defaultMovementModel,
         costModel: defaultGridCostModel,
         version: createProblemVersion(),
