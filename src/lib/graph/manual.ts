@@ -49,7 +49,9 @@ function isValidGraphNode(value: unknown): value is GraphNode {
 
 	return (
 		typeof value.id === 'string' &&
+		value.id.length > 0 &&
 		typeof value.label === 'string' &&
+		value.label.trim().length > 0 &&
 		typeof value.x === 'number' &&
 		Number.isFinite(value.x) &&
 		typeof value.y === 'number' &&
@@ -63,8 +65,9 @@ function isValidGraphEdge(value: unknown): value is GraphEdge {
 
 	return (
 		typeof value.id === 'string' &&
-		typeof value.source === 'string' &&
-		typeof value.target === 'string' &&
+		value.id.length > 0 &&
+		typeof value.source === 'string' && value.source.length > 0 &&
+		typeof value.target === 'string' && value.target.length > 0 &&
 		isValidCost(value.weight) &&
 		typeof value.directed === 'boolean'
 	);
@@ -77,7 +80,7 @@ function normalizeGraphData(data: unknown): NormalizedGraphData | null {
 
 	const nodes = new Map<NodeId, GraphNode>();
 	for (const value of data.nodes) {
-		if (isValidGraphNode(value)) {
+		if (isValidGraphNode(value) && !nodes.has(value.id)) {
 			nodes.set(value.id, { ...value });
 		}
 	}
@@ -165,7 +168,7 @@ export class ManualGraph implements BaseGraph {
 	execute(cmd: GraphCommand) {
 		switch (cmd.type) {
 			case 'add-node':
-				if (isValidGraphNode(cmd.node)) {
+				if (isValidGraphNode(cmd.node) && !this.nodes.has(cmd.node.id)) {
 					this.nodes.set(cmd.node.id, { ...cmd.node });
 				}
 				break;
@@ -188,6 +191,7 @@ export class ManualGraph implements BaseGraph {
 			case 'add-edge':
 				if (
 					isValidGraphEdge(cmd.edge) &&
+					!this.edges.has(cmd.edge.id) &&
 					this.nodes.has(cmd.edge.source) &&
 					this.nodes.has(cmd.edge.target)
 				) {

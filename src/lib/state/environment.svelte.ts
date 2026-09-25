@@ -515,7 +515,8 @@ export class EnvironmentState {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return '';
     const trimmedLabel = label.trim();
     if (!trimmedLabel) return '';
-    const id = `node-${generateId(6)}`;
+    let id = `node-${generateId(6)}`;
+    while (this._graph.nodes.has(id)) id = `node-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
       cmd: { type: "add-node", node: { id, x, y, label: trimmedLabel } },
@@ -553,7 +554,8 @@ export class EnvironmentState {
     directed: boolean = this.defaultEdgeDirected,
   ): string {
     if (!isValidCost(weight) || !this._graph.nodes.has(source) || !this._graph.nodes.has(target)) return '';
-    const id = `edge-${generateId(6)}`;
+    let id = `edge-${generateId(6)}`;
+    while (this._graph.edges.has(id)) id = `edge-${generateId(6)}`;
     this.executeCommand({
       type: "graph",
       cmd: {

@@ -164,6 +164,8 @@ describe('ManualGraph', () => {
 		execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
 		execute({ type: 'add-node', node: { id: 'invalid', x: 20, y: 0, label: 'Invalid', cost: -1 } });
 		execute({ type: 'add-edge', edge: { id: 'valid', source: 'A', target: 'B', weight: 0, directed: false } });
+		execute({ type: 'add-node', node: { id: 'A', x: 99, y: 99, label: 'Replacement' } });
+		execute({ type: 'add-edge', edge: { id: 'valid', source: 'B', target: 'A', weight: 99, directed: true } });
 		execute({ type: 'add-edge', edge: { id: 'negative', source: 'A', target: 'B', weight: -1, directed: false } });
 		execute({ type: 'add-edge', edge: { id: 'infinite', source: 'A', target: 'B', weight: Infinity, directed: false } });
 		execute({ type: 'add-edge', edge: { id: 'dangling', source: 'A', target: 'missing', weight: 1, directed: false } });
@@ -176,6 +178,8 @@ describe('ManualGraph', () => {
 		expect(graph.nodes.has('invalid')).toBe(false);
 		expect(Array.from(graph.edges.keys())).toEqual(['valid']);
 		expect(graph.edges.get('valid')?.weight).toBe(0);
+		expect(graph.edges.get('valid')?.directed).toBe(false);
+		expect(graph.nodes.get('A')?.x).toBe(0);
 		expect(graph.nodes.get('A')?.cost).toBeUndefined();
 		expect(graph.start).toBeNull();
 		expect(graph.goal).toBeNull();
