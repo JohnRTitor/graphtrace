@@ -120,7 +120,7 @@
 	{#if browser}
 		<ContextMenu.Root open={menuOpen} onOpenChange={handleMenuOpenChange}>
 			<ContextMenu.Trigger class="block w-full h-full">
-				<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none"></div>
+				<div bind:this={container} class="w-full h-full cursor-crosshair" style:touch-action="none" role="application" aria-label="Graph grid editor"></div>
 			</ContextMenu.Trigger>
 			<ContextMenu.Content>
 				{#if mazeCellTarget !== null}
@@ -146,7 +146,7 @@
 			</Button>
 		{/snippet}
 
-		<div class="absolute bottom-4 right-4 flex flex-col gap-2 z-10 bg-background/80 backdrop-blur-sm p-1 rounded-md border shadow-sm">
+		<div class="absolute bottom-20 right-4 z-10 flex flex-col gap-2 rounded-md border bg-background/80 p-1 shadow-sm backdrop-blur-sm sm:bottom-4">
 			{@render zoomButton(ZoomIn, 'Zoom In', () => renderer?.zoomIn())}
 			{@render zoomButton(ZoomOut, 'Zoom Out', () => renderer?.zoomOut())}
 			{@render zoomButton(Maximize, 'Fit to View', () => renderer?.fitToView())}

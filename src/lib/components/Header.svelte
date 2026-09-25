@@ -2,8 +2,18 @@
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import Keyboard from '@lucide/svelte/icons/keyboard';
+	import PanelLeft from '@lucide/svelte/icons/panel-left';
+	import PanelRight from '@lucide/svelte/icons/panel-right';
 	
-	let { onOpenShortcuts } = $props<{ onOpenShortcuts: () => void }>();
+	let {
+		onOpenShortcuts,
+		onToggleBuilder,
+		onToggleInspector
+	} = $props<{
+		onOpenShortcuts: () => void;
+		onToggleBuilder?: () => void;
+		onToggleInspector?: () => void;
+	}>();
 </script>
 
 <header class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -18,7 +28,17 @@
 				<!-- Search or other header elements could go here -->
 			</div>
 			<nav class="flex items-center space-x-2">
-				<Button variant="ghost" size="icon" onclick={onOpenShortcuts} title="Keyboard Shortcuts">
+				{#if onToggleBuilder}
+					<Button variant="ghost" size="icon" class="md:hidden" onclick={onToggleBuilder} title="Open problem builder" aria-label="Open problem builder">
+						<PanelLeft class="h-[1.2rem] w-[1.2rem]" />
+					</Button>
+				{/if}
+				{#if onToggleInspector}
+					<Button variant="ghost" size="icon" class="md:hidden" onclick={onToggleInspector} title="Open inspector" aria-label="Open inspector">
+						<PanelRight class="h-[1.2rem] w-[1.2rem]" />
+					</Button>
+				{/if}
+				<Button variant="ghost" size="icon" onclick={onOpenShortcuts} title="Keyboard Shortcuts" aria-label="Keyboard shortcuts">
 					<Keyboard class="h-[1.2rem] w-[1.2rem]" />
 					<span class="sr-only">Keyboard Shortcuts</span>
 				</Button>

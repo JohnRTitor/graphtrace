@@ -1,7 +1,7 @@
 <script lang="ts">
   import { algorithmList } from "$lib/algorithms";
   import { environmentState } from "$lib/state/environment.svelte";
-  import { editorState } from "$lib/state/editor.svelte";
+  import { editorState, getCompatibleEditorMode } from "$lib/state/editor.svelte";
   import {
     generateRandomGrid,
     generateBlankGrid,
@@ -105,21 +105,9 @@
   }
 
   function onEnvironmentChange(type: string) {
-    environmentState.environmentType = type as any;
-    if (
-      type === "graph" &&
-      (editorState.mode === "wall" || editorState.mode === "erase")
-    ) {
-      editorState.mode = "node";
-    } else if (
-      type !== "graph" &&
-      (editorState.mode === "node" ||
-        editorState.mode === "edge" ||
-        editorState.mode === "remove" ||
-        editorState.mode === "move")
-    ) {
-      editorState.mode = "wall";
-    }
+    const environmentType = type as typeof environmentState.environmentType;
+    environmentState.environmentType = environmentType;
+    editorState.mode = getCompatibleEditorMode(editorState.mode, environmentType);
   }
 
   const environmentDescriptions = {
@@ -137,9 +125,9 @@
 <div class="flex h-full flex-col gap-6 p-4 overflow-y-auto">
   <!-- Algorithm Selection -->
   <div class="space-y-3">
-    <Label>Algorithm</Label>
+    <Label for="algorithm-select">Algorithm</Label>
     <Select type="single" bind:value={environmentState.selectedAlgorithmId}>
-      <SelectTrigger>
+      <SelectTrigger id="algorithm-select">
         {environmentState.currentAlgorithm?.name ?? "Select algorithm"}
       </SelectTrigger>
       <SelectContent>
@@ -160,12 +148,13 @@
     <h3 class="text-sm font-medium">Environment</h3>
 
     <div class="space-y-3">
+      <Label for="environment-select" class="sr-only">Environment</Label>
       <Select
         type="single"
         value={environmentState.environmentType}
         onValueChange={onEnvironmentChange}
       >
-        <SelectTrigger>
+        <SelectTrigger id="environment-select">
           {#if environmentState.environmentType === "perfect_maze"}
             Perfect Maze
           {:else if environmentState.environmentType === "braided_maze"}
@@ -194,9 +183,10 @@
 
     {#if environmentState.environmentType !== "blank"}
       <div class="flex flex-col gap-2">
-        <Label class="text-xs">Seed</Label>
+        <Label for="seed-input" class="text-xs">Seed</Label>
         <div class="flex gap-2">
           <input
+            id="seed-input"
             type="number"
             class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             bind:value={environmentState.environmentSeed}
@@ -217,9 +207,10 @@
     {#if environmentState.environmentType !== "graph"}
       <div class="flex gap-4">
         <div class="flex flex-col gap-2 w-1/2">
-          <Label class="text-xs">Rows</Label>
-          <input
-            type="number"
+           <Label for="grid-rows-input" class="text-xs">Rows</Label>
+           <input
+             id="grid-rows-input"
+             type="number"
             min="5"
             max="100"
             class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -227,9 +218,10 @@
           />
         </div>
         <div class="flex flex-col gap-2 w-1/2">
-          <Label class="text-xs">Cols</Label>
-          <input
-            type="number"
+           <Label for="grid-cols-input" class="text-xs">Cols</Label>
+           <input
+             id="grid-cols-input"
+             type="number"
             min="5"
             max="100"
             class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -242,16 +234,17 @@
     {#if environmentState.environmentType === "braided_maze"}
       <div class="space-y-3 pt-2">
         <div class="flex items-center justify-between">
-          <Label class="text-xs font-normal text-muted-foreground"
-            >Loop Density</Label
-          >
+           <Label for="loop-density-slider" class="text-xs font-normal text-muted-foreground"
+             >Loop Density</Label
+           >
           <span class="text-xs text-muted-foreground"
             >{environmentState.loopDensity}%</span
           >
         </div>
-        <Slider
-          type="single"
-          bind:value={environmentState.loopDensity}
+         <Slider
+           id="loop-density-slider"
+           type="single"
+           bind:value={environmentState.loopDensity}
           max={100}
           min={0}
           step={5}
@@ -262,16 +255,17 @@
     {#if environmentState.environmentType === "random_obstacles"}
       <div class="space-y-3 pt-2">
         <div class="flex items-center justify-between">
-          <Label class="text-xs font-normal text-muted-foreground"
-            >Obstacle Density</Label
-          >
+           <Label for="obstacle-density-slider" class="text-xs font-normal text-muted-foreground"
+             >Obstacle Density</Label
+           >
           <span class="text-xs text-muted-foreground"
             >{environmentState.obstacleDensity}%</span
           >
         </div>
-        <Slider
-          type="single"
-          bind:value={environmentState.obstacleDensity}
+         <Slider
+           id="obstacle-density-slider"
+           type="single"
+           bind:value={environmentState.obstacleDensity}
           max={100}
           min={0}
           step={5}
@@ -282,14 +276,14 @@
     {#if environmentState.environmentType === "graph"}
       <div class="space-y-3 pt-2">
         <div class="flex flex-col gap-2">
-          <Label class="text-xs">Nodes</Label>
+           <Label for="graph-node-count" class="text-xs">Nodes</Label>
           <Select
             type="single"
             value={environmentState.graphNodeCount.toString()}
             onValueChange={(v) =>
               (environmentState.graphNodeCount = parseInt(v))}
           >
-            <SelectTrigger>{environmentState.graphNodeCount}</SelectTrigger>
+             <SelectTrigger id="graph-node-count">{environmentState.graphNodeCount}</SelectTrigger>
             <SelectContent>
               {#each [5, 10, 15, 20, 25, 30, 40, 50, 75, 100] as count}
                 <SelectItem value={count.toString()}>{count}</SelectItem>
@@ -300,16 +294,17 @@
 
         <div class="space-y-3 pt-2">
           <div class="flex items-center justify-between">
-            <Label class="text-xs font-normal text-muted-foreground"
-              >Edge Density</Label
-            >
+           <Label for="graph-edge-density" class="text-xs font-normal text-muted-foreground"
+             >Edge Density</Label
+           >
             <span class="text-xs text-muted-foreground"
               >{environmentState.graphEdgeMultiplier.toFixed(1)}x</span
             >
           </div>
-          <Slider
-            type="single"
-            value={environmentState.graphEdgeMultiplier}
+           <Slider
+             id="graph-edge-density"
+             type="single"
+             value={environmentState.graphEdgeMultiplier}
             onValueChange={(v) =>
               (environmentState.graphEdgeMultiplier = v as number)}
             max={10}

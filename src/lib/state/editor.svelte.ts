@@ -3,8 +3,15 @@ import { environmentState } from './environment.svelte';
 import { invalidatePlaybackIfNeeded } from './invalidate';
 import { Interactor } from '../interaction/interactor';
 import { getNode, setWall, setCost, setStart, setGoal } from '../graph/grid';
+import type { EnvironmentType } from '../generators/types';
 
 export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'cost' | 'node' | 'edge' | 'remove' | 'move';
+
+export function getCompatibleEditorMode(mode: EditMode, environmentType: EnvironmentType): EditMode {
+	if (environmentType === 'graph' && (mode === 'wall' || mode === 'erase')) return 'node';
+	if (environmentType !== 'graph' && (mode === 'node' || mode === 'edge' || mode === 'remove' || mode === 'move')) return 'wall';
+	return mode;
+}
 
 export class EditorState {
 	private _mode = $state<EditMode>('wall');

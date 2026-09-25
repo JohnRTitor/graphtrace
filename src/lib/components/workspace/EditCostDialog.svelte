@@ -27,20 +27,22 @@
 	});
 
 	function handleSave() {
-		const val = Math.max(1, costValue);
+		const val = Number(costValue);
+		if (!Number.isFinite(val) || val < 0) return;
 		onSave(val);
 		open = false;
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
+			e.preventDefault();
 			handleSave();
 		}
 	}
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-106.25">
+	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>{title}</Dialog.Title>
 			<Dialog.Description>
@@ -53,7 +55,9 @@
 				<Input
 					id="cost"
 					type="number"
-					min="1"
+					min="0"
+					inputmode="decimal"
+					required
 					bind:value={costValue}
 					onkeydown={handleKeyDown}
 					class="col-span-3"
@@ -62,7 +66,7 @@
 		</div>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => open = false}>Cancel</Button>
-			<Button type="submit" onclick={handleSave}>Save changes</Button>
+			<Button type="button" onclick={handleSave}>Save changes</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

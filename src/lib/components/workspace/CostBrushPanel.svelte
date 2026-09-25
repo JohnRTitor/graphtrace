@@ -15,8 +15,8 @@
 
 <div class="flex flex-col gap-4 p-4 border rounded-md bg-card">
 	<div class="space-y-2">
-		<Label>Cost Brush Value</Label>
-		<div class="flex flex-wrap gap-2">
+		<Label id="cost-brush-label">Cost Brush Value</Label>
+		<div id="cost-brush-presets" role="group" aria-labelledby="cost-brush-label" class="flex flex-wrap gap-2">
 			{#each PRESETS as preset}
 				<Button
 					variant={editorState.costValue === preset ? "default" : "outline"}

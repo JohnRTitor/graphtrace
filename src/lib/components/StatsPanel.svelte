@@ -20,7 +20,7 @@
 	{#snippet header()}
 		<CardHeader class="p-5 pb-4 flex flex-row items-center justify-between space-y-0 relative">
 			<CardTitle class="text-base font-medium">Algorithm Statistics</CardTitle>
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2" role="status" aria-live="polite">
 				{#if playbackState.isIdle}
 					<Badge variant="secondary">Idle</Badge>
 				{:else if playbackState.isRunning}

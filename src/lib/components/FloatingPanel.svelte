@@ -40,6 +40,9 @@
 					console.warn('Failed to parse saved panel position', e);
 				}
 			}
+			if (x !== undefined && y !== undefined) {
+				queueMicrotask(checkBounds);
+			}
 		}
 	});
 
@@ -171,6 +174,8 @@
 <div
 	bind:this={panelElement}
 	class="absolute z-10 w-72 transition-shadow {isDragging ? 'shadow-xl' : 'shadow-md'}"
+	role="region"
+	aria-label={id}
 	style:right={x === undefined ? '16px' : 'auto'}
 	style:top={y === undefined ? '16px' : `${y}px`}
 	style:left={x === undefined ? 'auto' : `${x}px`}

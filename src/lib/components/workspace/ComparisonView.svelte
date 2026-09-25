@@ -4,53 +4,53 @@
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
 	import ExecutionMetricsTable from '$lib/components/workspace/ExecutionMetricsTable.svelte';
+	import type { Execution } from '$lib/domain/execution';
+
+	let comparisonExecutions = $derived(
+		[executionStore.activeExecution, executionStore.compareExecution].filter(
+			(execution): execution is Execution => execution !== null
+		)
+	);
 </script>
 
-<div class="flex h-full w-full">
-	<!-- Left Pane: Active Execution -->
-	<div class="flex-1 border-r relative flex flex-col h-full overflow-hidden">
-		<div class="absolute top-2 left-2 z-10">
-			<Card class="bg-background/80 backdrop-blur-sm shadow-sm pointer-events-none">
-				<CardHeader class="p-3 pb-0">
-					<CardTitle class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-						Execution 1
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="p-3 pt-1">
-					<span class="font-medium">{executionStore.activeExecution?.algorithmId || 'None'}</span>
-				</CardContent>
-			</Card>
+<div class="flex h-full w-full flex-col">
+	<div class="flex min-h-0 flex-1">
+		<div class="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r">
+			<div class="absolute left-2 top-2 z-10">
+				<Card class="pointer-events-none bg-background/80 shadow-sm backdrop-blur-sm">
+					<CardHeader class="p-3 pb-0">
+						<CardTitle class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Execution 1</CardTitle>
+					</CardHeader>
+					<CardContent class="p-3 pt-1">
+						<span class="font-medium">{executionStore.activeExecution?.algorithmId || 'None'}</span>
+					</CardContent>
+				</Card>
+			</div>
+			<CanvasView playback={playbackState} />
 		</div>
-		<CanvasView playback={playbackState} />
-	</div>
-	
-	<!-- Right Pane: Compared Execution -->
-	<div class="flex-1 relative flex flex-col h-full overflow-hidden">
-		<div class="absolute top-2 left-2 z-10">
-			<Card class="bg-background/80 backdrop-blur-sm shadow-sm pointer-events-none">
-				<CardHeader class="p-3 pb-0">
-					<CardTitle class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-						Execution 2
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="p-3 pt-1">
-					<span class="font-medium">{executionStore.compareExecution?.algorithmId || 'None'}</span>
-				</CardContent>
-			</Card>
+
+		<div class="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+			<div class="absolute left-2 top-2 z-10">
+				<Card class="pointer-events-none bg-background/80 shadow-sm backdrop-blur-sm">
+					<CardHeader class="p-3 pb-0">
+						<CardTitle class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Execution 2</CardTitle>
+					</CardHeader>
+					<CardContent class="p-3 pt-1">
+						<span class="font-medium">{executionStore.compareExecution?.algorithmId || 'None'}</span>
+					</CardContent>
+				</Card>
+			</div>
+			<CanvasView playback={comparePlaybackState} />
 		</div>
-		<CanvasView playback={comparePlaybackState} />
 	</div>
-	
-	<!-- Bottom Center: Comparison Metrics Table -->
-	<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
-		<Card class="bg-background/95 backdrop-blur shadow-lg min-w-[500px]">
+
+	<div class="max-h-44 shrink-0 overflow-auto border-t bg-background/95 p-2">
+		<Card class="bg-background/95 shadow-lg">
 			<CardHeader class="p-4 pb-2">
-				<CardTitle class="text-sm font-semibold text-center">Comparison Metrics</CardTitle>
+				<CardTitle class="text-center text-sm font-semibold">Comparison Metrics</CardTitle>
 			</CardHeader>
 			<CardContent class="p-4 pt-0">
-				<ExecutionMetricsTable 
-					executions={[executionStore.activeExecution, executionStore.compareExecution].filter(Boolean) as any} 
-				/>
+				<ExecutionMetricsTable executions={comparisonExecutions} />
 			</CardContent>
 		</Card>
 	</div>

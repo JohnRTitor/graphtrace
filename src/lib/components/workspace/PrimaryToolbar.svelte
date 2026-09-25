@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { editorState } from '$lib/state/editor.svelte';
+	import { editorState, getCompatibleEditorMode } from '$lib/state/editor.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
@@ -46,6 +46,7 @@
 			try {
 				const json = e.target?.result as string;
 				deserializeWorkspace(json, environmentState);
+				editorState.mode = getCompatibleEditorMode(editorState.mode, environmentState.environmentType);
 			} catch (err) {
 				console.error('Failed to load workspace:', err);
 				alert('Failed to load workspace. See console for details.');
@@ -102,7 +103,7 @@
 		</ToggleGroupItem>
 		<!-- Popover for cost settings next to the tool -->
 		<Popover>
-			<PopoverTrigger class="h-9 px-2 hover:bg-accent hover:text-accent-foreground rounded-md flex items-center justify-center">
+			<PopoverTrigger aria-label="Open cost brush settings" class="h-9 px-2 hover:bg-accent hover:text-accent-foreground rounded-md flex items-center justify-center">
 				<Search class="h-3 w-3" />
 			</PopoverTrigger>
 			<PopoverContent class="w-80" side="bottom" align="start">
@@ -117,7 +118,8 @@
 		<Button 
 			variant={executionStore.isComparing ? "secondary" : "ghost"} 
 			size="sm" 
-			class="h-8 gap-1" 
+			class="h-8 gap-1"
+			aria-pressed={executionStore.isComparing}
 			onclick={() => executionStore.isComparing = !executionStore.isComparing}
 		>
 			<SplitSquareHorizontal class="h-4 w-4" />

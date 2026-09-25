@@ -3,6 +3,7 @@
 	import '@xyflow/svelte/dist/style.css';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
+	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
 	import GraphNodeComponent from './GraphNode.svelte';
@@ -195,7 +196,7 @@
 
 </script>
 
-<div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
+<div class={`w-full h-full relative ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''} ${executionStore.isComparing ? 'pointer-events-none' : ''}`} style:color-scheme={isDark ? 'dark' : 'light'}>
 	{#if browser}
 		<ContextMenu.Root bind:open={menuOpen}>
 			<ContextMenu.Trigger class="block w-full h-full">

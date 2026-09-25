@@ -16,8 +16,10 @@
 {#if warnings.length > 0}
   <div class="flex flex-col gap-2">
     {#each warnings as warning}
-      <div
-        class="flex items-start gap-3 rounded-md bg-amber-500/15 border border-amber-500/20 p-3 text-sm text-amber-600 dark:text-amber-400"
+		<div
+			role="status"
+			aria-live="polite"
+			class="flex items-start gap-3 rounded-md bg-amber-500/15 border border-amber-500/20 p-3 text-sm text-amber-600 dark:text-amber-400"
       >
         <AlertTriangle class="h-4 w-4 shrink-0 mt-0.5" />
         <div>

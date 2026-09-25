@@ -32,7 +32,10 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') confirm();
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			confirm();
+		}
 	}
 </script>
 

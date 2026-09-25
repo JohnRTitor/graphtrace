@@ -20,7 +20,7 @@
 {/snippet}
 
 <Dialog bind:open>
-	<DialogContent class="sm:max-w-[106.25rem]">
+	<DialogContent class="sm:max-w-[425px]">
 		<DialogHeader>
 			<DialogTitle>Keyboard Shortcuts</DialogTitle>
 			<DialogDescription>

@@ -29,9 +29,18 @@
 		}
 	}
 
+	function isInteractiveTarget(target: EventTarget | null): boolean {
+		return target instanceof HTMLElement && target.closest(
+			'input, textarea, select, button, a[href], [role="button"], [role="radio"], [role="switch"], [role="slider"], [role="menuitem"], [contenteditable="true"]'
+		) !== null;
+	}
+
+	function hasOpenOverlay(): boolean {
+		return document.querySelector('[data-state="open"]') !== null;
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
-		// Ignore if typing in input
-		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+		if (e.ctrlKey || e.metaKey || e.altKey || isInteractiveTarget(e.target) || hasOpenOverlay()) return;
 
 		switch (e.key.toLowerCase()) {
 			case ' ':
@@ -58,6 +67,7 @@
 				if (executionStore.isComparing) comparePlaybackState.reset();
 				break;
 			case 'e':
+				if (environmentState.environmentType === 'graph') return;
 				e.preventDefault();
 				editorState.mode = editorState.mode === 'wall' ? 'erase' : 'wall';
 				break;
