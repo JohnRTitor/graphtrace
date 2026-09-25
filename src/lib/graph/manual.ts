@@ -27,7 +27,7 @@ export type GraphCommand =
 	| { type: 'set-goal'; from: NodeId | null; to: NodeId | null }
 	| { type: 'set-weight'; edgeId: string; from: number; to: number }
 	| { type: 'set-edge-directed'; edgeId: string; from: boolean; to: boolean }
-	| { type: 'set-node-cost'; nodeId: NodeId; from: number | undefined; to: number }
+	| { type: 'set-node-cost'; nodeId: NodeId; from: number | undefined; to: number | undefined }
 	| { type: 'set-label'; id: NodeId; from: string; to: string }
 	| { type: 'clear'; nodes: GraphNode[]; edges: GraphEdge[]; start: NodeId | null; goal: NodeId | null }
 	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null }
@@ -217,7 +217,13 @@ export class ManualGraph implements BaseGraph {
 				break;
 			case 'set-node-cost':
 				const costNode = this.nodes.get(cmd.nodeId);
-				if (costNode && isValidCost(cmd.to)) costNode.cost = cmd.to;
+				if (costNode) {
+					if (cmd.to === undefined) {
+						delete costNode.cost;
+					} else if (isValidCost(cmd.to)) {
+						costNode.cost = cmd.to;
+					}
+				}
 				break;
 			case 'set-label': {
 				const labelNode = this.nodes.get(cmd.id);
@@ -320,7 +326,7 @@ export function invertGraphCommand(cmd: GraphCommand): GraphCommand {
 		case 'set-edge-directed':
 			return { type: 'set-edge-directed', edgeId: cmd.edgeId, from: cmd.to, to: cmd.from };
 		case 'set-node-cost':
-			return { type: 'set-node-cost', nodeId: cmd.nodeId, from: cmd.to, to: cmd.from ?? 0 };
+			return { type: 'set-node-cost', nodeId: cmd.nodeId, from: cmd.to, to: cmd.from };
 		case 'set-label':
 			return { type: 'set-label', id: cmd.id, from: cmd.to, to: cmd.from };
 		case 'clear':

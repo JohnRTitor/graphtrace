@@ -34,7 +34,7 @@ describe('MovementModel', () => {
 
 	it('corner cutting logic blocks diagonals when adjacent walls exist', () => {
 		const grid = createGrid(3, 3);
-		const eightWayModel: MovementModel = { type: 'eightWay', blockCornerCutting: false };
+		const eightWayModel: MovementModel = { type: 'eightWay', blockCornerCutting: true };
 		
 		// Place a wall at 0,1. Moving from 1,1 to 0,0 diagonally should be blocked
 		// because one of the adjacent straight cells (0,1) is a wall.
@@ -46,5 +46,13 @@ describe('MovementModel', () => {
 		expect(ids).not.toContain('0,0'); // Blocked by 0,1
 		expect(ids).not.toContain('0,2'); // Blocked by 0,1
 		expect(ids).toContain('2,0'); // Not blocked
+	});
+
+	it('allows corner cutting when the option is disabled', () => {
+		const grid = createGrid(3, 3);
+		setWall(grid, '0,1', false);
+		const model: MovementModel = { type: 'eightWay', blockCornerCutting: false };
+		const ids = getNeighbors(grid, '1,1', model).map((neighbor) => neighbor.id);
+		expect(ids).toContain('0,0');
 	});
 });

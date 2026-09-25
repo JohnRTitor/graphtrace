@@ -17,9 +17,8 @@ export function getNeighbors(grid: Grid, nodeId: NodeId, movementModel?: Movemen
 			const neighbor = grid.nodes.get(neighborId);
 			if (neighbor && neighbor.walkable) {
 				const isDiagonal = Math.abs(dr) === 1 && Math.abs(dc) === 1;
-				
-				// Block corner cutting
-				if (isDiagonal && !movementModel?.blockCornerCutting) {
+
+				if (isDiagonal && movementModel?.blockCornerCutting) {
 					const adj1 = grid.nodes.get(`${node.row + dr},${node.col}`);
 					const adj2 = grid.nodes.get(`${node.row},${node.col + dc}`);
 					if ((adj1 && !adj1.walkable) || (adj2 && !adj2.walkable)) {

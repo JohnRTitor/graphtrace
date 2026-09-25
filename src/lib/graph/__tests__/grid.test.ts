@@ -80,4 +80,36 @@ describe('grid', () => {
 		// Let's assert the start cell's weight is still 1 if untouched
 		expect(neighborsFrom01.find(n => n.target === '0,0')?.weight).toBe(1);
 	});
+
+	it('ignores invalid costs and dimensions', () => {
+		const grid = createGrid(2, 2);
+		setCost(grid, '0,0', Number.NaN);
+		setCost(grid, '0,0', -1);
+		setCost(grid, '0,0', Infinity);
+		expect(getNode(grid, '0,0')?.cost).toBe(1);
+
+		const empty = createGrid(Number.NaN, -1);
+		expect(empty.rows).toBe(0);
+		expect(empty.cols).toBe(0);
+		expect(empty.nodes.size).toBe(0);
+	});
+
+	it('does not assign a start or goal to a wall or missing cell', () => {
+		const grid = createGrid(2, 2);
+		setStart(grid, '0,0');
+		setWall(grid, '0,0', false);
+		setStart(grid, '0,0');
+		setGoal(grid, 'missing');
+		expect(grid.start).toBe('0,0');
+		expect(grid.goal).toBeNull();
+	});
+
+	it('uses a zero heuristic when zero-cost cells can be entered', () => {
+		const grid = createGrid(3, 3);
+		setCost(grid, '1,1', 0);
+		setStart(grid, '0,0');
+		setGoal(grid, '2,2');
+		const adapter = new GridAdapter(grid);
+		expect(adapter.getHeuristic('0,0', '2,2')).toBe(0);
+	});
 });

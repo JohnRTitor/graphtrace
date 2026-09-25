@@ -205,4 +205,12 @@ describe('ManualGraph', () => {
 		expect(loaded.start).toBe('A');
 		expect(loaded.goal).toBeNull();
 	});
+
+	it('restores an absent node cost when undoing a cost edit', () => {
+		execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		execute({ type: 'set-node-cost', nodeId: 'A', from: undefined, to: 4 });
+		expect(graph.nodes.get('A')?.cost).toBe(4);
+		undo();
+		expect(graph.nodes.get('A')?.cost).toBeUndefined();
+	});
 });
