@@ -63,11 +63,6 @@ export const dfs: Algorithm = {
 					stack.push(neighbor.target);
 					events.push({ type: 'discover', node: neighbor.target, from: current, edge: neighbor.id });
 					metrics.nodesDiscovered++;
-				} else {
-					// Only show skip if it's not the parent we just came from
-					if (parentMap.get(current) !== neighbor.target) {
-						events.push({ type: 'skip', node: neighbor.target });
-					}
 				}
 			}
 		}

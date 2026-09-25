@@ -114,8 +114,6 @@ export const astar: Algorithm = {
 						h: h,
 						f: f
 					});
-				} else {
-					events.push({ type: 'skip', node: neighbor.target });
 				}
 			}
 		}

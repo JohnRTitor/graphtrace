@@ -60,8 +60,6 @@ export const bfs: Algorithm = {
 					queue.push(neighbor.target);
 					events.push({ type: 'discover', node: neighbor.target, from: current, edge: neighbor.id });
 					metrics.nodesDiscovered++;
-				} else {
-					events.push({ type: 'skip', node: neighbor.target });
 				}
 			}
 		}
