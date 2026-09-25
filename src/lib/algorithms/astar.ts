@@ -23,11 +23,13 @@ export const astar: Algorithm = {
 		if (start === goal) {
 			events.push({ type: 'path', nodes: [start] });
 			events.push({ type: 'finish', found: true });
+			metrics.pathLength = 1;
 			metrics.executionTimeMs = performance.now() - startTime;
 			return { events, metrics };
 		}
 
 		const openSet = new MinHeap<NodeId>();
+		const frontier = new Set<NodeId>();
 		const gScore = new Map<NodeId, number>();
 		const fScore = new Map<NodeId, number>();
 		const parentMap = new Map<NodeId, NodeId>();
@@ -36,13 +38,16 @@ export const astar: Algorithm = {
 		gScore.set(start, 0);
 		fScore.set(start, graph.getHeuristic(start, goal));
 		openSet.insert(start, fScore.get(start)!);
+		frontier.add(start);
+		metrics.maxFrontierSize = 1;
 
 		let found = false;
 
 		while (!openSet.isEmpty()) {
-			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, openSet.size());
+			metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, frontier.size);
 			
 			const current = openSet.extractMin()!;
+			frontier.delete(current);
 
 			// In a priority queue with duplicates (because we don't do decrease-key), 
 			// we might extract a node we've already fully processed.
@@ -86,6 +91,8 @@ export const astar: Algorithm = {
 					}
 					
 					openSet.insert(neighbor.target, f);
+					frontier.add(neighbor.target);
+					metrics.maxFrontierSize = Math.max(metrics.maxFrontierSize, frontier.size);
 					events.push({ 
 						type: 'update', 
 						node: neighbor.target, 

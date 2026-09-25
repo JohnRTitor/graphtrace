@@ -46,4 +46,12 @@ describe('DFS Algorithm', () => {
 		const result = dfs.run(graph, 'A', 'C');
 		expect(result.metrics.pathLength).toBe(3);
 	});
+
+	it('reports a one-node zero-cost path when start equals goal', () => {
+		const grid = createGrid(1, 1);
+		const result = dfs.run(new GridAdapter(grid), '0,0', '0,0');
+
+		expect(result.metrics.pathLength).toBe(1);
+		expect(result.metrics.pathCost).toBe(0);
+	});
 });

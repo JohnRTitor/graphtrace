@@ -64,4 +64,54 @@ describe('checkCompatibility', () => {
 		expect(warnings).toHaveLength(1);
 		expect(warnings[0].type).toBe('ignores-weights');
 	});
+
+	it('detects fractional grid costs', () => {
+		const grid = createGrid(2, 2);
+		grid.nodes.get('0,0')!.cost = 0.5;
+		const problem: GridProblem = {
+			type: 'grid',
+			grid,
+			movementModel: defaultMovementModel,
+			costModel: defaultGridCostModel,
+			version: '1'
+		};
+
+		expect(checkCompatibility(problem, 'bfs')).toEqual([
+			expect.objectContaining({ type: 'ignores-weights' })
+		]);
+	});
+
+	it('detects fractional graph edge and node costs', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 10, label: 'B', cost: 0.5 } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 0.5, directed: false } });
+		const problem: GraphProblem = {
+			type: 'graph',
+			graph,
+			costModel: defaultGraphCostModel,
+			version: '1'
+		};
+
+		expect(checkCompatibility(problem, 'bfs')).toEqual([
+			expect.objectContaining({ type: 'ignores-weights' })
+		]);
+	});
+
+	it('detects non-unit costs supplied by a custom movement model', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 10, label: 'B' } });
+		graph.execute({ type: 'add-edge', edge: { id: 'e1', source: 'A', target: 'B', weight: 1, directed: false } });
+		const problem: GraphProblem = {
+			type: 'graph',
+			graph,
+			costModel: { movementCost: () => 0.25 },
+			version: '1'
+		};
+
+		expect(checkCompatibility(problem, 'bfs')).toEqual([
+			expect.objectContaining({ type: 'ignores-weights' })
+		]);
+	});
 });

@@ -59,4 +59,12 @@ describe('BFS Algorithm', () => {
 		const result = bfs.run(graph, 'A', 'C');
 		expect(result.metrics.pathLength).toBe(3);
 	});
+
+	it('reports a one-node zero-cost path when start equals goal', () => {
+		const grid = createGrid(1, 1);
+		const result = bfs.run(new GridAdapter(grid), '0,0', '0,0');
+
+		expect(result.metrics.pathLength).toBe(1);
+		expect(result.metrics.pathCost).toBe(0);
+	});
 });

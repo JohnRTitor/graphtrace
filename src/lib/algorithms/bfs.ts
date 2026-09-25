@@ -22,6 +22,7 @@ export const bfs: Algorithm = {
 		if (start === goal) {
 			events.push({ type: 'path', nodes: [start] });
 			events.push({ type: 'finish', found: true });
+			metrics.pathLength = 1;
 			metrics.executionTimeMs = performance.now() - startTime;
 			return { events, metrics };
 		}

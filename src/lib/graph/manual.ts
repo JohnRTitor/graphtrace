@@ -1,4 +1,5 @@
 import type { BaseGraph, BaseGraphEdge, BaseGraphNode, NodeId } from './types';
+import { defaultGraphCostModel, getGraphEntryCost, isValidCost, type CostModel } from '../domain/cost-model';
 
 export type GraphNode = {
 	id: NodeId;
@@ -32,11 +33,82 @@ export type GraphCommand =
 	| { type: 'replace-graph'; oldNodes: GraphNode[]; oldEdges: GraphEdge[]; oldStart: NodeId | null; oldGoal: NodeId | null; newNodes: GraphNode[]; newEdges: GraphEdge[]; newStart: NodeId | null; newGoal: NodeId | null }
 	| { type: 'batch'; commands: GraphCommand[] };
 
+type NormalizedGraphData = {
+	nodes: Map<NodeId, GraphNode>;
+	edges: Map<string, GraphEdge>;
+	start: NodeId | null;
+	goal: NodeId | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object';
+}
+
+function isValidGraphNode(value: unknown): value is GraphNode {
+	if (!isRecord(value)) return false;
+
+	return (
+		typeof value.id === 'string' &&
+		typeof value.label === 'string' &&
+		typeof value.x === 'number' &&
+		Number.isFinite(value.x) &&
+		typeof value.y === 'number' &&
+		Number.isFinite(value.y) &&
+		(value.cost === undefined || isValidCost(value.cost))
+	);
+}
+
+function isValidGraphEdge(value: unknown): value is GraphEdge {
+	if (!isRecord(value)) return false;
+
+	return (
+		typeof value.id === 'string' &&
+		typeof value.source === 'string' &&
+		typeof value.target === 'string' &&
+		isValidCost(value.weight) &&
+		typeof value.directed === 'boolean'
+	);
+}
+
+function normalizeGraphData(data: unknown): NormalizedGraphData | null {
+	if (!isRecord(data) || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+		return null;
+	}
+
+	const nodes = new Map<NodeId, GraphNode>();
+	for (const value of data.nodes) {
+		if (isValidGraphNode(value)) {
+			nodes.set(value.id, { ...value });
+		}
+	}
+
+	const edges = new Map<string, GraphEdge>();
+	for (const value of data.edges) {
+		if (
+			isValidGraphEdge(value) &&
+			nodes.has(value.source) &&
+			nodes.has(value.target) &&
+			!edges.has(value.id)
+		) {
+			edges.set(value.id, { ...value });
+		}
+	}
+
+	return {
+		nodes,
+		edges,
+		start: typeof data.start === 'string' && nodes.has(data.start) ? data.start : null,
+		goal: typeof data.goal === 'string' && nodes.has(data.goal) ? data.goal : null
+	};
+}
+
 export class ManualGraph implements BaseGraph {
 	nodes = new Map<NodeId, GraphNode>();
 	edges = new Map<string, GraphEdge>();
 	start: NodeId | null = null;
 	goal: NodeId | null = null;
+
+	constructor(private costModel: CostModel = defaultGraphCostModel) {}
 
 	private _version = 0;
 
@@ -53,10 +125,21 @@ export class ManualGraph implements BaseGraph {
 	getNeighbors(id: NodeId): BaseGraphEdge[] {
 		const neighbors: BaseGraphEdge[] = [];
 		for (const edge of this.edges.values()) {
+			let target: NodeId;
 			if (edge.source === id) {
-				neighbors.push({ target: edge.target, weight: edge.weight });
-			} else if (edge.target === id) {
-				neighbors.push({ target: edge.source, weight: edge.weight });
+				target = edge.target;
+			} else if (!edge.directed && edge.target === id) {
+				target = edge.source;
+			} else {
+				continue;
+			}
+
+			const enteredNode = this.nodes.get(target);
+			if (!enteredNode) continue;
+
+			const weight = getGraphEntryCost(this.costModel, id, edge, enteredNode);
+			if (isValidCost(weight)) {
+				neighbors.push({ target, weight });
 			}
 		}
 		return neighbors;
@@ -82,50 +165,63 @@ export class ManualGraph implements BaseGraph {
 	execute(cmd: GraphCommand) {
 		switch (cmd.type) {
 			case 'add-node':
-				this.nodes.set(cmd.node.id, { ...cmd.node });
+				if (isValidGraphNode(cmd.node)) {
+					this.nodes.set(cmd.node.id, { ...cmd.node });
+				}
 				break;
 			case 'remove-node':
 				this.nodes.delete(cmd.node.id);
-				for (const edge of cmd.attachedEdges) {
+				for (const edge of this.getAttachedEdges(cmd.node.id)) {
 					this.edges.delete(edge.id);
 				}
 				if (this.start === cmd.node.id) this.start = null;
 				if (this.goal === cmd.node.id) this.goal = null;
 				break;
-			case 'move-node':
+			case 'move-node': {
 				const n = this.nodes.get(cmd.id);
-				if (n) {
+				if (n && Number.isFinite(cmd.to.x) && Number.isFinite(cmd.to.y)) {
 					n.x = cmd.to.x;
 					n.y = cmd.to.y;
 				}
 				break;
+			}
 			case 'add-edge':
-				this.edges.set(cmd.edge.id, { ...cmd.edge });
+				if (
+					isValidGraphEdge(cmd.edge) &&
+					this.nodes.has(cmd.edge.source) &&
+					this.nodes.has(cmd.edge.target)
+				) {
+					this.edges.set(cmd.edge.id, { ...cmd.edge });
+				}
 				break;
 			case 'remove-edge':
 				this.edges.delete(cmd.edge.id);
 				break;
 			case 'set-start':
-				this.start = cmd.to;
+				if (cmd.to === null || this.nodes.has(cmd.to)) {
+					this.start = cmd.to;
+				}
 				break;
 			case 'set-goal':
-				this.goal = cmd.to;
+				if (cmd.to === null || this.nodes.has(cmd.to)) {
+					this.goal = cmd.to;
+				}
 				break;
 			case 'set-weight':
 				const e = this.edges.get(cmd.edgeId);
-				if (e) e.weight = cmd.to;
+				if (e && isValidCost(cmd.to)) e.weight = cmd.to;
 				break;
 			case 'set-edge-directed':
 				const ed = this.edges.get(cmd.edgeId);
-				if (ed) ed.directed = cmd.to;
+				if (ed && typeof cmd.to === 'boolean') ed.directed = cmd.to;
 				break;
 			case 'set-node-cost':
 				const costNode = this.nodes.get(cmd.nodeId);
-				if (costNode) costNode.cost = cmd.to;
+				if (costNode && isValidCost(cmd.to)) costNode.cost = cmd.to;
 				break;
 			case 'set-label': {
 				const labelNode = this.nodes.get(cmd.id);
-				if (labelNode) labelNode.label = cmd.to;
+				if (labelNode && typeof cmd.to === 'string') labelNode.label = cmd.to;
 				break;
 			}
 			case 'clear':
@@ -134,14 +230,23 @@ export class ManualGraph implements BaseGraph {
 				this.start = null;
 				this.goal = null;
 				break;
-			case 'replace-graph':
-				this.nodes.clear();
-				this.edges.clear();
-				for (const node of cmd.newNodes) this.nodes.set(node.id, { ...node });
-				for (const edge of cmd.newEdges) this.edges.set(edge.id, { ...edge });
-				this.start = cmd.newStart;
-				this.goal = cmd.newGoal;
+			case 'replace-graph': {
+				const normalized = normalizeGraphData({
+					nodes: cmd.newNodes,
+					edges: cmd.newEdges,
+					start: cmd.newStart,
+					goal: cmd.newGoal
+				});
+				if (normalized) {
+					this.nodes.clear();
+					this.edges.clear();
+					for (const node of normalized.nodes.values()) this.nodes.set(node.id, node);
+					for (const edge of normalized.edges.values()) this.edges.set(edge.id, edge);
+					this.start = normalized.start;
+					this.goal = normalized.goal;
+				}
 				break;
+			}
 			case 'batch':
 				for (const c of cmd.commands) this.execute(c);
 				break;
@@ -170,48 +275,19 @@ export class ManualGraph implements BaseGraph {
 		});
 	}
 
-	load(data: any) {
-		if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
-			console.error("Invalid graph data");
+	load(data: unknown) {
+		const normalized = normalizeGraphData(data);
+		if (!normalized) {
+			console.error('Invalid graph data');
 			return;
 		}
-		
-		const validNodes = new Map<NodeId, GraphNode>();
-		for (const n of data.nodes) {
-			if (n && typeof n.id === 'string' && typeof n.x === 'number' && typeof n.y === 'number' && Number.isFinite(n.x) && Number.isFinite(n.y)) {
-				validNodes.set(n.id, n);
-			}
-		}
 
-		const validEdges = new Map<string, GraphEdge>();
-		for (const e of data.edges) {
-			if (e && typeof e.id === 'string' && typeof e.source === 'string' && typeof e.target === 'string' && typeof e.weight === 'number' && typeof e.directed === 'boolean') {
-				if (validNodes.has(e.source) && validNodes.has(e.target) && !validEdges.has(e.id)) {
-					validEdges.set(e.id, e);
-				}
-			}
-		}
-
-		const nodes = Array.from(this.nodes.values());
-		const edges = Array.from(this.edges.values());
-		const start = this.start;
-		const goal = this.goal;
-
-		this.execute({
-			type: 'clear',
-			nodes,
-			edges,
-			start,
-			goal
-		});
-
-		// Then manually apply state (bypassing execute so it's not part of the clear command)
 		this.nodes.clear();
 		this.edges.clear();
-		for (const n of validNodes.values()) this.nodes.set(n.id, n);
-		for (const e of validEdges.values()) this.edges.set(e.id, e);
-		this.start = validNodes.has(data.start) ? data.start : null;
-		this.goal = validNodes.has(data.goal) ? data.goal : null;
+		for (const node of normalized.nodes.values()) this.nodes.set(node.id, node);
+		for (const edge of normalized.edges.values()) this.edges.set(edge.id, edge);
+		this.start = normalized.start;
+		this.goal = normalized.goal;
 		this._version++;
 	}
 }
