@@ -18,6 +18,9 @@ export class ExecutionStore {
 
 	set isComparing(val: boolean) {
 		this._isComparing = val;
+		if (!val) {
+			this._compareId = null;
+		}
 	}
 
 	get compareId(): ExecutionId | null {
@@ -59,6 +62,12 @@ export class ExecutionStore {
 			this._compareId = null;
 			this._isComparing = false;
 		}
+	}
+
+	invalidatePlayback(): void {
+		this._activeId = null;
+		this._compareId = null;
+		this._isComparing = false;
 	}
 
 	run(problem: Problem, algorithmId: string, config?: any): ExecutionId {
@@ -105,7 +114,9 @@ export class ExecutionStore {
 		if (this._isComparing && this._activeId) {
 			this._compareId = id;
 		} else {
-			this._activeId = id; // New runs automatically become active
+			this._activeId = id;
+			this._compareId = null;
+			this._isComparing = false;
 		}
 		
 		return id;

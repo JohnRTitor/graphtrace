@@ -1,5 +1,5 @@
 import type { AlgorithmEvent } from '../algorithms/types';
-import { applyEvent, invertEvent } from './trace-reducer';
+import { applyEvent } from './trace-reducer';
 import { createInitialVisualizationState, type PlaybackStatus, type VisualizationState } from './types';
 
 export type PlayerOptions = {
@@ -18,6 +18,7 @@ export class PlaybackEngine {
 	private lastFrameTime = 0;
 	private timeAccumulator = 0;
 	private animationFrameId: number | null = null;
+	private animationGeneration = 0;
 	
 	private options: PlayerOptions;
 
@@ -26,9 +27,16 @@ export class PlaybackEngine {
 	}
 
 	loadEvents(events: AlgorithmEvent[]): void {
-		this.pause();
-		this.events = events;
-		this.reset();
+		this.cancelAnimation();
+		this.events = [...events];
+		this.currentStep = 0;
+		this.state = createInitialVisualizationState();
+		this.status = 'idle';
+		this.notify();
+	}
+
+	unloadEvents(): void {
+		this.loadEvents([]);
 	}
 
 	setSpeed(eventsPerSecond: number): void {
@@ -37,15 +45,17 @@ export class PlaybackEngine {
 
 	play(): void {
 		if (this.status === 'running' || this.events.length === 0) return;
-		
+
+		this.cancelAnimation();
 		if (this.currentStep >= this.events.length) {
-			this.reset();
+			this.rebuildTo(0);
 		}
 
 		this.status = 'running';
 		this.lastFrameTime = performance.now();
 		this.timeAccumulator = 0;
-		this.tick(this.lastFrameTime);
+		const generation = this.animationGeneration;
+		this.scheduleAnimation(generation);
 		this.notify();
 	}
 
@@ -53,37 +63,34 @@ export class PlaybackEngine {
 		if (this.status !== 'running') return;
 		
 		this.status = 'paused';
-		if (this.animationFrameId !== null) {
-			cancelAnimationFrame(this.animationFrameId);
-			this.animationFrameId = null;
-		}
+		this.cancelAnimation();
 		this.notify();
 	}
 
 	step(): void {
+		if (this.events.length === 0) return;
 		this.pause();
 		
 		if (this.currentStep < this.events.length) {
 			this.processNextEvent();
-			
-			if (this.currentStep >= this.events.length) {
-				this.status = 'completed';
-			}
+			this.status = this.currentStep >= this.events.length ? 'completed' : 'paused';
 			this.notify();
 		}
 	}
 
 	stepBack(): void {
+		if (this.events.length === 0) return;
 		this.pause();
 		if (this.currentStep > 0) {
-			this.processPrevEvent();
-			this.status = 'paused';
+			const targetStep = this.currentStep - 1;
+			this.rebuildTo(targetStep);
+			this.status = targetStep >= this.events.length ? 'completed' : 'paused';
 			this.notify();
 		}
 	}
 
 	reset(): void {
-		this.pause();
+		this.cancelAnimation();
 		this.currentStep = 0;
 		this.state = createInitialVisualizationState();
 		this.status = 'idle';
@@ -92,27 +99,11 @@ export class PlaybackEngine {
 
 	seek(stepIndex: number): void {
 		this.pause();
-		
 		const targetStep = Math.max(0, Math.min(stepIndex, this.events.length));
-		
-		// Optimization: if seeking forward or backward, just apply/invert the delta
-		// If seeking backward from very far, it might be faster to rebuild, but 
-		// for true bidirectional we just step backward.
-		if (targetStep < this.currentStep && (this.currentStep - targetStep > targetStep)) {
-			// It's faster to rebuild from 0 if target is closer to 0 than to current
-			this.state = createInitialVisualizationState();
-			this.currentStep = 0;
-		}
-
-		while (this.currentStep < targetStep) {
-			this.processNextEvent();
-		}
-
-		while (this.currentStep > targetStep) {
-			this.processPrevEvent();
-		}
-
-		this.status = targetStep >= this.events.length ? 'completed' : 'paused';
+		this.rebuildTo(targetStep);
+		this.status = this.events.length === 0
+			? 'idle'
+			: targetStep >= this.events.length ? 'completed' : 'paused';
 		this.notify();
 	}
 
@@ -120,54 +111,63 @@ export class PlaybackEngine {
 		return this.status;
 	}
 
-	private tick = (timestamp: number): void => {
-		if (this.status !== 'running') return;
+	private tick = (timestamp: number, generation: number): void => {
+		if (generation !== this.animationGeneration || this.status !== 'running') return;
+		this.animationFrameId = null;
 
 		const deltaTime = timestamp - this.lastFrameTime;
 		this.lastFrameTime = timestamp;
 		
-		if (deltaTime > 100) {
-			this.animationFrameId = requestAnimationFrame(this.tick);
-			return;
+		if (deltaTime <= 100) {
+			this.timeAccumulator += deltaTime;
+			const msPerEvent = 1000 / this.speed;
+			let processedAny = false;
+
+			while (this.timeAccumulator >= msPerEvent && this.currentStep < this.events.length) {
+				this.processNextEvent();
+				this.timeAccumulator -= msPerEvent;
+				processedAny = true;
+			}
+
+			if (this.currentStep >= this.events.length) {
+				this.status = 'completed';
+				this.notify();
+				return;
+			}
+
+			if (processedAny) {
+				this.notify();
+			}
 		}
 
-		this.timeAccumulator += deltaTime;
-		const msPerEvent = 1000 / this.speed;
-
-		let processedAny = false;
-
-		while (this.timeAccumulator >= msPerEvent && this.currentStep < this.events.length) {
-			this.processNextEvent();
-			this.timeAccumulator -= msPerEvent;
-			processedAny = true;
-		}
-
-		if (this.currentStep >= this.events.length) {
-			this.status = 'completed';
-			this.notify();
-			return;
-		}
-
-		if (processedAny) {
-			this.notify();
-		}
-
-		this.animationFrameId = requestAnimationFrame(this.tick);
+		this.scheduleAnimation(generation);
 	};
 
-	private processNextEvent(): void {
-		if (this.currentStep < this.events.length) {
-			const event = this.events[this.currentStep];
-			this.state = applyEvent(this.state, event);
-			this.currentStep++;
+	private scheduleAnimation(generation: number): void {
+		if (generation !== this.animationGeneration || this.status !== 'running') return;
+		this.animationFrameId = requestAnimationFrame((timestamp) => this.tick(timestamp, generation));
+	}
+
+	private cancelAnimation(): void {
+		this.animationGeneration++;
+		if (this.animationFrameId !== null) {
+			cancelAnimationFrame(this.animationFrameId);
+			this.animationFrameId = null;
 		}
 	}
 
-	private processPrevEvent(): void {
-		if (this.currentStep > 0) {
-			this.currentStep--;
-			const event = this.events[this.currentStep];
-			this.state = invertEvent(this.state, event);
+	private rebuildTo(stepIndex: number): void {
+		this.state = createInitialVisualizationState();
+		for (let index = 0; index < stepIndex; index++) {
+			this.state = applyEvent(this.state, this.events[index]);
+		}
+		this.currentStep = stepIndex;
+	}
+
+	private processNextEvent(): void {
+		if (this.currentStep < this.events.length) {
+			this.state = applyEvent(this.state, this.events[this.currentStep]);
+			this.currentStep++;
 		}
 	}
 

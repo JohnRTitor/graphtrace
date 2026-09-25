@@ -9,30 +9,39 @@
 	import SkipForward from '@lucide/svelte/icons/skip-forward';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
+	function pausePlayback() {
+		playbackState.pause();
+		if (executionStore.isComparing) comparePlaybackState.pause();
+	}
+
+	function playPlayback() {
+		playbackState.play();
+		if (executionStore.isComparing) comparePlaybackState.play();
+	}
+
 	function handlePlayPause() {
-		if (playbackState.isIdle || playbackState.isCompleted) {
-			environmentState.runAlgorithm();
+		if (!playbackState.hasLoadedTrace) {
+			environmentState.runAlgorithm('autoplay');
+		} else if (playbackState.isRunning) {
+			pausePlayback();
 		} else {
-			playbackState.togglePlayPause();
-			if (executionStore.isComparing) {
-				comparePlaybackState.togglePlayPause();
-			}
+			playPlayback();
 		}
 	}
 
+	function stepPlayback(state: typeof playbackState) {
+		if (state.isCompleted) state.seek(0);
+		state.step();
+	}
+
 	function handleStep() {
-		if (playbackState.isIdle || playbackState.isCompleted) {
-			environmentState.runAlgorithm();
-			playbackState.pause();
-			if (executionStore.isComparing) comparePlaybackState.pause();
+		if (!playbackState.hasLoadedTrace) {
+			environmentState.runAlgorithm('step');
+			return;
 		}
-		playbackState.step();
-		if (executionStore.isComparing) {
-			// Find corresponding decision index step for comparePlaybackState
-			// Since we want simple synchronized stepping, we can step it normally or sync by decision index.
-			// The simplest way for now is to just step it.
-			comparePlaybackState.step();
-		}
+		pausePlayback();
+		stepPlayback(playbackState);
+		if (executionStore.isComparing) stepPlayback(comparePlaybackState);
 	}
 
 	function handleReset() {
@@ -91,7 +100,7 @@
 			variant="outline" 
 			size="icon" 
 			onclick={handleReset}
-			disabled={playbackState.isIdle}
+			disabled={!playbackState.hasLoadedTrace}
 			title="Reset (R)"
 		>
 			<RotateCcw class="h-4 w-4" />
@@ -117,7 +126,7 @@
 			variant="outline" 
 			size="icon" 
 			onclick={handleStep}
-			disabled={playbackState.isRunning || playbackState.isCompleted}
+			disabled={playbackState.isRunning}
 			title="Step Forward (N)"
 		>
 			<SkipForward class="h-4 w-4" />

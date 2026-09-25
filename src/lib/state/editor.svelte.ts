@@ -1,6 +1,6 @@
 import type { NodeId } from '../graph/types';
 import { environmentState } from './environment.svelte';
-import { playbackState } from './playback.svelte';
+import { invalidatePlaybackIfNeeded } from './invalidate';
 import { Interactor } from '../interaction/interactor';
 import { getNode, setWall, setCost, setStart, setGoal } from '../graph/grid';
 
@@ -46,9 +46,7 @@ export class EditorState {
 	// Canvas Interaction Handlers
 	
 	onPointerDown(id: NodeId | null, x: number = 0, y: number = 0) {
-		if (!playbackState.isIdle) {
-			playbackState.reset();
-		}
+		invalidatePlaybackIfNeeded();
 		
 		this._isDrawing = true;
 

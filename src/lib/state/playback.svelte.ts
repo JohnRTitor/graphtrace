@@ -2,17 +2,18 @@ import { PlaybackEngine } from '../visualization/player';
 import { createInitialVisualizationState, type PlaybackStatus, type VisualizationState } from '../visualization/types';
 import { executionStore } from './execution-store.svelte';
 import type { AlgorithmMetrics } from '../algorithms/types';
+import type { Execution } from '../domain/execution';
 
 export class PlaybackState {
 	private engine: PlaybackEngine;
 	
-	// Svelte 5 reactive state
 	private _vizState = $state<VisualizationState>(createInitialVisualizationState());
 	private _status = $state<PlaybackStatus>('idle');
 	private _currentStep = $state(0);
 	private _totalSteps = $state(0);
-	private _speed = $state(50); // events per second
+	private _speed = $state(50);
 	private _executionType: 'active' | 'compare';
+	private _loadedExecutionId: string | null = null;
 
 	constructor(executionType: 'active' | 'compare' = 'active') {
 		this._executionType = executionType;
@@ -30,41 +31,34 @@ export class PlaybackState {
 		this.engine.setSpeed(this._speed);
 	}
 
-	// Internal tracker for the loaded execution
-	private _loadedExecutionId: string | null = null;
-
-	// Svelte 5 effect setup separated for clarity
 	public initEffects() {
 		$effect.root(() => {
 			$effect(() => {
-				const exec = this._executionType === 'active' 
-					? executionStore.activeExecution 
-					: executionStore.compareExecution;
+				const exec = this._executionType === 'active'
+					? executionStore.activeExecution
+					: executionStore.isComparing ? executionStore.compareExecution : null;
 				if (exec && this._loadedExecutionId !== exec.id) {
-					this._loadedExecutionId = exec.id;
-					this._totalSteps = exec.trace.length;
-					this._currentStep = 0;
-					this.engine.loadEvents(exec.trace);
-					this.play();
+					this.loadExecution(exec);
 				} else if (!exec && this._loadedExecutionId !== null) {
-					this._loadedExecutionId = null;
-					this._totalSteps = 0;
-					this._currentStep = 0;
-					this.engine.loadEvents([]);
+					this.invalidate();
 				}
 			});
 		});
 	}
 
-	// Getters
 	get vizState() { return this._vizState; }
 	get status() { return this._status; }
 	get currentStep() { return this._currentStep; }
 	get totalSteps() { return this._totalSteps; }
-	get metrics(): AlgorithmMetrics | null { return executionStore.activeExecution?.metrics || null; }
+	get metrics(): AlgorithmMetrics | null {
+		const execution = this._executionType === 'active'
+			? executionStore.activeExecution
+			: executionStore.compareExecution;
+		return execution?.metrics || null;
+	}
 	get speed() { return this._speed; }
+	get hasLoadedTrace() { return this._loadedExecutionId !== null; }
 	
-	// Derived state
 	get progressPercentage() {
 		if (this._totalSteps === 0) return 0;
 		return (this._currentStep / this._totalSteps) * 100;
@@ -75,7 +69,20 @@ export class PlaybackState {
 	get isIdle() { return this._status === 'idle'; }
 	get isCompleted() { return this._status === 'completed'; }
 
-	// Actions
+	loadExecution(execution: Execution | null): void {
+		if (!execution) {
+			this.invalidate();
+			return;
+		}
+		this._loadedExecutionId = execution.id;
+		this.engine.loadEvents(execution.trace);
+	}
+
+	invalidate(): void {
+		this._loadedExecutionId = null;
+		this.engine.unloadEvents();
+	}
+
 	setSpeed(speed: number) {
 		this._speed = speed;
 		this.engine.setSpeed(speed);
@@ -119,10 +126,8 @@ export class PlaybackState {
 	}
 }
 
-// Global singletons
 export const playbackState = new PlaybackState('active');
 export const comparePlaybackState = new PlaybackState('compare');
 
-// Initialize the effect roots
 playbackState.initEffects();
 comparePlaybackState.initEffects();

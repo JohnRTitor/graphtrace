@@ -17,8 +17,10 @@ import {
 } from "../graph/manual";
 import { generateId } from "../utils";
 import { GridAdapter } from "../graph/graph-adapter";
-import { playbackState } from "./playback.svelte";
+import { comparePlaybackState, playbackState } from "./playback.svelte";
 import { executionStore } from "./execution-store.svelte";
+import { invalidatePlaybackIfNeeded } from "./invalidate";
+import type { ExecutionId } from "../domain/execution";
 import { createProblemVersion, type Problem } from "../domain/problem";
 import {
   defaultGridCostModel,
@@ -30,6 +32,8 @@ import { generateRandomGraph } from "../generators/random-graph";
 import { getAlgorithm } from "../algorithms";
 import { invertGraphCommand } from "../graph/manual";
 import type { EnvCommand } from "../domain/command";
+
+export type RunAlgorithmMode = "autoplay" | "step";
 
 export class EnvironmentState {
   // --- Grid State ---
@@ -89,19 +93,20 @@ export class EnvironmentState {
   }
 
   resizeGrid(rows: number, cols: number): void {
+    invalidatePlaybackIfNeeded();
     this._grid = createGrid(rows, cols);
     this.resetGridToDefaults(rows, cols);
     this._gridVersion++;
   }
 
   clearGrid(): void {
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
     clearGrid(this._grid);
     this._gridVersion++;
   }
 
   replaceGrid(newGrid: Grid): void {
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
     this._grid = newGrid;
     this._gridVersion++;
   }
@@ -282,7 +287,7 @@ export class EnvironmentState {
 
   // Unified history execution
   executeCommand(cmd: EnvCommand) {
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
     this._history.execute(cmd);
   }
 
@@ -324,19 +329,18 @@ export class EnvironmentState {
   }
 
   undo() {
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
     this._history.undo();
   }
 
   redo() {
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
     this._history.redo();
   }
 
 
 
   clearGraph() {
-    playbackState.reset();
     const nodes = Array.from(this._graph.nodes.values());
     const edges = Array.from(this._graph.edges.values());
     this.executeCommand({
@@ -356,7 +360,6 @@ export class EnvironmentState {
     newStart: NodeId | null,
     newGoal: NodeId | null,
   ) {
-    playbackState.reset();
     const oldNodes = Array.from(this._graph.nodes.values());
     const oldEdges = Array.from(this._graph.edges.values());
     this.executeCommand({
@@ -469,6 +472,7 @@ export class EnvironmentState {
   }
 
   loadGraph(data: any) {
+    invalidatePlaybackIfNeeded();
     this._graph.load(data);
     this._graphVersion++;
   }
@@ -478,8 +482,9 @@ export class EnvironmentState {
     return this._selectedAlgorithmId;
   }
   set selectedAlgorithmId(id: string) {
+    if (this._selectedAlgorithmId === id) return;
     this._selectedAlgorithmId = id;
-    playbackState.reset();
+    invalidatePlaybackIfNeeded();
   }
 
   get currentAlgorithm() {
@@ -497,7 +502,9 @@ export class EnvironmentState {
     return this._environmentType;
   }
   set environmentType(val: EnvironmentType) {
+    if (this._environmentType === val) return;
     this._environmentType = val;
+    invalidatePlaybackIfNeeded();
   }
 
   get environmentSeed() {
@@ -589,16 +596,34 @@ export class EnvironmentState {
     }
   }
 
-  runAlgorithm() {
+  runAlgorithm(mode?: RunAlgorithmMode): ExecutionId | null {
     const algo = this.currentAlgorithm;
-    if (!algo) return;
+    if (!algo) return null;
 
     const problem = this.getProblem();
 
     try {
-      executionStore.run(problem, this._selectedAlgorithmId);
+      const executionId = executionStore.run(problem, this._selectedAlgorithmId);
+      const activeExecution = executionStore.activeExecution;
+      if (activeExecution) playbackState.loadExecution(activeExecution);
+
+      const compareExecution = executionStore.isComparing
+        ? executionStore.compareExecution
+        : null;
+      if (compareExecution) comparePlaybackState.loadExecution(compareExecution);
+
+      if (mode === "autoplay") {
+        playbackState.play();
+        if (compareExecution) comparePlaybackState.play();
+      } else if (mode === "step") {
+        playbackState.step();
+        if (compareExecution) comparePlaybackState.step();
+      }
+
+      return executionId;
     } catch (e) {
       console.warn("Run failed:", e);
+      return null;
     }
   }
 }

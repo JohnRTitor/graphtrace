@@ -1,17 +1,27 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { environmentState } from '../environment.svelte';
-import { playbackState } from '../playback.svelte';
+import { comparePlaybackState, playbackState } from '../playback.svelte';
+import { executionStore } from '../execution-store.svelte';
 import { invalidatePlaybackIfNeeded } from '../invalidate';
 
-// The playback engine schedules its ticking via requestAnimationFrame, which
-// isn't present in the default (non-jsdom) vitest environment. Polyfilling
-// it lets us drive playback into a non-idle state the same way the app does,
-// without pulling in a full DOM environment for these otherwise-pure tests.
+let frames: Map<number, FrameRequestCallback>;
+let nextFrameId: number;
+
 beforeEach(() => {
-	vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-		return setTimeout(() => cb(performance.now()), 0) as unknown as number;
+	frames = new Map();
+	nextFrameId = 1;
+	vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+		const id = nextFrameId++;
+		frames.set(id, callback);
+		return id;
 	});
-	vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+	vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+		frames.delete(id);
+	});
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
 });
 
 describe('EnvironmentState - maze context menu commands', () => {
@@ -87,21 +97,106 @@ describe('EnvironmentState - manual graph context menu commands', () => {
 
 });
 
-describe('invalidatePlaybackIfNeeded', () => {
-	it('resets a running/completed playback but leaves an idle one alone', async () => {
-		expect(playbackState.isIdle).toBe(true);
+describe('playback execution lifecycle', () => {
+	beforeEach(() => {
+		invalidatePlaybackIfNeeded();
+		environmentState.resizeGrid(5, 5);
+	});
 
-		// No-op on an already-idle playback.
+	it('loads a new trace synchronously without autoplay', () => {
+		const executionId = environmentState.runAlgorithm();
+
+		expect(executionId).toBe(executionStore.activeId);
+		expect(playbackState.hasLoadedTrace).toBe(true);
+		expect(playbackState.isIdle).toBe(true);
+		expect(playbackState.currentStep).toBe(0);
+		expect(playbackState.totalSteps).toBe(executionStore.activeExecution?.trace.length);
+		expect(frames.size).toBe(0);
+
+		playbackState.step();
+		expect(playbackState.currentStep).toBe(1);
+		expect(playbackState.isPaused).toBe(true);
+	});
+
+	it('supports explicit autoplay and step modes', () => {
+		environmentState.runAlgorithm('autoplay');
+		expect(playbackState.isRunning).toBe(true);
+		expect(frames.size).toBe(1);
+
 		invalidatePlaybackIfNeeded();
 		expect(playbackState.isIdle).toBe(true);
+		expect(playbackState.hasLoadedTrace).toBe(false);
+		expect(frames.size).toBe(0);
 
-		(playbackState as any).engine.loadEvents(
-			[{ type: 'expand', nodeId: 'x' } as any]
-		);
+		environmentState.runAlgorithm('step');
+		expect(playbackState.currentStep).toBe(1);
+		expect(playbackState.isPaused).toBe(true);
+		expect(frames.size).toBe(0);
+	});
+
+	it('keeps comparison playback synchronized and reset replayable', () => {
+		environmentState.runAlgorithm();
+		executionStore.isComparing = true;
+		environmentState.runAlgorithm('step');
+
+		expect(playbackState.currentStep).toBe(1);
+		expect(comparePlaybackState.currentStep).toBe(1);
+		expect(playbackState.isPaused).toBe(true);
+		expect(comparePlaybackState.isPaused).toBe(true);
+
 		playbackState.play();
-		expect(playbackState.isIdle).toBe(false);
+		comparePlaybackState.play();
+		expect(playbackState.isRunning).toBe(true);
+		expect(comparePlaybackState.isRunning).toBe(true);
+		playbackState.pause();
+		comparePlaybackState.pause();
+		expect(playbackState.isPaused).toBe(true);
+		expect(comparePlaybackState.isPaused).toBe(true);
+
+		const activeTotal = playbackState.totalSteps;
+		const compareTotal = comparePlaybackState.totalSteps;
+		playbackState.reset();
+		comparePlaybackState.reset();
+		expect(playbackState.isIdle).toBe(true);
+		expect(comparePlaybackState.isIdle).toBe(true);
+		expect(playbackState.totalSteps).toBe(activeTotal);
+		expect(comparePlaybackState.totalSteps).toBe(compareTotal);
+		expect(frames.size).toBe(0);
 
 		invalidatePlaybackIfNeeded();
+		expect(playbackState.hasLoadedTrace).toBe(false);
+		expect(comparePlaybackState.hasLoadedTrace).toBe(false);
+		expect(executionStore.activeId).toBeNull();
+		expect(executionStore.compareId).toBeNull();
+		expect(executionStore.isComparing).toBe(false);
+		expect(frames.size).toBe(0);
+	});
+
+	it('invalidates active and comparison traces on environment changes', () => {
+		environmentState.runAlgorithm('step');
+		executionStore.isComparing = true;
+		environmentState.runAlgorithm('step');
+		expect(playbackState.hasLoadedTrace).toBe(true);
+		expect(comparePlaybackState.hasLoadedTrace).toBe(true);
+
+		environmentState.environmentType = 'blank';
+
+		expect(playbackState.hasLoadedTrace).toBe(false);
+		expect(comparePlaybackState.hasLoadedTrace).toBe(false);
 		expect(playbackState.isIdle).toBe(true);
+		expect(comparePlaybackState.isIdle).toBe(true);
+		expect(executionStore.activeId).toBeNull();
+		expect(executionStore.compareId).toBeNull();
+	});
+
+	it('invalidates traces on algorithm changes', () => {
+		environmentState.runAlgorithm('step');
+		expect(playbackState.hasLoadedTrace).toBe(true);
+
+		environmentState.selectedAlgorithmId = 'astar';
+
+		expect(playbackState.hasLoadedTrace).toBe(false);
+		expect(playbackState.isIdle).toBe(true);
+		expect(executionStore.activeId).toBeNull();
 	});
 });
