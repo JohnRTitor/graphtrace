@@ -118,7 +118,7 @@
 		</ToggleGroupItem>
 		<!-- Popover for cost settings next to the tool -->
 		<Popover>
-			<PopoverTrigger aria-label="Open cost brush settings" class="h-9 px-2 hover:bg-accent hover:text-accent-foreground rounded-md flex items-center justify-center">
+			<PopoverTrigger aria-label="Open cost brush settings" class="flex h-10 items-center justify-center rounded-md px-2 hover:bg-accent hover:text-accent-foreground sm:h-9">
 				<Search class="h-3 w-3" />
 			</PopoverTrigger>
 			<PopoverContent class="w-80" side="bottom" align="start">
@@ -133,7 +133,7 @@
 		<Button 
 			variant={executionStore.isComparing ? "secondary" : "ghost"} 
 			size="sm" 
-			class="h-8 gap-1"
+			class="h-10 gap-1 sm:h-8"
 			aria-pressed={executionStore.isComparing}
 			onclick={toggleComparison}
 		>
@@ -144,11 +144,11 @@
 		<div class="w-px h-6 bg-border mx-1"></div>
 
 		<input type="file" accept=".json" class="hidden" bind:this={fileInput} onchange={handleLoad} />
-		<Button variant="outline" size="sm" class="h-8 gap-1" onclick={() => fileInput?.click()}>
+		<Button variant="outline" size="sm" class="h-10 gap-1 sm:h-8" onclick={() => fileInput?.click()}>
 			<FolderOpen class="h-3.5 w-3.5" />
 			Load
 		</Button>
-		<Button variant="default" size="sm" class="h-8 gap-1" onclick={handleSave}>
+		<Button variant="default" size="sm" class="h-10 gap-1 sm:h-8" onclick={handleSave}>
 			<Save class="h-3.5 w-3.5" />
 			Save
 		</Button>

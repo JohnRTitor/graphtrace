@@ -184,7 +184,7 @@
 	{/if}
 
 	{#snippet zoomButton(Icon: Component<{ class?: string }>, label: string, onClick: () => void)}
-		<Button variant="ghost" size="icon" class="h-8 w-8" onclick={onClick} title={label}>
+		<Button variant="ghost" size="icon" class="h-10 w-10 sm:h-8 sm:w-8" onclick={onClick} title={label}>
 			<Icon class="h-4 w-4" />
 			<span class="sr-only">{label}</span>
 		</Button>
