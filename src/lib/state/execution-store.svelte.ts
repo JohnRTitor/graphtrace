@@ -4,13 +4,14 @@ import type { Problem } from '../domain/problem';
 import { getAlgorithm } from '../algorithms';
 import type { BaseGraph } from '../graph/types';
 import { GridAdapter } from '../graph/graph-adapter';
-import type { ManualGraph } from '../graph/manual';
+import { cloneManualGraph } from '../graph/manual';
 
 export class ExecutionStore {
 	private executions = $state<Map<ExecutionId, Execution>>(new Map());
 	private _activeId = $state<ExecutionId | null>(null);
 	private _compareId = $state<ExecutionId | null>(null);
 	private _isComparing = $state<boolean>(false);
+	private readonly maxExecutions = 20;
 
 	get isComparing(): boolean {
 		return this._isComparing;
@@ -68,6 +69,7 @@ export class ExecutionStore {
 		this._activeId = null;
 		this._compareId = null;
 		this._isComparing = false;
+		this.executions.clear();
 	}
 
 	run(problem: Problem, algorithmId: string, config?: any): ExecutionId {
@@ -85,13 +87,18 @@ export class ExecutionStore {
 			start = problem.grid.start;
 			goal = problem.grid.goal;
 		} else {
-			graphModel = problem.graph; // assuming problem.graph is a ManualGraph which implements BaseGraph
+			graphModel = cloneManualGraph(problem.graph, problem.costModel);
 			start = problem.graph.start;
 			goal = problem.graph.goal;
 		}
 
-		if (!start || !goal) {
+		if (!start || !goal || !graphModel.getNode(start) || !graphModel.getNode(goal)) {
 			throw new Error("Start or goal node not set");
+		}
+		if (problem.type === 'grid') {
+			if (!problem.grid.nodes.get(start)?.walkable || !problem.grid.nodes.get(goal)?.walkable) {
+				throw new Error("Start and goal must be walkable");
+			}
 		}
 
 		const result = algo.run(graphModel, start, goal);
@@ -110,6 +117,13 @@ export class ExecutionStore {
 		};
 
 		this.executions.set(id, execution);
+		while (this.executions.size > this.maxExecutions) {
+			const oldest = Array.from(this.executions.keys()).find(
+				(executionId) => executionId !== this._activeId && executionId !== this._compareId
+			);
+			if (!oldest) break;
+			this.executions.delete(oldest);
+		}
 		
 		if (this._isComparing && this._activeId) {
 			this._compareId = id;

@@ -299,6 +299,15 @@ export class ManualGraph implements BaseGraph {
 	}
 }
 
+export function cloneManualGraph(source: ManualGraph, costModel: CostModel = defaultGraphCostModel): ManualGraph {
+	const clone = new ManualGraph(costModel);
+	for (const node of source.nodes.values()) clone.nodes.set(node.id, { ...node });
+	for (const edge of source.edges.values()) clone.edges.set(edge.id, { ...edge });
+	clone.start = source.start;
+	clone.goal = source.goal;
+	return clone;
+}
+
 export function invertGraphCommand(cmd: GraphCommand): GraphCommand {
 	switch (cmd.type) {
 		case 'add-node':
