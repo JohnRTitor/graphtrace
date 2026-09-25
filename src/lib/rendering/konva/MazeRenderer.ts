@@ -1,6 +1,6 @@
 import Konva from 'konva';
 import type { Grid, NodeId } from '$lib/graph/types';
-import type { VisualizationState } from '$lib/visualization/types';
+import type { CellVisualState, VisualizationState } from '$lib/visualization/types';
 import { MazeViewport } from './maze-viewport';
 import { MazeInteraction } from './maze-interaction';
 import type { EditorState } from '$lib/state/editor.svelte';
@@ -84,7 +84,7 @@ export class MazeRenderer {
 		this.hoverRect = new Konva.Rect({
 			x: -100, y: -100,
 			width: this.cellSize, height: this.cellSize,
-			fill: 'rgba(255, 255, 255, 0.2)',
+			fill: this.getColors().hover,
 			listening: false,
 			visible: false,
 		});
@@ -309,6 +309,8 @@ export class MazeRenderer {
 	public resize(width: number, height: number) {
 		this.stage.width(Math.max(0, Number.isFinite(width) ? width : 0));
 		this.stage.height(Math.max(0, Number.isFinite(height) ? height : 0));
+		this.hitRect.width(this.stage.width());
+		this.hitRect.height(this.stage.height());
 		this.updateBackground();
 		this.stage.batchDraw();
 	}
@@ -332,6 +334,7 @@ export class MazeRenderer {
 
 	public updateTheme(theme: 'light' | 'dark') {
 		this.currentTheme = theme;
+		this.hoverRect.fill(this.getColors().hover);
 		this.renderEnvironment(this.currentGrid);
 		this.renderVisualization(this.currentVizState, this.currentGrid);
 	}
@@ -367,6 +370,7 @@ export class MazeRenderer {
 			gridLines: '#1e293b',
 			weight: '#475569',
 			text: '#94a3b8',
+			hover: 'rgba(255, 255, 255, 0.18)',
 			start: '#22c55e',
 			goal: '#ef4444',
 			discovered: '#3b82f6',
@@ -379,6 +383,7 @@ export class MazeRenderer {
 			gridLines: '#e2e8f0',
 			weight: '#cbd5e1',
 			text: '#64748b',
+			hover: 'rgba(15, 23, 42, 0.12)',
 			start: '#22c55e',
 			goal: '#ef4444',
 			discovered: '#60a5fa',
@@ -393,8 +398,10 @@ export class MazeRenderer {
 		this.updateBackground();
 		if (!grid) {
 			this.gridGroup.destroyChildren();
-			this.hitRect.width(0);
-			this.hitRect.height(0);
+			this.algoCellRects.forEach((rect) => rect.destroy());
+			this.algoCellRects.clear();
+			this.hitRect.width(this.stage.width());
+			this.hitRect.height(this.stage.height());
 			this.clearHover();
 			this.environmentLayer.batchDraw();
 			return;
@@ -407,8 +414,14 @@ export class MazeRenderer {
 		const gridHeight = grid.rows * this.cellSize;
 
 		// Update hit rect size
-		this.hitRect.width(gridWidth);
-		this.hitRect.height(gridHeight);
+		this.hitRect.width(this.stage.width());
+		this.hitRect.height(this.stage.height());
+		this.algoCellRects.forEach((rect, id) => {
+			if (!grid.nodes.has(id)) {
+				rect.destroy();
+				this.algoCellRects.delete(id);
+			}
+		});
 
 		// Draw walls and weights
 		const markersCoincide = grid.start === grid.goal;
@@ -505,7 +518,7 @@ export class MazeRenderer {
 			const node = grid.nodes.get(id);
 			if (!node) continue;
 
-			const cellState = state as any;
+			const cellState: CellVisualState = state;
 			let fill = '';
 			if (cellState === 'current') fill = colors.current;
 			else if (cellState === 'discovered' || cellState === 'expanded' || cellState === 'path') {

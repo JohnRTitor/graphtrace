@@ -72,7 +72,7 @@ export class MazeInteraction {
 
 		const cellId = this.getCellIdFromEvent(e, environmentState);
 		if (!cellId) {
-			this.handlePointerCancel(editorState);
+			editorState.onPointerMove(null);
 			return;
 		}
 		if (cellId === this.lastProcessedCell) return;

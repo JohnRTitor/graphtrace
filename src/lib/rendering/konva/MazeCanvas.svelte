@@ -5,7 +5,7 @@
 	import { playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
-	import { MazeRenderer } from './MazeRenderer';
+	import type { MazeRenderer } from './MazeRenderer';
 	import { Button } from '$lib/components/ui/button';
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 	import ZoomOut from '@lucide/svelte/icons/zoom-out';
@@ -34,20 +34,7 @@
 
 	onMount(() => {
 		if (!browser || !container) return;
-		
-		renderer = new MazeRenderer(container);
-		renderer.setContext(editorState, environmentState);
-		renderer.setContextMenuHandler((cellId) => {
-			if (cellId !== null && environmentState.grid.nodes.has(cellId)) {
-				mazeCellTarget = cellId;
-				menuOpen = true;
-			} else {
-				mazeCellTarget = null;
-				menuOpen = false;
-			}
-		});
-
-		// Observe theme changes
+		let disposed = false;
 		const observer = new MutationObserver((mutations) => {
 			mutations.forEach((mutation) => {
 				if (mutation.attributeName === 'class') {
@@ -60,14 +47,28 @@
 
 		const resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
-				if (renderer) {
-					renderer.resize(entry.contentRect.width, entry.contentRect.height);
-				}
+				renderer?.resize(entry.contentRect.width, entry.contentRect.height);
 			}
 		});
 		resizeObserver.observe(container);
 
+		void import('./MazeRenderer').then(({ MazeRenderer: Renderer }) => {
+			if (disposed || !container) return;
+			renderer = new Renderer(container);
+			renderer.setContext(editorState, environmentState);
+			renderer.setContextMenuHandler((cellId) => {
+				if (cellId !== null && environmentState.grid.nodes.has(cellId)) {
+					mazeCellTarget = cellId;
+					menuOpen = true;
+				} else {
+					mazeCellTarget = null;
+					menuOpen = false;
+				}
+			});
+		});
+
 		return () => {
+			disposed = true;
 			observer.disconnect();
 			resizeObserver.disconnect();
 			renderer?.destroy();
