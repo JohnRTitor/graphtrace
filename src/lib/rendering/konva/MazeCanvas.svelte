@@ -31,6 +31,9 @@
 	let mazeCellTarget = $state<NodeId | null>(null);
 	let mazeCostOpen = $state(false);
 	let mazeCostCellId = $state<NodeId | null>(null);
+	let renderGrid = $derived(
+		playback.problem?.type === 'grid' ? playback.problem.grid : environmentState.grid
+	);
 
 	onMount(() => {
 		if (!browser || !container) return;
@@ -89,15 +92,15 @@
 
 	// Re-render environment when grid changes
 	$effect(() => {
-		if (renderer && environmentState.grid) {
-			renderer.renderEnvironment(environmentState.grid);
+		if (renderer && renderGrid) {
+			renderer.renderEnvironment(renderGrid);
 		}
 	});
 
 	// Re-render visualization when vizState changes
 	$effect(() => {
 		if (renderer) {
-			renderer.renderVisualization(playback.vizState, environmentState.grid);
+			renderer.renderVisualization(playback.vizState, renderGrid);
 		}
 	});
 

@@ -1,5 +1,6 @@
 import type { Grid } from '../graph/types';
-import type { ManualGraph } from '../graph/manual';
+import { cloneGrid } from '../graph/grid';
+import { cloneManualGraph, type ManualGraph } from '../graph/manual';
 import type { CostModel } from './cost-model';
 import type { MovementModel } from './movement-model';
 
@@ -21,6 +22,24 @@ export type GraphProblem = {
 };
 
 export type Problem = GridProblem | GraphProblem;
+
+export function cloneProblem(problem: Problem): Problem {
+	if (problem.type === 'grid') {
+		return {
+			type: 'grid',
+			grid: cloneGrid(problem.grid),
+			movementModel: { ...problem.movementModel },
+			costModel: problem.costModel,
+			version: problem.version
+		};
+	}
+	return {
+		type: 'graph',
+		graph: cloneManualGraph(problem.graph, problem.costModel),
+		costModel: problem.costModel,
+		version: problem.version
+	};
+}
 
 let fallbackVersion = 0;
 

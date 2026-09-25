@@ -81,19 +81,23 @@
 		};
 	});
 
+	let renderGraph = $derived(
+		playback.problem?.type === 'graph' ? playback.problem.graph : environmentState.graph
+	);
+
 	let pathEdges = $derived.by(() => {
 		if (!playback.vizState) return new Set<string>();
 		if (playback.vizState.pathEdges.size > 0) return new Set<string>(playback.vizState.pathEdges);
 		if (playback.vizState.pathNodes.size === 0) return new Set<string>();
-		return extractPathEdges(Array.from(playback.vizState.pathNodes), environmentState.graph);
+		return extractPathEdges(Array.from(playback.vizState.pathNodes), renderGraph);
 	});
 
 	let nodes = $derived.by(() => {
-		return toFlowNodes(environmentState.graph, playback.vizState, environmentState.showCosts, colors);
+		return toFlowNodes(renderGraph, playback.vizState, environmentState.showCosts, colors);
 	});
 
 	let edges = $derived.by(() => {
-		return toFlowEdges(environmentState.graph, playback.vizState, pathEdges, colors);
+		return toFlowEdges(renderGraph, playback.vizState, pathEdges, colors);
 	});
 
 	function handlePaneClick({ event }: { event: MouseEvent | TouchEvent }) {

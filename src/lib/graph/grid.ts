@@ -27,6 +27,16 @@ export function createGrid(rows: number, cols: number): Grid {
 	return { rows: safeRows, cols: safeCols, nodes, start: null, goal: null };
 }
 
+export function cloneGrid(grid: Grid): Grid {
+	return {
+		rows: grid.rows,
+		cols: grid.cols,
+		nodes: new Map(Array.from(grid.nodes.entries(), ([id, cell]) => [id, { ...cell }])),
+		start: grid.start,
+		goal: grid.goal
+	};
+}
+
 export function setWall(grid: Grid, id: NodeId, walkable: boolean): void {
 	const node = grid.nodes.get(id);
 	if (node) {

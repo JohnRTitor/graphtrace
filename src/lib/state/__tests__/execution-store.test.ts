@@ -46,4 +46,23 @@ describe('ExecutionStore', () => {
 
 		expect(() => store.run(graphProblem(graph, () => 0), 'bfs')).toThrow();
 	});
+
+	it('keeps an immutable problem snapshot with the execution', () => {
+		const graph = new ManualGraph();
+		graph.execute({ type: 'add-node', node: { id: 'A', x: 0, y: 0, label: 'A' } });
+		graph.execute({ type: 'add-node', node: { id: 'B', x: 10, y: 0, label: 'B' } });
+		graph.execute({ type: 'add-edge', edge: { id: 'ab', source: 'A', target: 'B', weight: 1, directed: false } });
+		graph.execute({ type: 'set-start', from: null, to: 'A' });
+		graph.execute({ type: 'set-goal', from: null, to: 'B' });
+
+		const store = new ExecutionStore();
+		store.run(graphProblem(graph, () => 0), 'bfs');
+		graph.nodes.get('A')!.label = 'Changed';
+
+		const snapshot = store.activeExecution?.problemSnapshot;
+		expect(snapshot?.type).toBe('graph');
+		if (snapshot?.type === 'graph') {
+			expect(snapshot.graph.nodes.get('A')?.label).toBe('A');
+		}
+	});
 });

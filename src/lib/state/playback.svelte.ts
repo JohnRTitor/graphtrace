@@ -3,6 +3,7 @@ import { createInitialVisualizationState, type PlaybackStatus, type Visualizatio
 import { executionStore } from './execution-store.svelte';
 import type { AlgorithmMetrics } from '../algorithms/types';
 import type { Execution } from '../domain/execution';
+import type { Problem } from '../domain/problem';
 
 export class PlaybackState {
 	private engine: PlaybackEngine;
@@ -55,6 +56,12 @@ export class PlaybackState {
 			? executionStore.activeExecution
 			: executionStore.compareExecution;
 		return execution?.metrics || null;
+	}
+	get problem(): Problem | null {
+		const execution = this._executionType === 'active'
+			? executionStore.activeExecution
+			: executionStore.compareExecution;
+		return execution?.problemSnapshot ?? null;
 	}
 	get speed() { return this._speed; }
 	get hasLoadedTrace() { return this._loadedExecutionId !== null; }

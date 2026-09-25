@@ -1,6 +1,6 @@
 import { generateId } from '../utils';
 import type { Execution, ExecutionId } from '../domain/execution';
-import type { Problem } from '../domain/problem';
+import { cloneProblem, type Problem } from '../domain/problem';
 import { getAlgorithm } from '../algorithms';
 import type { BaseGraph } from '../graph/types';
 import { GridAdapter } from '../graph/graph-adapter';
@@ -78,25 +78,26 @@ export class ExecutionStore {
 			throw new Error(`Algorithm ${algorithmId} not found`);
 		}
 
+		const snapshot = cloneProblem(problem);
 		let graphModel: BaseGraph;
 		let start;
 		let goal;
 
-		if (problem.type === 'grid') {
-			graphModel = new GridAdapter(problem.grid, problem.movementModel, problem.costModel);
-			start = problem.grid.start;
-			goal = problem.grid.goal;
+		if (snapshot.type === 'grid') {
+			graphModel = new GridAdapter(snapshot.grid, snapshot.movementModel, snapshot.costModel);
+			start = snapshot.grid.start;
+			goal = snapshot.grid.goal;
 		} else {
-			graphModel = cloneManualGraph(problem.graph, problem.costModel);
-			start = problem.graph.start;
-			goal = problem.graph.goal;
+			graphModel = cloneManualGraph(snapshot.graph, snapshot.costModel);
+			start = snapshot.graph.start;
+			goal = snapshot.graph.goal;
 		}
 
 		if (!start || !goal || !graphModel.getNode(start) || !graphModel.getNode(goal)) {
 			throw new Error("Start or goal node not set");
 		}
-		if (problem.type === 'grid') {
-			if (!problem.grid.nodes.get(start)?.walkable || !problem.grid.nodes.get(goal)?.walkable) {
+		if (snapshot.type === 'grid') {
+			if (!snapshot.grid.nodes.get(start)?.walkable || !snapshot.grid.nodes.get(goal)?.walkable) {
 				throw new Error("Start and goal must be walkable");
 			}
 		}
@@ -107,7 +108,7 @@ export class ExecutionStore {
 		
 		const execution: Execution = {
 			id,
-			problemSnapshot: problem.version,
+			problemSnapshot: snapshot,
 			algorithmId,
 			algorithmConfig: config,
 			trace: result.events,
