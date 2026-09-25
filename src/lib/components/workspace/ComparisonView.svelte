@@ -5,6 +5,11 @@
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
 	import ExecutionMetricsTable from '$lib/components/workspace/ExecutionMetricsTable.svelte';
 	import type { Execution } from '$lib/domain/execution';
+	import { getAlgorithm } from '$lib/algorithms';
+
+	function algorithmName(id: string | undefined): string {
+		return id ? (getAlgorithm(id)?.name ?? id) : 'None';
+	}
 
 	let comparisonExecutions = $derived(
 		[executionStore.activeExecution, executionStore.compareExecution].filter(
@@ -22,7 +27,7 @@
 						<CardTitle class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Execution 1</CardTitle>
 					</CardHeader>
 					<CardContent class="p-3 pt-1">
-						<span class="font-medium">{executionStore.activeExecution?.algorithmId || 'None'}</span>
+						<span class="font-medium">{algorithmName(executionStore.activeExecution?.algorithmId)}</span>
 					</CardContent>
 				</Card>
 			</div>
@@ -36,7 +41,7 @@
 						<CardTitle class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Execution 2</CardTitle>
 					</CardHeader>
 					<CardContent class="p-3 pt-1">
-						<span class="font-medium">{executionStore.compareExecution?.algorithmId || 'None'}</span>
+						<span class="font-medium">{algorithmName(executionStore.compareExecution?.algorithmId)}</span>
 					</CardContent>
 				</Card>
 			</div>

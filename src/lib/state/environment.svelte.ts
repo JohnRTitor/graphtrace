@@ -133,6 +133,7 @@ export class EnvironmentState {
     for (const cell of snapshot.nodes) {
       if (
         typeof cell.id !== 'string' ||
+        cell.id !== `${cell.row},${cell.col}` ||
         ids.has(cell.id) ||
         !Number.isInteger(cell.row) ||
         !Number.isInteger(cell.col) ||

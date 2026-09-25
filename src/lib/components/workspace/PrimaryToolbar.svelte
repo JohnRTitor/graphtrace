@@ -20,6 +20,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { serializeWorkspace, deserializeWorkspace } from '$lib/persistence/save-load';
 	import { executionStore } from '$lib/state/execution-store.svelte';
+	import { comparePlaybackState } from '$lib/state/playback.svelte';
 
 	import CostBrushPanel from './CostBrushPanel.svelte';
 
@@ -60,6 +61,11 @@
 		// Reset input so the same file can be loaded again if needed
 		target.value = '';
 	}
+	function toggleComparison() {
+		if (executionStore.isComparing) comparePlaybackState.pause();
+		executionStore.isComparing = !executionStore.isComparing;
+	}
+
 </script>
 
 <div class="relative flex flex-wrap items-center gap-1 border-b bg-card p-2 shadow-sm">
@@ -129,7 +135,7 @@
 			size="sm" 
 			class="h-8 gap-1"
 			aria-pressed={executionStore.isComparing}
-			onclick={() => executionStore.isComparing = !executionStore.isComparing}
+			onclick={toggleComparison}
 		>
 			<SplitSquareHorizontal class="h-4 w-4" />
 			Compare

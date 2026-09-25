@@ -34,6 +34,7 @@ function parseGridData(value: unknown): Grid {
 			node.id === id &&
 			Number.isInteger(node.row) &&
 			Number.isInteger(node.col) &&
+			`${node.row},${node.col}` === id &&
 			(node.row as number) >= 0 && (node.row as number) < (rows as number) &&
 			(node.col as number) >= 0 && (node.col as number) < (cols as number) &&
 			typeof node.walkable === 'boolean' &&

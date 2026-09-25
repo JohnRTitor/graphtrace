@@ -40,7 +40,7 @@ export class PlaybackEngine {
 	}
 
 	setSpeed(eventsPerSecond: number): void {
-		this.speed = Math.max(0.1, eventsPerSecond);
+		this.speed = Number.isFinite(eventsPerSecond) ? Math.max(0.1, eventsPerSecond) : 50;
 	}
 
 	play(): void {
@@ -99,7 +99,8 @@ export class PlaybackEngine {
 
 	seek(stepIndex: number): void {
 		this.pause();
-		const targetStep = Math.max(0, Math.min(stepIndex, this.events.length));
+		const safeStep = Number.isFinite(stepIndex) ? stepIndex : this.currentStep;
+		const targetStep = Math.max(0, Math.min(safeStep, this.events.length));
 		this.rebuildTo(targetStep);
 		this.status = this.events.length === 0
 			? 'idle'

@@ -91,8 +91,8 @@ export class PlaybackState {
 	}
 
 	setSpeed(speed: number) {
-		this._speed = speed;
-		this.engine.setSpeed(speed);
+		this._speed = Number.isFinite(speed) ? Math.max(0.1, speed) : 50;
+		this.engine.setSpeed(this._speed);
 	}
 
 	play() {
@@ -128,7 +128,8 @@ export class PlaybackState {
 	}
 	
 	seekPercentage(percentage: number) {
-		const targetStep = Math.floor((percentage / 100) * this._totalSteps);
+		const safePercentage = Number.isFinite(percentage) ? Math.max(0, Math.min(100, percentage)) : this.progressPercentage;
+		const targetStep = Math.floor((safePercentage / 100) * this._totalSteps);
 		this.seek(targetStep);
 	}
 }
