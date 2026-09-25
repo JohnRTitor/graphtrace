@@ -6,6 +6,7 @@ import { MazeInteraction } from './maze-interaction';
 import type { EditorState } from '$lib/state/editor.svelte';
 import type { EnvironmentState } from '$lib/state/environment.svelte';
 import { stageToCellId } from './maze-coords';
+import { tracePaletteFor } from '$lib/theme/tokens';
 
 type InputEvent = MouseEvent | TouchEvent | PointerEvent;
 
@@ -35,6 +36,13 @@ export class MazeRenderer {
 	
 	// Object pooling for algo cells
 	private algoCellRects: Map<NodeId, Konva.Rect> = new Map();
+	/**
+	 * The colour currently painted on each pooled rect, and the set of cells
+	 * active in the latest `renderVisualization`. Both exist so a step can skip
+	 * cells whose colour has not changed instead of reassigning every fill.
+	 */
+	private paintedStates = new Map<NodeId, string>();
+	private activeCellIds = new Set<NodeId>();
 
 	private hoverRect: Konva.Rect;
 	private selectionRect: Konva.Rect;
@@ -62,7 +70,7 @@ export class MazeRenderer {
 			y: 0,
 			width: this.stage.width(),
 			height: this.stage.height(),
-			fill: this.getColors().bg,
+			fill: this.getColors().background,
 			listening: false,
 		});
 		this.backgroundLayer.add(this.backgroundRect);
@@ -89,7 +97,7 @@ export class MazeRenderer {
 			y: -100,
 			width: this.cellSize,
 			height: this.cellSize,
-			stroke: '#eab308',
+			stroke: this.getColors().selection,
 			lineWidth: 2,
 			listening: false,
 			visible: false
@@ -361,6 +369,9 @@ export class MazeRenderer {
 	public updateTheme(theme: 'light' | 'dark') {
 		this.currentTheme = theme;
 		this.hoverRect.fill(this.getColors().hover);
+		// Every painted colour is now wrong, so the diff cache has to be dropped
+		// or `renderVisualization` would correctly - and wrongly - skip the repaint.
+		this.paintedStates.clear();
 		this.renderEnvironment(this.currentGrid);
 		this.renderVisualization(this.currentVizState, this.currentGrid);
 	}
@@ -385,38 +396,14 @@ export class MazeRenderer {
 		});
 		this.backgroundRect.width(width / scaleX);
 		this.backgroundRect.height(height / scaleY);
-		this.backgroundRect.fill(this.getColors().bg);
+		this.backgroundRect.fill(this.getColors().background);
 		this.backgroundLayer.batchDraw();
 	}
 
 	private getColors() {
-		return this.currentTheme === 'dark' ? {
-			bg: '#000000',
-			wall: '#334155',
-			gridLines: '#1e293b',
-			weight: '#475569',
-			text: '#94a3b8',
-			hover: 'rgba(255, 255, 255, 0.18)',
-			start: '#22c55e',
-			goal: '#ef4444',
-			discovered: '#3b82f6',
-			expanded: '#6366f1',
-			path: '#eab308',
-			current: '#d946ef',
-		} : {
-			bg: '#ffffff',
-			wall: '#94a3b8',
-			gridLines: '#e2e8f0',
-			weight: '#cbd5e1',
-			text: '#64748b',
-			hover: 'rgba(15, 23, 42, 0.12)',
-			start: '#22c55e',
-			goal: '#ef4444',
-			discovered: '#60a5fa',
-			expanded: '#818cf8',
-			path: '#facc15',
-			current: '#e879f9',
-		};
+		// Konva cannot read CSS custom properties, so the canvas takes its colours
+		// from the one place they are defined. See src/lib/theme/tokens.ts.
+		return tracePaletteFor(this.currentTheme);
 	}
 
 	public renderEnvironment(grid: Grid | null) {
@@ -426,6 +413,10 @@ export class MazeRenderer {
 			this.gridGroup.destroyChildren();
 			this.algoCellRects.forEach((rect) => rect.destroy());
 			this.algoCellRects.clear();
+			// A new grid invalidates every painted colour, so the diff cache has to be
+			// dropped with the rects it describes.
+			this.paintedStates.clear();
+			this.activeCellIds.clear();
 			this.hitRect.width(this.stage.width());
 			this.hitRect.height(this.stage.height());
 			this.selectionRect.visible(false);
@@ -447,6 +438,7 @@ export class MazeRenderer {
 			if (!grid.nodes.has(id)) {
 				rect.destroy();
 				this.algoCellRects.delete(id);
+				this.paintedStates.delete(id);
 			}
 		});
 
@@ -459,7 +451,7 @@ export class MazeRenderer {
 					y: cell.row * this.cellSize,
 					width: this.cellSize,
 					height: this.cellSize,
-					fill: !cell.walkable ? colors.wall : colors.weight,
+					fill: !cell.walkable ? colors.barrier : colors.surface,
 				});
 				this.gridGroup.add(rect);
 				
@@ -471,7 +463,7 @@ export class MazeRenderer {
 						text: cell.cost.toString(),
 						fontSize: 10,
 						fontFamily: 'sans-serif',
-						fill: colors.text,
+						fill: colors.mutedText,
 						align: 'center',
 					});
 					this.gridGroup.add(text);
@@ -514,7 +506,7 @@ export class MazeRenderer {
 					context.moveTo(0, j * this.cellSize);
 					context.lineTo(gridWidth, j * this.cellSize);
 				}
-				context.strokeStyle = colors.gridLines;
+				context.strokeStyle = colors.structure;
 				context.lineWidth = 1;
 				context.stroke();
 			},
@@ -527,20 +519,31 @@ export class MazeRenderer {
 	public renderVisualization(vizState: VisualizationState | null, grid: Grid | null) {
 		this.currentVizState = vizState;
 		if (!grid) return;
-		
+
 		const colors = this.getColors();
-		
+		const painted = this.paintedStates;
+		const activeIds = this.activeCellIds;
+		activeIds.clear();
+
 		// If vizState is empty, hide all algo rects
 		if (!vizState || vizState.cellStates.size === 0) {
-			this.algoCellRects.forEach(rect => rect.hide());
+			this.algoCellRects.forEach((rect) => rect.hide());
+			painted.clear();
 			this.algorithmLayer.batchDraw();
 			return;
 		}
 
-		// Update or create rects for active cells
-		const activeIds = new Set<NodeId>();
-
-		for (const [id, state] of vizState.cellStates.entries()) {
+		/*
+		 * Diff against what is already on the canvas.
+		 *
+		 * The previous version walked every entry in `cellStates` on every step and
+		 * reassigned `fill` on each rect, which dirties Konva's scene graph whether or
+		 * not the colour actually changed. On a 30x40 grid that is ~700 string
+		 * assignments and a layer redraw per step, at up to 2000 steps/second. A
+		 * typical step changes one to three cells, so the diff turns a per-step
+		 * O(cells) redraw into an O(changed) one.
+		 */
+		for (const [id, state] of vizState.cellStates) {
 			const node = grid.nodes.get(id);
 			if (!node) continue;
 			activeIds.add(id);
@@ -549,17 +552,25 @@ export class MazeRenderer {
 			let fill = '';
 			if (cellState === 'current') fill = colors.current;
 			else if (cellState === 'discovered' || cellState === 'expanded' || cellState === 'path') {
-				fill = cellState === 'path' ? colors.path :
-							  cellState === 'expanded' ? colors.expanded : colors.discovered;
+				fill =
+					cellState === 'path'
+						? colors.path
+						: cellState === 'expanded'
+							? colors.visited
+							: colors.frontier;
 			}
-			
+
 			if (!fill) {
-				// Hide if no specific visual state
-				if (this.algoCellRects.has(id)) {
-					this.algoCellRects.get(id)!.hide();
-				}
+				// No visual state for this cell: hide it without touching anything else.
+				const existing = this.algoCellRects.get(id);
+				if (existing && existing.isVisible()) existing.hide();
+				painted.delete(id);
 				continue;
 			}
+
+			// Already painted with exactly this colour: nothing to do at all.
+			if (painted.get(id) === fill) continue;
+			painted.set(id, fill);
 
 			let rect = this.algoCellRects.get(id);
 			if (!rect) {
@@ -567,7 +578,7 @@ export class MazeRenderer {
 					x: node.col * this.cellSize,
 					y: node.row * this.cellSize,
 					width: this.cellSize,
-					height: this.cellSize,
+					height: this.cellSize
 				});
 				this.algoGroup.add(rect);
 				this.algoCellRects.set(id, rect);
@@ -575,24 +586,23 @@ export class MazeRenderer {
 
 			rect.fill(fill);
 			rect.show();
-			
-			// If we wanted to show G/H/F costs on the grid, we could do it here
-			// But text rendering per cell in large grids can be expensive.
-			// Let's skip cost text for maze cells for performance, or only show it on hover.
 		}
 
 		// Hide rects that are no longer active
-		this.algoCellRects.forEach((rect, id) => {
-			if (!activeIds.has(id)) {
+		for (const [id, rect] of this.algoCellRects) {
+			if (!activeIds.has(id) && rect.isVisible()) {
 				rect.hide();
+				painted.delete(id);
 			}
-		});
+		}
 
 		this.algorithmLayer.batchDraw();
 	}
 
 	public destroy() {
 		this.algoCellRects.clear();
+		this.paintedStates.clear();
+		this.activeCellIds.clear();
 		this.currentGrid = null;
 		this.currentVizState = null;
 		this.stage.destroy();

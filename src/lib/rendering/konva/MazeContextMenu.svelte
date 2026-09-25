@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { environmentState } from '$lib/state/environment.svelte';
+	import { getAlgorithmSummary } from '$lib/algorithms';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
 	import CostPresetSubmenu from '$lib/components/CostPresetSubmenu.svelte';
 	import type { NodeId } from '$lib/graph/types';
@@ -18,7 +19,7 @@
 	let isGoal = $derived(environmentState.gridGoal === cellId);
 	let isWall = $derived(node ? !node.walkable : false);
 	let hasCost = $derived(node ? node.cost > 1 : false);
-	let supportsWeights = $derived(!!environmentState.currentAlgorithm?.supportsWeights);
+	let supportsWeights = $derived(!!getAlgorithmSummary(environmentState.selectedAlgorithmId)?.supportsWeights);
 
 	function run(action: () => void) {
 		invalidatePlaybackIfNeeded();

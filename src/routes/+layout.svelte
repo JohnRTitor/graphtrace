@@ -2,32 +2,46 @@
 	import './layout.css';
 	import { ModeWatcher } from 'mode-watcher';
 	import favicon from '$lib/assets/favicon.svg';
-	import { comparePlaybackState, playbackState } from '$lib/state/playback.svelte';
+	import { comparePlaybackStates, playbackState } from '$lib/state/playback.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	
+
 	let { children } = $props();
 
+	/**
+	 * Panes that currently hold a trace. Driving "every pane that has something
+	 * loaded" rather than a fixed pair is what lets the comparison view work with
+	 * two panes or four without the shortcuts knowing which.
+	 */
+	function loadedPanes() {
+		return [playbackState, ...comparePlaybackStates].filter((state) => state.hasLoadedTrace);
+	}
+
 	function pausePlayback() {
-		playbackState.pause();
-		if (executionStore.isComparing) comparePlaybackState.pause();
+		for (const state of loadedPanes()) state.pause();
 	}
 
 	function playPlayback() {
-		playbackState.play();
-		if (executionStore.isComparing) comparePlaybackState.play();
+		for (const state of loadedPanes()) state.play();
 	}
 
 	function stepPlayback() {
 		pausePlayback();
-		if (playbackState.isCompleted) playbackState.seek(0);
-		playbackState.step();
-		if (executionStore.isComparing) {
-			if (comparePlaybackState.isCompleted) comparePlaybackState.seek(0);
-			comparePlaybackState.step();
+		for (const state of loadedPanes()) {
+			if (state.isCompleted) state.seek(0);
+			state.step();
 		}
+	}
+
+	function stepBackPlayback() {
+		pausePlayback();
+		for (const state of loadedPanes()) state.stepBack();
+	}
+
+	function resetPlayback() {
+		for (const state of loadedPanes()) state.reset();
 	}
 
 	function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -41,6 +55,9 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		// Cmd/Ctrl+K is the algorithm palette, and is bound on the document by the
+		// page so it works from inside the canvas too. It is listed here so the
+		// shortcuts dialog can read the same table.
 		if (e.ctrlKey || e.metaKey || e.altKey || isInteractiveTarget(e.target) || hasOpenOverlay()) return;
 
 		switch (e.key.toLowerCase()) {
@@ -62,13 +79,18 @@
 					stepPlayback();
 				}
 				break;
+			case 'b':
+				e.preventDefault();
+				stepBackPlayback();
+				break;
 			case 'r':
 				e.preventDefault();
-				playbackState.reset();
-				if (executionStore.isComparing) comparePlaybackState.reset();
+				resetPlayback();
 				break;
 			case 'e':
-				if (environmentState.environmentType === 'graph') return;
+				// Wall/erase only exist for grid environments; a game tree and a
+				// manual graph have no paint tools to toggle between.
+				if (environmentState.isAdversarialFamily || environmentState.isPathfindingGraph) return;
 				e.preventDefault();
 				editorState.mode = editorState.mode === 'wall' ? 'erase' : 'wall';
 				break;
@@ -78,10 +100,10 @@
 	onMount(() => {
 		window.addEventListener('keydown', handleKeydown);
 	});
-	
+
 	onDestroy(() => {
 		playbackState.pause();
-		comparePlaybackState.pause();
+		for (const pane of comparePlaybackStates) pane.pause();
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('keydown', handleKeydown);
 		}

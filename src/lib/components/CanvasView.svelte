@@ -1,24 +1,33 @@
 <script lang="ts">
 	import { environmentState } from '$lib/state/environment.svelte';
-	import MazeCanvas from '$lib/rendering/konva/MazeCanvas.svelte';
-	import GraphEditor from '$lib/rendering/svelte-flow/GraphEditor.svelte';
-	import { SvelteFlowProvider } from '@xyflow/svelte';
 	import { playbackState, type PlaybackState } from '$lib/state/playback.svelte';
 	import { executionStore } from '$lib/state/execution-store.svelte';
+	import { rendererFor } from '$lib/families/renderers';
+	import { SvelteFlowProvider } from '@xyflow/svelte';
 
 	let { playback = playbackState } = $props<{ playback?: PlaybackState }>();
+
+	/**
+	 * The renderer is chosen by family, not by environment type. This is the one
+	 * place the dispatch happens; everything downstream - the toolbar, the
+	 * inspector, the metrics table - reads the family registry instead of
+	 * switching on a type string.
+	 */
+	let familyId = $derived(playback.familyId ?? environmentState.familyId);
+	let Renderer = $derived(rendererFor(familyId));
 </script>
 
-<div class={`relative h-full w-full overflow-hidden bg-muted/20 ${executionStore.isComparing ? 'pointer-events-none' : ''}`}>
-	{#if environmentState.environmentType === 'graph'}
-		{#key 'graph'}
+<div class={`relative h-full w-full ${executionStore.isComparing ? 'pointer-events-none' : ''}`}>
+	{#if Renderer}
+		<!--
+			Re-keyed on the family so a canvas belonging to the previous family is
+			torn down completely. The comparison grid mounts one of these per pane, so
+			the key also keeps each pane's canvas independent.
+		-->
+		{#key familyId}
 			<SvelteFlowProvider>
-				<GraphEditor {playback} />
+				<Renderer {playback} />
 			</SvelteFlowProvider>
-		{/key}
-	{:else}
-		{#key 'maze'}
-			<MazeCanvas {playback} />
 		{/key}
 	{/if}
 </div>

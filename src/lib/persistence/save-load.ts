@@ -1,11 +1,12 @@
 import type { EnvironmentState } from '../state/environment.svelte';
 import type { SerializedWorkspace, SerializedGrid, SerializedGraph } from './schema';
+import { isKnownEnvironmentType } from './schema';
 import { defaultGridCostModel, defaultGraphCostModel } from '../domain/cost-model';
 import { defaultMovementModel } from '../domain/movement-model';
 import type { Grid, GridCell, NodeId } from '../graph/types';
 import type { GraphNode, GraphEdge } from '../graph/manual';
-
-const environmentTypes = new Set(['perfect_maze', 'braided_maze', 'random_obstacles', 'blank', 'graph']);
+import { serializeGameTree, type SerializedGameTree } from '../graph/game-tree';
+import { getFamily } from '../families/registry';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -125,8 +126,14 @@ export function serializeWorkspace(envState: EnvironmentState): string {
 	const workspace: SerializedWorkspace = {
 		schemaVersion: '1.0',
 		environmentType: envState.environmentType,
-		environmentSeed: envState.environmentSeed
+		environmentSeed: envState.environmentSeed,
+		familyId: envState.familyId
 	};
+
+	if (envState.isAdversarialFamily) {
+		workspace.gameTree = { data: serializeGameTree(envState.gameTree) };
+		return JSON.stringify(workspace, null, 2);
+	}
 
 	if (envState.environmentType !== 'graph') {
 		const grid = envState.grid;
@@ -163,22 +170,42 @@ export function deserializeWorkspace(json: string, envState: EnvironmentState): 
 	const parsed: unknown = JSON.parse(json);
 	assertValid(isRecord(parsed), 'Invalid workspace');
 	assertValid(parsed.schemaVersion === '1.0', `Unsupported schema version: ${String(parsed.schemaVersion)}`);
-	assertValid(typeof parsed.environmentType === 'string' && environmentTypes.has(parsed.environmentType), 'Invalid environment type');
+	assertValid(isKnownEnvironmentType(parsed.environmentType), 'Invalid environment type');
 	assertValid(typeof parsed.environmentSeed === 'number' && Number.isFinite(parsed.environmentSeed), 'Invalid environment seed');
 
-	const environmentType = parsed.environmentType as SerializedWorkspace['environmentType'];
+	const environmentType = parsed.environmentType;
 	const seed = Math.trunc(parsed.environmentSeed as number);
+
+	// A saved family is honoured only if it is a real, built family that owns the
+	// saved environment type. Falling back to the owning family keeps an old or
+	// hand-edited `familyId` from putting the app in a state it cannot render.
+	const savedFamily = typeof parsed.familyId === 'string' ? getFamily(parsed.familyId) : undefined;
+	const requestedFamily = savedFamily?.status === 'ready' ? savedFamily : undefined;
+
 	if (environmentType === 'graph') {
 		assertValid(isRecord(parsed.graph) && isRecord(parsed.graph.data), 'Missing graph data');
 		const graph = parseGraphData(parsed.graph.data);
-		envState.environmentType = environmentType;
 		envState.environmentSeed = seed;
+		envState.familyId = requestedFamily?.id ?? 'pathfinding';
+		envState.environmentType = environmentType;
 		assertValid(envState.loadGraph(graph), 'Unable to load graph data');
-	} else {
-		assertValid(isRecord(parsed.grid) && isRecord(parsed.grid.data), 'Missing grid data');
-		const grid = parseGridData(parsed.grid.data);
-		envState.environmentType = environmentType;
-		envState.environmentSeed = seed;
-		envState.replaceGrid(grid);
+		return;
 	}
+
+	if (requestedFamily?.id === 'adversarial') {
+		assertValid(isRecord(parsed.gameTree) && isRecord(parsed.gameTree.data), 'Missing game tree data');
+		const treeData = parsed.gameTree.data as unknown as SerializedGameTree;
+		envState.environmentSeed = seed;
+		envState.familyId = requestedFamily.id;
+		envState.environmentType = environmentType;
+		assertValid(envState.loadGameTreeData(treeData), 'Unable to load game tree data');
+		return;
+	}
+
+	assertValid(isRecord(parsed.grid) && isRecord(parsed.grid.data), 'Missing grid data');
+	const grid = parseGridData(parsed.grid.data);
+	envState.environmentSeed = seed;
+	envState.familyId = requestedFamily?.id ?? 'pathfinding';
+	envState.environmentType = environmentType;
+	envState.replaceGrid(grid);
 }

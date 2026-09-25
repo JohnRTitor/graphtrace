@@ -4,23 +4,75 @@ import type { CustomNode, CustomEdge, GraphColors } from './types';
 import type { NodeId } from '$lib/graph/types';
 import { MarkerType } from '@xyflow/svelte';
 
+/**
+ * A cheap structural fingerprint of a graph: node count, edge count, and the
+ * start/goal markers.
+ *
+ * Used as a reactivity key so that moving a node does not invalidate anything
+ * that only cares about the graph's shape. Deliberately excludes node positions -
+ * those change on every drag, and re-fitting the viewport to them is both a
+ * waste and a visible jump.
+ */
+export function graphStructureKey(graph: ManualGraph): string {
+	return `${graph.nodes.size}:${graph.edges.size}:${graph.start ?? '-'}:${graph.goal ?? '-'}`;
+}
+
 export function extractPathEdges(pathNodes: NodeId[], graph: ManualGraph): Set<string> {
 	const pathEdges = new Set<string>();
 	if (pathNodes.length < 2) return pathEdges;
 
+	const index = edgeIndexFor(graph);
+
 	for (let i = 0; i < pathNodes.length - 1; i++) {
-		const u = pathNodes[i];
-		const v = pathNodes[i + 1];
-		const matches = Array.from(graph.edges.entries())
-			.filter(([, edge]) =>
-				(edge.source === u && edge.target === v) ||
-				(edge.source === v && edge.target === u && !edge.directed)
-			)
-			.sort(([leftId, left], [rightId, right]) => left.weight - right.weight || (leftId < rightId ? -1 : leftId > rightId ? 1 : 0));
-		const foundEdgeId = matches[0]?.[0];
+		const foundEdgeId = index.get(`${pathNodes[i]}|${pathNodes[i + 1]}`);
 		if (foundEdgeId !== undefined) pathEdges.add(foundEdgeId);
 	}
 	return pathEdges;
+}
+
+/**
+ * Undirected-hop index: `source|target` -> the edge id to draw for that hop.
+ *
+ * The previous implementation scanned and sorted the whole edge list once per hop,
+ * making `extractPathEdges` O(path x edges log edges) and re-running it on every
+ * playback step - the per-step cost of highlighting the path. The index is built
+ * once per graph version and cached in a `WeakMap`, so a hop is a single lookup.
+ *
+ * Ties resolve to the same edge as before: lowest weight, then lowest id.
+ */
+const edgeIndexes = new WeakMap<ManualGraph, { version: number; index: Map<string, string> }>();
+
+function edgeIndexFor(graph: ManualGraph): Map<string, string> {
+	const cached = edgeIndexes.get(graph);
+	// `ManualGraph` is mutated in place and exposes a monotonic `version`, so it is
+	// the only invalidation signal needed.
+	if (cached && cached.version === graph.version) return cached.index;
+
+	const index = new Map<string, string>();
+	const best = new Map<string, { weight: number; id: string }>();
+	for (const [id, edge] of graph.edges) {
+		const pairs: [NodeId, NodeId][] = edge.directed
+			? [[edge.source, edge.target]]
+			: [
+					[edge.source, edge.target],
+					[edge.target, edge.source]
+				];
+		for (const [from, to] of pairs) {
+			const key = `${from}|${to}`;
+			const current = best.get(key);
+			if (
+				current === undefined ||
+				edge.weight < current.weight ||
+				(edge.weight === current.weight && id < current.id)
+			) {
+				best.set(key, { weight: edge.weight, id });
+				index.set(key, id);
+			}
+		}
+	}
+
+	edgeIndexes.set(graph, { version: graph.version, index });
+	return index;
 }
 
 export function toFlowNodes(

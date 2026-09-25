@@ -1,5 +1,5 @@
 import type { NodeId } from '../graph/types';
-import { environmentState } from './environment.svelte';
+import { environmentState, isGraphLikeEnvironment } from './environment.svelte';
 import { invalidatePlaybackIfNeeded } from './invalidate';
 import { Interactor } from '../interaction/interactor';
 import { getNode, setWall, setCost, setStart, setGoal } from '../graph/grid';
@@ -7,9 +7,18 @@ import type { EnvironmentType } from '../generators/types';
 
 export type EditMode = 'wall' | 'erase' | 'start' | 'goal' | 'cost' | 'node' | 'edge' | 'remove' | 'move';
 
+/**
+ * Reconciles the active edit tool with the environment.
+ *
+ * Grid environments get the wall/erase tools; every node-edge environment -
+ * manual graphs and the adversarial family's game trees alike - gets the
+ * node/edge/remove/move tools. This is the one place that knows a game tree
+ * behaves like a graph as far as *pointing at things* is concerned.
+ */
 export function getCompatibleEditorMode(mode: EditMode, environmentType: EnvironmentType): EditMode {
-	if (environmentType === 'graph' && (mode === 'wall' || mode === 'erase')) return 'node';
-	if (environmentType !== 'graph' && (mode === 'node' || mode === 'edge' || mode === 'remove' || mode === 'move')) return 'wall';
+	const graphLike = isGraphLikeEnvironment(environmentType);
+	if (graphLike && (mode === 'wall' || mode === 'erase')) return 'node';
+	if (!graphLike && (mode === 'node' || mode === 'edge' || mode === 'remove' || mode === 'move')) return 'wall';
 	return mode;
 }
 
@@ -63,7 +72,7 @@ export class EditorState {
 		
 		this._isDrawing = true;
 
-		if (environmentState.environmentType === 'graph') {
+		if (environmentState.isPathfindingGraph) {
 			this.applyGraphEditDown(id, x, y);
 		} else {
 			this._interactor.beginGridDrag(environmentState.gridStart, environmentState.gridGoal);
@@ -76,7 +85,7 @@ export class EditorState {
 	}
 	
 	onPointerMove(id: NodeId | null, x: number = 0, y: number = 0) {
-		if (environmentState.environmentType === 'graph') {
+		if (environmentState.isPathfindingGraph) {
 			this.applyGraphEditMove(id, x, y);
 		} else {
 			if (!this._isDrawing) return;
@@ -88,7 +97,7 @@ export class EditorState {
 	}
 	
 	onPointerUp(id: NodeId | null, x: number = 0, y: number = 0) {
-		if (environmentState.environmentType === 'graph') {
+		if (environmentState.isPathfindingGraph) {
 			this.applyGraphEditUp(id, x, y);
 		} else {
 			this._interactor.commitGridDrag();
@@ -102,7 +111,7 @@ export class EditorState {
 	
 	onPointerLeave() {
 		this.cancelGraphMove();
-		if (environmentState.environmentType !== 'graph') {
+		if (!environmentState.isPathfindingGraph) {
 			this._interactor.commitGridDrag();
 			this._lastProcessedCell = null;
 		} else {
@@ -114,7 +123,7 @@ export class EditorState {
 	}
 
 	onPointerCancel() {
-		if (environmentState.environmentType === 'graph') {
+		if (environmentState.isPathfindingGraph) {
 			this.cancelGraphMove();
 			this._interactor.cancelGesture();
 		} else {

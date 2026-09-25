@@ -5,6 +5,8 @@ export const bfs: Algorithm = {
 	name: 'Breadth-First Search',
 	description: 'Explores all nodes at the present depth before moving on to nodes at the next depth level. Guarantees the shortest path on unweighted graphs.',
 	supportsWeights: false,
+	complexity: { time: 'O(V + E)', space: 'O(V)' },
+	properties: { optimal: true, complete: true },
 	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];

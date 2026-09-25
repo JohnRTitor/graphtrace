@@ -6,6 +6,8 @@ export const astar: Algorithm = {
 	name: 'A* Search',
 	description: 'Uses heuristics to guarantee the shortest path much faster than Dijkstra\'s Algorithm. Optimal for weighted graphs.',
 	supportsWeights: true,
+	complexity: { time: 'O(E)', space: 'O(V)' },
+	properties: { optimal: true, complete: true },
 	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];

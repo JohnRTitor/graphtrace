@@ -5,6 +5,8 @@ export const dfs: Algorithm = {
 	name: 'Depth-First Search',
 	description: 'Explores as far as possible along each branch before backtracking. Does not guarantee the shortest path.',
 	supportsWeights: false,
+	complexity: { time: 'O(V + E)', space: 'O(V)' },
+	properties: { optimal: false, complete: true },
 	run(graph: BaseGraph, start: NodeId, goal: NodeId): AlgorithmResult {
 		const startTime = performance.now();
 		const events: AlgorithmEvent[] = [];

@@ -8,7 +8,8 @@
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
 	import GraphNodeComponent from './GraphNode.svelte';
 	import GraphEdgeComponent from './GraphEdge.svelte';
-	import { toFlowNodes, toFlowEdges, extractPathEdges } from './flow-adapter';
+	import { toFlowNodes, toFlowEdges, extractPathEdges, graphStructureKey } from './flow-adapter';
+import { graphColorsFor } from './types';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
@@ -53,33 +54,7 @@
 		}
 	});
 
-	let colors = $derived.by(() => {
-		return isDark ? {
-			bg: '#000000',
-			wall: '#334155',
-			gridLines: '#1e293b',
-			weight: '#475569',
-			text: '#94a3b8',
-			start: '#22c55e',
-			goal: '#ef4444',
-			discovered: '#3b82f6',
-			expanded: '#6366f1',
-			path: '#eab308',
-			current: '#d946ef',
-		} : {
-			bg: '#ffffff',
-			wall: '#94a3b8',
-			gridLines: '#e2e8f0',
-			weight: '#cbd5e1',
-			text: '#64748b',
-			start: '#22c55e',
-			goal: '#ef4444',
-			discovered: '#60a5fa',
-			expanded: '#818cf8',
-			path: '#facc15',
-			current: '#e879f9',
-		};
-	});
+	let colors = $derived(graphColorsFor(isDark ? 'dark' : 'light'));
 
 	let renderGraph = $derived(
 		playback.problem?.type === 'graph' ? playback.problem.graph : environmentState.graph
@@ -92,8 +67,21 @@
 		return extractPathEdges(Array.from(playback.vizState.pathNodes), renderGraph);
 	});
 
+	/**
+	 * Re-fit only when the graph's *shape* changes.
+	 *
+	 * This used to read the whole graph getter and re-fit on every version bump,
+	 * which includes a single node being dropped after a drag. The result was a
+	 * full viewport recomputation plus a relayout of every node and edge on each
+	 * drop - and a visible jump back to the origin after every drag, because
+	 * `fitView` re-centres on the nodes. Reading the structural signature instead
+	 * means a move does not refit, while an add, a removal or a start/goal change
+	 * still does.
+	 */
+	let graphShape = $derived(graphStructureKey(environmentState.graph));
+
 	$effect(() => {
-		environmentState.graph;
+		void graphShape;
 		if (browser) fitView({ duration: 0 });
 	});
 

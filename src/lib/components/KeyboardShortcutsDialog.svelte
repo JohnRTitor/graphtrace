@@ -28,12 +28,26 @@
 			</DialogDescription>
 		</DialogHeader>
 
-		<div class="grid gap-4 py-4">
-			{@render shortcutItem('Play / Pause', 'Space')}
-			{@render shortcutItem('Step Forward', 'N')}
-			{@render shortcutItem('Reset', 'R')}
-			{@render shortcutItem('Toggle Wall/Erase (Grid)', 'E')}
-			{@render shortcutItem('Cancel / Close', 'Esc')}
+		<div class="grid gap-6 py-4">
+			<section class="grid gap-3">
+				<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Playback</h3>
+				{@render shortcutItem('Play / Pause', 'Space')}
+				{@render shortcutItem('Step Forward', 'N')}
+				{@render shortcutItem('Step Back', 'B')}
+				{@render shortcutItem('Reset', 'R')}
+			</section>
+
+			<section class="grid gap-3">
+				<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selecting</h3>
+				{@render shortcutItem('Algorithm palette', '⌘K / Ctrl K')}
+				{@render shortcutItem('Toggle Wall / Erase (grids only)', 'E')}
+				{@render shortcutItem('Cancel / Close', 'Esc')}
+			</section>
 		</div>
+
+		<p class="text-xs text-muted-foreground">
+			In the palette, use the arrow keys to move and Enter to choose. Shortcuts are
+			ignored while a text field, menu or dialog has focus.
+		</p>
 	</DialogContent>
 </Dialog>

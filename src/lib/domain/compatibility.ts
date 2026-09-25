@@ -1,17 +1,42 @@
 import type { Problem } from './problem';
-import { getAlgorithm } from '../algorithms/index';
+import { getAlgorithm, getGameSearchAlgorithm } from '../algorithms/index';
+import { familyForProblem } from '../families/registry';
 import { getGraphEntryCost } from './cost-model';
 
-export type CompatibilityWarningType = 'ignores-weights' | 'no-heuristic';
+export type CompatibilityWarningType = 'ignores-weights' | 'no-heuristic' | 'mismatched-family';
 
 export interface CompatibilityWarning {
 	type: CompatibilityWarningType;
 	message: string;
 }
 
+/**
+ * Warns when the chosen algorithm cannot honour the environment it is pointed at.
+ *
+ * The family check comes first because a mismatch is not a nuance, it is a
+ * guaranteed failure: a pathfinding algorithm has no meaning over a game tree.
+ * Which family owns the problem is asked of the registry rather than derived
+ * from the problem's `type`, so a new family does not mean editing this file.
+ */
 export function checkCompatibility(problem: Problem, algorithmId: string): CompatibilityWarning[] {
 	const warnings: CompatibilityWarning[] = [];
-	const algo = getAlgorithm(algorithmId);
+
+	const owningFamily = familyForProblem(problem);
+	const pathfinding = getAlgorithm(algorithmId);
+	const game = getGameSearchAlgorithm(algorithmId);
+	const algorithmFamilyId = pathfinding ? 'pathfinding' : game ? 'adversarial' : null;
+
+	if (algorithmFamilyId && algorithmFamilyId !== owningFamily?.id) {
+		warnings.push({
+			type: 'mismatched-family',
+			message: `${pathfinding ? pathfinding.name : game?.name} belongs to ${
+				algorithmFamilyId === 'pathfinding' ? 'Pathfinding' : 'Adversarial Search'
+			} and cannot run over a ${owningFamily?.name.toLowerCase() ?? 'different'} environment.`
+		});
+		return warnings;
+	}
+
+	const algo = pathfinding;
 	if (!algo) return warnings;
 
 	// Check for ignored weights
@@ -37,6 +62,7 @@ export function checkCompatibility(problem: Problem, algorithmId: string): Compa
 
 	return warnings;
 }
+
 
 function isProblemWeighted(problem: Problem): boolean {
 	if (problem.type === 'grid') {

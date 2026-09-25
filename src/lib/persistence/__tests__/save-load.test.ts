@@ -106,4 +106,95 @@ describe('save-load', () => {
 		expect(() => deserializeWorkspace(malformed, envState)).toThrow();
 		expect(envState.environmentType).not.toBe('graph');
 	});
+
+	describe('game tree workspaces', () => {
+		it('serializes and deserializes a game tree, keeping the adversarial family', () => {
+			envState.familyId = 'adversarial';
+			envState.environmentType = 'nim';
+			envState.environmentSeed = 4242;
+			envState.handleGenerateGameTree();
+			envState.setGameTreeUtility(envState.gameTree.root!, 11);
+
+			const json = serializeWorkspace(envState);
+			const loaded = new EnvironmentState();
+			deserializeWorkspace(json, loaded);
+
+			expect(loaded.familyId).toBe('adversarial');
+			expect(loaded.environmentType).toBe('nim');
+			expect(loaded.environmentSeed).toBe(4242);
+			expect(loaded.gameTree.nodes.size).toBe(envState.gameTree.nodes.size);
+			expect(loaded.gameTree.root).toBe(envState.gameTree.root);
+			expect(loaded.gameTree.nodes.get(envState.gameTree.root!)?.utility).toBe(11);
+			expect(Array.from(loaded.gameTree.children.keys()).sort()).toEqual(
+				Array.from(envState.gameTree.children.keys()).sort()
+			);
+		});
+
+		it('rejects a game tree workspace whose tree data is unusable', () => {
+			const malformed = JSON.stringify({
+				schemaVersion: '1.0',
+				environmentType: 'manual_tree',
+				environmentSeed: 1,
+				familyId: 'adversarial',
+				gameTree: { data: { nodes: [], children: [], root: null } }
+			});
+
+			expect(() => deserializeWorkspace(malformed, envState)).toThrow();
+		});
+
+		it('rejects a game tree workspace with no game tree at all', () => {
+			const malformed = JSON.stringify({
+				schemaVersion: '1.0',
+				environmentType: 'manual_tree',
+				environmentSeed: 1,
+				familyId: 'adversarial'
+			});
+
+			expect(() => deserializeWorkspace(malformed, envState)).toThrow();
+		});
+
+		it('ignores a family id that is unknown or unbuilt', () => {
+			const json = JSON.stringify({
+				schemaVersion: '1.0',
+				environmentType: 'blank',
+				environmentSeed: 7,
+				familyId: 'optimization',
+				grid: {
+					data: {
+						rows: 1,
+						cols: 1,
+						nodes: [['0,0', { id: '0,0', row: 0, col: 0, walkable: true, cost: 1 }]],
+						start: null,
+						goal: null
+					}
+				}
+			});
+
+			deserializeWorkspace(json, envState);
+			expect(envState.familyId).toBe('pathfinding');
+			expect(envState.environmentType).toBe('blank');
+		});
+
+		it('still loads a workspace that predates the family field', () => {
+			const json = JSON.stringify({
+				schemaVersion: '1.0',
+				environmentType: 'blank',
+				environmentSeed: 3,
+				grid: {
+					data: {
+						rows: 1,
+						cols: 1,
+						nodes: [['0,0', { id: '0,0', row: 0, col: 0, walkable: true, cost: 1 }]],
+						start: null,
+						goal: null
+					}
+				}
+			});
+
+			const loaded = new EnvironmentState();
+			deserializeWorkspace(json, loaded);
+			expect(loaded.familyId).toBe('pathfinding');
+			expect(loaded.grid.rows).toBe(1);
+		});
+	});
 });

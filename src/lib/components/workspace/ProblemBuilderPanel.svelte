@@ -1,385 +1,145 @@
 <script lang="ts">
-  import { algorithmList } from "$lib/algorithms";
-  import { environmentState } from "$lib/state/environment.svelte";
-  import { editorState, getCompatibleEditorMode } from "$lib/state/editor.svelte";
-  import {
-    generateRandomGrid,
-    generateBlankGrid,
-  } from "$lib/generators/random";
-  import {
-    generatePerfectMaze,
-    generateBraidedMaze,
-  } from "$lib/generators/maze";
-  import { generateRandomGraph } from "$lib/generators/random-graph";
+	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
+	import { environmentState } from '$lib/state/environment.svelte';
+	import { playbackState } from '$lib/state/playback.svelte';
+	import { getAlgorithmSummary } from '$lib/algorithms';
+	import { algorithmBadges } from './algorithm-badges';
+	import { Button } from '$lib/components/ui/button';
+	import EnvironmentSettings from './EnvironmentSettings.svelte';
+	import Command from '@lucide/svelte/icons/command';
+	import Shuffle from '@lucide/svelte/icons/shuffle';
+	import Eraser from '@lucide/svelte/icons/eraser';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Redo2 from '@lucide/svelte/icons/redo-2';
 
-  import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-  } from "$lib/components/ui/select";
-  import { Label } from "$lib/components/ui/label";
-  import { Separator } from "$lib/components/ui/separator";
-  import { Slider } from "$lib/components/ui/slider";
-  import { Button } from "$lib/components/ui/button";
-  import { Switch } from "$lib/components/ui/switch";
+	interface Props {
+		onOpenPalette: () => void;
+	}
 
-  import Shuffle from "@lucide/svelte/icons/shuffle";
+	let { onOpenPalette }: Props = $props();
 
-  function handleGenerate() {
-    if (environmentState.environmentType === "graph") {
-      const options = {
-        nodeCount: environmentState.graphNodeCount,
-        edgeMultiplier: environmentState.graphEdgeMultiplier,
-        weighted:
-          environmentState.graphWeighted &&
-          !!environmentState.currentAlgorithm?.supportsWeights,
-        ensurePath: environmentState.graphEnsurePath,
-        directed: environmentState.defaultEdgeDirected,
-        seed: environmentState.environmentSeed,
-      };
-      const snapshot = generateRandomGraph(options);
-      environmentState.replaceGraph(
-        snapshot.nodes,
-        snapshot.edges,
-        snapshot.start,
-        snapshot.goal,
-      );
-      return;
-    }
+	let tab = $state('algorithm');
 
-    const options = {
-      seed: environmentState.environmentSeed,
-      loopDensity: environmentState.loopDensity,
-      obstacleDensity: environmentState.obstacleDensity,
-      weighted: environmentState.currentAlgorithm?.supportsWeights,
-    };
+	// The tab resets when the family changes: carrying "Parameters" across a
+	// family switch would land the user on controls that no longer apply.
+	$effect(() => {
+		void environmentState.familyId;
+		tab = 'algorithm';
+	});
 
-    let newGrid;
-    switch (environmentState.environmentType) {
-      case "perfect_maze":
-        newGrid = generatePerfectMaze(
-          environmentState.gridRowsSetting,
-          environmentState.gridColsSetting,
-          options,
-        );
-        break;
-      case "braided_maze":
-        newGrid = generateBraidedMaze(
-          environmentState.gridRowsSetting,
-          environmentState.gridColsSetting,
-          options,
-        );
-        break;
-      case "random_obstacles":
-        newGrid = generateRandomGrid(
-          environmentState.gridRowsSetting,
-          environmentState.gridColsSetting,
-          options,
-        );
-        break;
-      case "blank":
-      default:
-        newGrid = generateBlankGrid(
-          environmentState.gridRowsSetting,
-          environmentState.gridColsSetting,
-          options,
-        );
-        break;
-    }
+	let summary = $derived(getAlgorithmSummary(environmentState.selectedAlgorithmId));
+	let family = $derived(environmentState.family);
 
-    environmentState.replaceGrid(newGrid);
-  }
+	function handleGenerate() {
+		if (environmentState.isAdversarialFamily) {
+			environmentState.handleGenerateGameTree();
+			return;
+		}
+		environmentState.handleGenerate();
+	}
 
-  function randomizeSeed() {
-    environmentState.environmentSeed = Math.floor(Math.random() * 1000000);
-    handleGenerate();
-  }
-
-  function handleClear() {
-    if (environmentState.environmentType === "graph") {
-      environmentState.clearGraph();
-    } else {
-      environmentState.clearGrid();
-    }
-  }
-
-  function onEnvironmentChange(type: string) {
-    const environmentType = type as typeof environmentState.environmentType;
-    environmentState.environmentType = environmentType;
-    editorState.mode = getCompatibleEditorMode(editorState.mode, environmentType);
-  }
-
-  const environmentDescriptions = {
-    perfect_maze:
-      "A connected maze with exactly one route between any two cells. No loops.",
-    braided_maze:
-      "A maze with intentionally added loops and alternative routes.",
-    random_obstacles:
-      "An arbitrary obstacle field. May contain multiple routes or disconnected regions.",
-    blank: "An empty grid.",
-    graph: "Manual node and edge editing mode.",
-  };
+	function handleClear() {
+		if (environmentState.isAdversarialFamily) {
+			environmentState.clearGameTree();
+		} else if (environmentState.isPathfindingGraph) {
+			environmentState.clearGraph();
+		} else {
+			environmentState.clearGrid();
+		}
+	}
 </script>
 
-<div class="flex h-full flex-col gap-6 p-4 overflow-y-auto">
-  <!-- Algorithm Selection -->
-  <div class="space-y-3">
-    <Label for="algorithm-select">Algorithm</Label>
-    <Select type="single" bind:value={environmentState.selectedAlgorithmId}>
-      <SelectTrigger id="algorithm-select">
-        {environmentState.currentAlgorithm?.name ?? "Select algorithm"}
-      </SelectTrigger>
-      <SelectContent>
-        {#each algorithmList as algo}
-          <SelectItem value={algo.id}>{algo.name}</SelectItem>
-        {/each}
-      </SelectContent>
-    </Select>
-    <p class="text-xs text-muted-foreground">
-      {environmentState.currentAlgorithm?.description}
-    </p>
-  </div>
+<Tabs bind:value={tab} class="flex h-full flex-col gap-0">
+	<TabsList class="m-3 grid w-auto grid-cols-3 gap-1">
+		<TabsTrigger value="algorithm" class="text-xs">Algorithm</TabsTrigger>
+		<TabsTrigger value="environment" class="text-xs">Environment</TabsTrigger>
+		<TabsTrigger value="parameters" class="text-xs">Parameters</TabsTrigger>
+	</TabsList>
 
-  <Separator />
+	<TabsContent value="algorithm" class="mt-0 flex-1 overflow-y-auto">
+		<div class="space-y-4 p-4 pt-0">
+			<div class="space-y-2">
+				<Button variant="outline" class="w-full justify-between" onclick={onOpenPalette}>
+					<span class="truncate">{summary?.name ?? 'Select an algorithm'}</span>
+					<kbd class="gt-mono flex items-center gap-0.5 rounded border bg-muted px-1 text-[10px] text-muted-foreground">
+						<Command class="h-2.5 w-2.5" />K
+					</kbd>
+				</Button>
 
-  <!-- Environment & Grid -->
-  <div class="space-y-4">
-    <h3 class="text-sm font-medium">Environment</h3>
+				{#if summary}
+					<div class="flex flex-wrap gap-1">
+						{#each algorithmBadges(summary) as badge (badge.title)}
+							<span
+								class="gt-mono rounded bg-muted px-1.5 py-0.5 text-[10px] {badge.muted
+									? 'text-muted-foreground'
+									: ''}"
+								title={badge.title}
+							>
+								{badge.label}
+							</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
 
-    <div class="space-y-3">
-      <Label for="environment-select" class="sr-only">Environment</Label>
-      <Select
-        type="single"
-        value={environmentState.environmentType}
-        onValueChange={onEnvironmentChange}
-      >
-        <SelectTrigger id="environment-select">
-          {#if environmentState.environmentType === "perfect_maze"}
-            Perfect Maze
-          {:else if environmentState.environmentType === "braided_maze"}
-            Braided Maze
-          {:else if environmentState.environmentType === "random_obstacles"}
-            Random Obstacles
-          {:else if environmentState.environmentType === "graph"}
-            Manual Graph
-          {:else}
-            Blank Grid
-          {/if}
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="perfect_maze">Perfect Maze</SelectItem>
-          <SelectItem value="braided_maze">Braided Maze</SelectItem>
-          <SelectItem value="random_obstacles">Random Obstacles</SelectItem>
-          <SelectItem value="blank">Blank Grid</SelectItem>
-          <SelectItem value="graph">Manual Graph</SelectItem>
-        </SelectContent>
-      </Select>
+			<p class="text-xs leading-relaxed text-muted-foreground">
+				{summary?.description ?? 'Choose an algorithm from the palette.'}
+			</p>
 
-      <p class="text-xs text-muted-foreground">
-        {environmentDescriptions[environmentState.environmentType]}
-      </p>
-    </div>
+			{#if family && summary && summary.properties.optimal === false}
+				<p class="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+					This algorithm is complete but not optimal: it will always finish, but it may not
+					return the best answer.
+				</p>
+			{/if}
 
-    {#if environmentState.environmentType !== "blank"}
-      <div class="flex flex-col gap-2">
-        <Label for="seed-input" class="text-xs">Seed</Label>
-        <div class="flex gap-2">
-          <input
-            id="seed-input"
-            type="number"
-            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            bind:value={environmentState.environmentSeed}
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            class="h-9 w-9 shrink-0"
-            onclick={randomizeSeed}
-            title="Randomize Seed"
-          >
-            <Shuffle class="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    {/if}
+			{#if family && environmentState.isAdversarialFamily}
+				<p class="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+					Both algorithms here return the same root value on the same tree. Alpha-beta
+					simply declines to look at some branches - dim them in the canvas to see which.
+				</p>
+			{/if}
 
-    {#if environmentState.environmentType !== "graph"}
-      <div class="flex gap-4">
-        <div class="flex flex-col gap-2 w-1/2">
-           <Label for="grid-rows-input" class="text-xs">Rows</Label>
-           <input
-             id="grid-rows-input"
-             type="number"
-            min="5"
-            max="100"
-            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            bind:value={environmentState.gridRowsSetting}
-          />
-        </div>
-        <div class="flex flex-col gap-2 w-1/2">
-           <Label for="grid-cols-input" class="text-xs">Cols</Label>
-           <input
-             id="grid-cols-input"
-             type="number"
-            min="5"
-            max="100"
-            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            bind:value={environmentState.gridColsSetting}
-          />
-        </div>
-      </div>
-    {/if}
+			<div class="grid grid-cols-2 gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!environmentState.canUndo}
+					onclick={() => environmentState.undo()}
+				>
+					<Undo2 class="h-3.5 w-3.5" /> Undo
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!environmentState.canRedo}
+					onclick={() => environmentState.redo()}
+				>
+					<Redo2 class="h-3.5 w-3.5" /> Redo
+				</Button>
+			</div>
 
-    {#if environmentState.environmentType === "braided_maze"}
-      <div class="space-y-3 pt-2">
-        <div class="flex items-center justify-between">
-           <Label for="loop-density-slider" class="text-xs font-normal text-muted-foreground"
-             >Loop Density</Label
-           >
-          <span class="text-xs text-muted-foreground"
-            >{environmentState.loopDensity}%</span
-          >
-        </div>
-         <Slider
-           id="loop-density-slider"
-           type="single"
-           bind:value={environmentState.loopDensity}
-          max={100}
-          min={0}
-          step={5}
-        />
-      </div>
-    {/if}
+			{#if playbackState.hasLoadedTrace}
+				<p class="text-xs text-muted-foreground">
+					Editing the environment discards the loaded trace.
+				</p>
+			{/if}
+		</div>
+	</TabsContent>
 
-    {#if environmentState.environmentType === "random_obstacles"}
-      <div class="space-y-3 pt-2">
-        <div class="flex items-center justify-between">
-           <Label for="obstacle-density-slider" class="text-xs font-normal text-muted-foreground"
-             >Obstacle Density</Label
-           >
-          <span class="text-xs text-muted-foreground"
-            >{environmentState.obstacleDensity}%</span
-          >
-        </div>
-         <Slider
-           id="obstacle-density-slider"
-           type="single"
-           bind:value={environmentState.obstacleDensity}
-          max={100}
-          min={0}
-          step={5}
-        />
-      </div>
-    {/if}
+	<TabsContent value="environment" class="mt-0 flex-1 overflow-y-auto">
+		<EnvironmentSettings />
+		<div class="grid grid-cols-2 gap-2 px-4 pb-4">
+			<Button size="sm" onclick={handleGenerate}>
+				<Shuffle class="h-3.5 w-3.5" /> Generate
+			</Button>
+			<Button variant="outline" size="sm" onclick={handleClear}>
+				<Eraser class="h-3.5 w-3.5" /> Clear
+			</Button>
+		</div>
+	</TabsContent>
 
-    {#if environmentState.environmentType === "graph"}
-      <div class="space-y-3 pt-2">
-        <div class="flex flex-col gap-2">
-           <Label for="graph-node-count" class="text-xs">Nodes</Label>
-          <Select
-            type="single"
-            value={environmentState.graphNodeCount.toString()}
-            onValueChange={(v) =>
-              (environmentState.graphNodeCount = parseInt(v))}
-          >
-             <SelectTrigger id="graph-node-count">{environmentState.graphNodeCount}</SelectTrigger>
-            <SelectContent>
-              {#each [5, 10, 15, 20, 25, 30, 40, 50, 75, 100] as count}
-                <SelectItem value={count.toString()}>{count}</SelectItem>
-              {/each}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div class="space-y-3 pt-2">
-          <div class="flex items-center justify-between">
-           <Label for="graph-edge-density" class="text-xs font-normal text-muted-foreground"
-             >Edge Density</Label
-           >
-            <span class="text-xs text-muted-foreground"
-              >{environmentState.graphEdgeMultiplier.toFixed(1)}x</span
-            >
-          </div>
-           <Slider
-             id="graph-edge-density"
-             type="single"
-             value={environmentState.graphEdgeMultiplier}
-            onValueChange={(v) =>
-              (environmentState.graphEdgeMultiplier = v as number)}
-            max={10}
-            min={0.5}
-            step={0.5}
-          />
-        </div>
-
-        <div class="flex items-center justify-between">
-          <Label for="ensure-path" class="text-xs font-medium"
-            >Ensure path Start → Goal</Label
-          >
-          <Switch
-            id="ensure-path"
-            checked={environmentState.graphEnsurePath}
-            onCheckedChange={(v) => (environmentState.graphEnsurePath = v)}
-          />
-        </div>
-        {#if environmentState.currentAlgorithm?.supportsWeights}
-          <div class="flex items-center justify-between">
-            <Label for="weighted-graph" class="text-xs font-medium"
-              >Weighted edges</Label
-            >
-            <Switch
-              id="weighted-graph"
-              checked={environmentState.graphWeighted}
-              onCheckedChange={(v) => (environmentState.graphWeighted = v)}
-            />
-          </div>
-        {/if}
-        <div class="flex items-center justify-between">
-          <Label for="directed-graph" class="text-xs font-medium"
-            >New edges directed by default</Label
-          >
-          <Switch
-            id="directed-graph"
-            checked={environmentState.defaultEdgeDirected}
-            onCheckedChange={(v) => (environmentState.defaultEdgeDirected = v)}
-          />
-        </div>
-      </div>
-
-      <Button
-        variant="secondary"
-        size="sm"
-        class="w-full mt-2"
-        onclick={handleGenerate}>Generate Random Graph</Button
-      >
-    {/if}
-
-    <div class="grid grid-cols-2 gap-2 pt-2">
-      {#if environmentState.environmentType !== "graph"}
-        <Button size="sm" onclick={handleGenerate}>Generate</Button>
-        <Button variant="outline" size="sm" onclick={handleClear}>Clear</Button>
-      {:else}
-        <Button
-          size="sm"
-          disabled={!environmentState.canUndo}
-          onclick={() => environmentState.undo()}>Undo</Button
-        >
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!environmentState.canRedo}
-          onclick={() => environmentState.redo()}>Redo</Button
-        >
-        <div class="col-span-2">
-          <Button
-            variant="outline"
-            class="w-full"
-            size="sm"
-            onclick={handleClear}>Clear Graph</Button
-          >
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
+	<TabsContent value="parameters" class="mt-0 flex-1 overflow-y-auto">
+		<EnvironmentSettings />
+	</TabsContent>
+</Tabs>
