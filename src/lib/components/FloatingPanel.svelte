@@ -202,7 +202,7 @@
 	<div class="bg-card text-card-foreground rounded-xl border flex flex-col overflow-hidden {isDragging ? 'select-none' : ''}">
 		<!-- Header/Handle -->
 		<div
-			class="cursor-grab active:cursor-grabbing touch-none"
+			class="cursor-grab touch-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
 			role="button"
 			tabindex="0"
 			aria-label={`Move ${id} panel`}

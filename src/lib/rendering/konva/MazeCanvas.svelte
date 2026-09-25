@@ -155,7 +155,7 @@
 		<ContextMenu.Trigger class="block w-full h-full">
 			<div
 				bind:this={container}
-				class="w-full h-full cursor-crosshair"
+				class="h-full w-full cursor-crosshair focus-visible:ring-2 focus-visible:ring-ring"
 				style:touch-action="none"
 				role="grid"
 				aria-label="Graph grid editor"
