@@ -1021,17 +1021,27 @@ export class EnvironmentState {
   }
   set selectedAlgorithmId(id: string) {
     if (this._selectedAlgorithmId === id) return;
-    // An algorithm id is valid if either family registry knows it; the palette
-    // filters to the active family, but the setter stays permissive so loading a
-    // workspace or a deep link cannot silently fail.
+    // An algorithm id is valid if either family registry knows it. The palette
+    // deliberately lists every family, so a cross-family pick is a normal thing to
+    // do; loading a workspace or following a deep link has to work the same way.
     if (!getAlgorithm(id) && !getGameSearchAlgorithm(id)) return;
     this._runError = null;
-    this._selectedAlgorithmId = id;
     // Keep the family aligned with the algorithm so the renderer follows the run.
+    //
+    // Routed through the `familyId` setter rather than assigning `_familyId`, and
+    // done *before* the assignment below. That setter is what moves
+    // `environmentType` to a type the incoming family can use; writing the field
+    // directly left the family saying "adversarial" while the environment was
+    // still a grid, so `getProblem` returned a grid problem and the run dispatched
+    // to the pathfinding runner - which fails with "Algorithm minimax not found".
+    //
+    // Order matters: the family setter installs its own default algorithm, so the
+    // algorithm the caller actually asked for has to be applied after it.
     const summary = getAlgorithmSummary(id);
     if (summary && summary.familyId !== this._familyId) {
-      this._familyId = summary.familyId;
+      this.familyId = summary.familyId;
     }
+    this._selectedAlgorithmId = id;
     invalidatePlaybackIfNeeded();
   }
 

@@ -21,6 +21,11 @@
 	// An empty query lists every algorithm grouped by family, which is the point
 	// of grouping: 15-20 algorithms across families are navigable as a short
 	// outline, where a flat <Select> would be a scroll.
+	//
+	// Every family is listed, not just the active one, so the palette doubles as
+	// the way to change family. That makes a cross-family pick ordinary, and it is
+	// `environmentState.selectedAlgorithmId` that has to carry the environment
+	// across with it rather than leaving the family and the environment disagreeing.
 	let grouped = $derived(searchAlgorithms(query));
 	let flat = $derived(flatten(grouped));
 
