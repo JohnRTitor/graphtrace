@@ -15,6 +15,41 @@ export type TreeVisualState =
 	| 'pruned'
 	| 'chosen';
 
+/**
+ * The outline a node is drawn with.
+ *
+ * MAX and MIN have to be distinguishable without reading a label, and shape is
+ * what survives a colourblind view or a greyscale screenshot where hue does not.
+ * The two used to be the same rectangle with a different pair of corners
+ * rounded, which at 64px tall is very close to invisible - it read as a
+ * rendering bug rather than a design.
+ */
+export type NodeShape = 'circle' | 'rectangle' | 'leaf';
+
+export function nodeShapeFor(player: GamePlayer): NodeShape {
+	// MIN is a circle, MAX a sharp rectangle. The asymmetry is the point: the two
+	// must never resolve to the same outline.
+	if (player === 'min') return 'circle';
+	if (player === 'max') return 'rectangle';
+	return 'leaf';
+}
+
+/**
+ * The classes that realise each shape.
+ *
+ * Kept beside {@link nodeShapeFor} so the mapping is data the tests can assert
+ * on directly. `GameTreeNode` applies these verbatim, which means the shape
+ * contract has exactly one definition and the component cannot drift from it.
+ *
+ * The circle is given equal width and height on purpose: `rounded-full` on a
+ * non-square box draws an ellipse, not a circle.
+ */
+export const NODE_SHAPE_CLASSES: Record<NodeShape, string> = {
+	circle: 'h-16 w-16 rounded-full',
+	rectangle: 'w-[148px] rounded-none',
+	leaf: 'w-[148px] rounded-lg'
+};
+
 export type TreeColors = {
 	background: string;
 	surface: string;
