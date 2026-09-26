@@ -60,15 +60,22 @@ describe('timeline render budget', () => {
 });
 
 describe('transport controls render', () => {
-	it('renders without a trace loaded, which is the state a fresh session is in', async () => {
-		// The reported symptom was a freeze immediately after choosing an algorithm,
-		// at which point no trace exists yet. This is that exact state.
-		const { default: PlaybackControls } = await import('../PlaybackControls.svelte');
-		const { body, head } = render(PlaybackControls);
+	it(
+		'renders without a trace loaded, which is the state a fresh session is in',
+		async () => {
+			// The reported symptom was a freeze immediately after choosing an algorithm,
+			// at which point no trace exists yet. This is that exact state.
+			const { default: PlaybackControls } = await import('../PlaybackControls.svelte');
+			const { body, head } = render(PlaybackControls);
 
-		expect(body).not.toContain('Internal Error');
-		expect(head).not.toContain('node_invalid_placement_ssr');
-		// No trace means no timeline columns and no kind jump controls.
-		expect(body).not.toContain('style:left');
-	});
+			expect(body).not.toContain('Internal Error');
+			expect(head).not.toContain('node_invalid_placement_ssr');
+			// No trace means no timeline columns and no kind jump controls.
+			expect(body).not.toContain('style:left');
+		},
+		// The dynamic import pulls in bits-ui and the whole playback store, which
+		// occasionally exceeds the default 5s when the suite runs its files in
+		// parallel. That is a scheduling artefact, not a slow render.
+		20_000
+	);
 });
