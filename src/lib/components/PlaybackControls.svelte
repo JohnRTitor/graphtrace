@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { playbackState, comparePlaybackStates, type PlaybackState } from '$lib/state/playback.svelte';
+	import {
+	playbackState,
+	comparePlaybackStates,
+	isPlaybackEcho,
+	TIMELINE_STEP,
+	type PlaybackState
+} from '$lib/state/playback.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { buildTimeline, kindToTraceToken, kindsInOrder, TIMELINE_BUCKETS } from '$lib/trace/timeline';
 	import { nextStepOfKind, previousStepOfKind, type TraceEvent } from '$lib/trace/types';
@@ -86,6 +92,12 @@
 	}
 
 	function scrub(value: number) {
+		// A controlled slider still reports programmatic changes through
+		// `onValueChange`, so every playback step re-enters this handler. Pausing
+		// and seeking here meant playback stopped itself one frame in. An emission
+		// that resolves to the step the playhead is already on is the echo, not a
+		// scrub, and is ignored.
+		if (isPlaybackEcho(value, playbackState.progressPercentage)) return;
 		pauseAll();
 		for (const state of panes) state.seekPercentage(value);
 	}
@@ -193,7 +205,7 @@
 				onValueChange={(value) => scrub(value)}
 				min={0}
 				max={100}
-				step={0.05}
+				step={TIMELINE_STEP}
 				class="w-full"
 			/>
 		</div>
