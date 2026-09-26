@@ -67,7 +67,15 @@ export class PlaybackState {
 	private _familyId = $state<string | null>(null);
 	/** 'active' is pane 0; 0..MAX-2 are the comparison panes. */
 	private _slot: 'active' | number;
-	private _loadedExecutionId: string | null = null;
+	/**
+	 * Reactive, and it has to be: `hasLoadedTrace` is read from `$derived` in the
+	 * transport dock, and a plain field registers no dependency, so anything derived
+	 * from it froze at its first value. That made `hasTrace` permanently false and
+	 * `panes` permanently empty, so every transport control iterated nothing and
+	 * the play button took its "no trace yet" branch and re-ran the algorithm - a
+	 * restart that looked like a pause that had gone wrong.
+	 */
+	private _loadedExecutionId = $state<string | null>(null);
 
 	constructor(slot: 'active' | number = 'active') {
 		this._slot = slot;
