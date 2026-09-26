@@ -54,6 +54,21 @@
 	--sidebar-accent-foreground: oklch(0.28 0.03 255);
 	--sidebar-border: oklch(0.9 0.006 265);
 	--sidebar-ring: oklch(0.52 0.17 255);
+
+	/*
+	 * Shell geometry, published as tokens because three separate places need to
+	 * agree on them: the top bar that owns the height, the docked panels that sit
+	 * beside it, and the mobile overlays that start under it.
+	 */
+	--header-h: 3.5rem;
+
+	/*
+	 * Minimum comfortable tap target. Coarse pointers get the full 44px; a mouse
+	 * gets the denser 36px the panels have always used, because a desktop layout
+	 * has the cursor for precision and a 44px row on every control visibly
+	 * loosens the grid.
+	 */
+	--tap: 2.25rem;
 }
 
 .dark {
@@ -127,6 +142,12 @@
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
 
+	/* Shell geometry, exposed as utilities so the layout can be written in
+	   terms of them (`h-(--header-h)`) instead of repeating `3.5rem` in three
+	   components that would then drift apart. */
+	--spacing-header: var(--header-h);
+	--spacing-tap: var(--tap);
+
 	/* Trace states are exposed as colour utilities, not as Tailwind colour
 	   classes, and are referenced only by the canvas renderers, the legend and
 	   the timeline markers. */
@@ -137,14 +158,17 @@
 	--color-trace-pruned: var(--trace-pruned);
 
 	/* Shape. Tighter than the shadcn default: this is a dense three-column
-	   instrument panel, and rounded chrome reads as friendly rather than precise. */
+	   instrument panel, and rounded chrome reads as friendly rather than precise.
+	   The luma registry's `rounded-3xl`/`rounded-4xl` are the top of this scale,
+	   so the two large steps are pulled in to meet the rest of the chrome rather
+	   than left as pills. */
 	--radius-sm: calc(var(--radius) * 0.5);
 	--radius-md: calc(var(--radius) * 0.75);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) * 1.5);
-	--radius-2xl: calc(var(--radius) * 2);
-	--radius-3xl: calc(var(--radius) * 2.5);
-	--radius-4xl: calc(var(--radius) * 3);
+	--radius-2xl: calc(var(--radius) * 1.5);
+	--radius-3xl: calc(var(--radius) * 1.75);
+	--radius-4xl: calc(var(--radius) * 1.75);
 
 	/* Elevation: exactly two steps. A third would stop a dense layout from
 	   reading as flat. Mirrored in src/lib/theme/tokens.ts. */
@@ -212,6 +236,85 @@
 		height: 0.75rem;
 		border-radius: var(--radius-sm);
 		flex: none;
+	}
+
+	/* A horizontally scrolling strip of controls. */
+	.gt-scroll-x {
+		overflow-x: auto;
+		scrollbar-width: none;
+		overscroll-behavior-x: contain;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.gt-scroll-x::-webkit-scrollbar {
+		display: none;
+	}
+
+	/*
+	 * SvelteFlow's own zoom controls.
+	 *
+	 * Shipped as white-on-white 26px squares, which is both below the tap
+	 * minimum and a different visual language from every other control in the
+	 * app. Restyled here rather than in each of the two components that render
+	 * one, so the manual graph and the game tree cannot drift apart.
+	 */
+	.svelte-flow__controls {
+		gap: 0.25rem;
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--border);
+		background: color-mix(in oklch, var(--background) 90%, transparent);
+		padding: 0.25rem;
+		box-shadow: var(--shadow-rest);
+		backdrop-filter: blur(4px);
+		overflow: hidden;
+	}
+
+	.svelte-flow__controls-button {
+		width: 2.25rem;
+		height: 2.25rem;
+		min-width: 2.25rem;
+		border: 0;
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--muted-foreground);
+		transition: background-color var(--motion-duration-feedback), color var(--motion-duration-feedback);
+	}
+
+	.svelte-flow__controls-button:hover {
+		background: var(--accent);
+		color: var(--accent-foreground);
+	}
+
+	.svelte-flow__controls-button:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+	}
+
+	.svelte-flow__controls-button:disabled {
+		opacity: 0.5;
+	}
+
+	.svelte-flow__controls-button svg {
+		fill: currentColor;
+	}
+
+	@media (pointer: coarse) {
+		.svelte-flow__controls-button {
+			width: 2.75rem;
+			height: 2.75rem;
+			min-width: 2.75rem;
+		}
+	}
+}
+
+/*
+ * Coarse pointers get the full tap target. Applied as a media query rather than
+ * a `pointer:` variant because it feeds a custom property, which a Tailwind
+ * variant cannot set.
+ */
+@media (pointer: coarse) {
+	:root {
+		--tap: 2.75rem;
 	}
 }
 

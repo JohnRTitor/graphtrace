@@ -4,6 +4,15 @@
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 	import { Popover, PopoverContent, PopoverTrigger } from '$lib/components/ui/popover';
 	import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '$lib/components/ui/tooltip';
+	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		DropdownMenu,
+		DropdownMenuContent,
+		DropdownMenuItem,
+		DropdownMenuSeparator,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
 
 	import MousePointer2 from '@lucide/svelte/icons/mouse-pointer-2';
 	import Eraser from '@lucide/svelte/icons/eraser';
@@ -18,7 +27,7 @@
 	import Save from '@lucide/svelte/icons/save';
 	import FolderOpen from '@lucide/svelte/icons/folder-open';
 	import Columns2 from '@lucide/svelte/icons/columns-2';
-	import { Button } from '$lib/components/ui/button';
+	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
 	import { serializeWorkspace, deserializeWorkspace } from '$lib/persistence/save-load';
 	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { comparePlaybackStates } from '$lib/state/playback.svelte';
@@ -108,80 +117,131 @@
 	}
 </script>
 
-<div class="relative flex flex-wrap items-center gap-1 border-b bg-card p-2">
+<!--
+	The canvas toolbar.
+
+	One row, never two. The tool strip is the part that has to be always visible,
+	so it is a single horizontally scrollable row; the document actions are
+	frequent enough on a desktop to stay inline from `sm` and rare enough on a
+	phone to collapse into one overflow button. A wrapping toolbar grew to three
+	rows on a 390px screen and took a fifth of the canvas with it.
+-->
+<div class="z-20 flex shrink-0 flex-col border-b bg-card">
 	{#if loadError}
-		<p class="absolute right-2 top-14 z-30 max-w-[min(90vw,28rem)] rounded-md border border-destructive/30 bg-background px-3 py-2 text-xs text-destructive shadow-lg" role="alert">
-			{loadError}
-		</p>
+		<div class="px-2 pt-2">
+			<Alert variant="destructive" role="alert" class="rounded-lg py-2">
+				<AlertDescription class="text-xs">{loadError}</AlertDescription>
+			</Alert>
+		</div>
 	{/if}
+
 	<TooltipProvider delayDuration={300}>
-		<ToggleGroup
-			type="single"
-			value={editorState.mode}
-			onValueChange={(v) => { if (v) editorState.mode = v as EditMode; }}
-			class="justify-start flex-wrap gap-1"
-		>
-			{#each tools as tool (tool)}
-				{@const Icon = TOOL_ICONS[tool]}
-				<ToggleGroupItem
-					value={tool}
-					aria-label={TOOL_LABELS[tool]}
-					title={TOOL_LABELS[tool]}
+		<div class="flex items-center gap-2 p-2">
+			<div class="gt-scroll-x min-w-0 flex-1">
+				<ToggleGroup
+					type="single"
+					value={editorState.mode}
+					onValueChange={(v) => { if (v) editorState.mode = v as EditMode; }}
+					variant="outline"
+					class="w-max justify-start gap-1"
 				>
-					<span class={tool === 'goal' ? 'text-red-500' : tool === 'start' ? 'text-green-500' : ''}>
-						<Icon class="h-4 w-4" />
-					</span>
-				</ToggleGroupItem>
-				{#if DIVIDERS_AFTER.has(tool)}
-					<div class="mx-1 h-6 w-px bg-border"></div>
-				{/if}
-				{#if tool === 'cost'}
-					<Popover>
-						<PopoverTrigger
-							aria-label="Open cost brush settings"
-							class="flex h-10 items-center justify-center rounded-md px-2 gt-transition-feedback hover:bg-accent hover:text-accent-foreground sm:h-9"
+					{#each tools as tool (tool)}
+						{@const Icon = TOOL_ICONS[tool]}
+						<ToggleGroupItem
+							value={tool}
+							aria-label={TOOL_LABELS[tool]}
+							title={TOOL_LABELS[tool]}
+							class="h-tap w-tap sm:h-9 sm:w-9"
 						>
-							<SlidersHorizontal class="h-3.5 w-3.5" />
-						</PopoverTrigger>
-						<PopoverContent class="w-80" side="bottom" align="start">
-							<CostBrushPanel />
-						</PopoverContent>
-					</Popover>
-				{/if}
-			{/each}
-		</ToggleGroup>
-		<div class="flex-1"></div>
+							<span class={tool === 'goal' ? 'text-red-500' : tool === 'start' ? 'text-green-500' : ''}>
+								<Icon class="h-4 w-4" />
+							</span>
+						</ToggleGroupItem>
+						{#if DIVIDERS_AFTER.has(tool)}
+							<div class="mx-1 h-6 w-px shrink-0 self-center bg-border"></div>
+						{/if}
+						{#if tool === 'cost'}
+							<Popover>
+								<PopoverTrigger
+									aria-label="Open cost brush settings"
+									class="inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-3xl border border-input bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none data-[state=open]:bg-muted sm:h-9 sm:w-9"
+								>
+									<SlidersHorizontal class="h-3.5 w-3.5" />
+								</PopoverTrigger>
+								<PopoverContent
+									class="w-[min(20rem,calc(100vw-2rem))]"
+									side="bottom"
+									align="start"
+								>
+									<CostBrushPanel />
+								</PopoverContent>
+							</Popover>
+						{/if}
+					{/each}
+				</ToggleGroup>
+			</div>
 
-		<div class="flex items-center gap-2 pr-1">
-		<Tooltip>
-			<!-- The trigger is the button; see FamilySwitcher for why. -->
-			<TooltipTrigger
-				class="inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium gt-transition-feedback hover:bg-accent hover:text-accent-foreground"
-				aria-pressed={executionStore.isComparing}
-				onclick={toggleComparison}
-			>
-				<Columns2 class="h-4 w-4" />
-				Compare
-			</TooltipTrigger>
-			<TooltipContent side="bottom">
-				<span class="block max-w-56">
-					Run a second algorithm to fill a comparison pane. Up to four panes, each
-					driven from the same transport.
-				</span>
-			</TooltipContent>
-		</Tooltip>
+			<input type="file" accept=".json" class="hidden" bind:this={fileInput} onchange={handleLoad} />
 
-		<div class="mx-1 h-6 w-px bg-border"></div>
+			<div class="hidden shrink-0 items-center gap-1.5 sm:flex">
+				<Tooltip>
+					<!-- The trigger is the button; see FamilySwitcher for why. -->
+					<TooltipTrigger
+						class="inline-flex h-9 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+						aria-pressed={executionStore.isComparing}
+						onclick={toggleComparison}
+					>
+						<Columns2 class="h-4 w-4" />
+						Compare
+					</TooltipTrigger>
+					<TooltipContent side="bottom">
+						<span class="block max-w-56">
+							Run a second algorithm to fill a comparison pane. Up to four panes, each
+							driven from the same transport.
+						</span>
+					</TooltipContent>
+				</Tooltip>
 
-		<input type="file" accept=".json" class="hidden" bind:this={fileInput} onchange={handleLoad} />
-		<Button variant="outline" size="sm" class="h-10 gap-1 sm:h-8" onclick={() => fileInput?.click()}>
-			<FolderOpen class="h-3.5 w-3.5" />
-			Load
-		</Button>
-		<Button variant="default" size="sm" class="h-10 gap-1 sm:h-8" onclick={handleSave}>
-			<Save class="h-3.5 w-3.5" />
-			Save
-		</Button>
+				<div class="mx-1 h-6 w-px bg-border"></div>
+
+				<Button
+					variant="outline"
+					size="sm"
+					class="h-9"
+					onclick={() => fileInput?.click()}
+				>
+					<FolderOpen class="h-3.5 w-3.5" />
+					Load
+				</Button>
+				<Button variant="outline" size="sm" class="h-9" onclick={handleSave}>
+					<Save class="h-3.5 w-3.5" />
+					Save
+				</Button>
+			</div>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					class="inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none data-[state=open]:bg-muted sm:hidden"
+					aria-label="Workspace actions"
+				>
+					<MoreHorizontal class="h-4 w-4" />
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" class="w-48">
+					<DropdownMenuItem onclick={toggleComparison}>
+						<Columns2 class="h-4 w-4" />
+						Compare
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onclick={() => fileInput?.click()}>
+						<FolderOpen class="h-4 w-4" />
+						Load workspace
+					</DropdownMenuItem>
+					<DropdownMenuItem onclick={handleSave}>
+						<Save class="h-4 w-4" />
+						Save workspace
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</div>
 	</TooltipProvider>
 </div>

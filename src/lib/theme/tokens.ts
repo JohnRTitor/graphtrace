@@ -132,12 +132,21 @@ export const easeOut = 'cubic-bezier(0.22, 1, 0.36, 1)';
  * Radii, in rem. Tighter than the shadcn default for controls and cards, because
  * this is a dense technical tool: rounded chrome reads as friendly, and sharp
  * chrome reads as an instrument.
+ *
+ * `3xl` and `4xl` are the top of the scale rather than a decorative step: the
+ * luma registry's `Toggle`, `Button` and `Dialog` all render at `rounded-3xl` or
+ * `rounded-4xl`, and the stock values for those are 1.25rem and 1.5rem - a pill
+ * on a 36px control. They are pinned just above `xl` here so that every piece of
+ * chrome in the app resolves to the same corner, whatever its default is.
  */
 export const radii = {
 	sm: 0.25,
 	md: 0.375,
 	lg: 0.5,
 	xl: 0.75,
+	'2xl': 0.75,
+	'3xl': 0.875,
+	'4xl': 0.875,
 	full: 9999
 } as const;
 

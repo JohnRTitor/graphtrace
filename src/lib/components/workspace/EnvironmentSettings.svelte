@@ -3,9 +3,19 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Separator } from '$lib/components/ui/separator';
+	import { Input } from '$lib/components/ui/input';
+	import { InputGroup, InputGroupAddon, InputGroupInput } from '$lib/components/ui/input-group';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger
+	} from '$lib/components/ui/select';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { getAlgorithmSummary } from '$lib/algorithms';
 	import Shuffle from '@lucide/svelte/icons/shuffle';
+	import Dices from '@lucide/svelte/icons/dices';
 
 	/**
 	 * The Parameters tab.
@@ -43,27 +53,108 @@
 		random_tree: 'Uniform structure with random utilities - the honest baseline for pruning.'
 	};
 
-	const inputClass =
-		'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm gt-transition-state focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+	/**
+	 * Section heading.
+	 *
+	 * `text-[11px] uppercase` rather than `text-xs`: this panel is read at a
+	 * glance next to a canvas, and the heading is a label for the group below
+	 * it rather than prose. The one place a heading is genuinely prose - the
+	 * algorithm notes in the Algorithm tab - uses normal case.
+	 */
+	const SECTION_HEADING = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+
+	/**
+	 * The one control in this panel that is tall enough to hit on a phone and
+	 * dense enough to sit in a sidebar on a desktop. The `sm:` easing rather than
+	 * a bare size is the same rule as `--tap`, expressed per control: the panel is
+	 * a fixed-width column, so a fixed 44px row would push the third control below
+	 * the fold on a 13" laptop for no gain.
+	 */
+	const CONTROL_HEIGHT = 'h-11 sm:h-9';
 
 	function onEnvironmentChange(type: string) {
 		environmentState.environmentType = type as typeof environmentState.environmentType;
 	}
 </script>
 
-<div class="space-y-5 p-4">
+<!--
+	A slider with its current value in the label row.
+
+	The read-out is a sibling of the label rather than inside it, so the whole
+	row is one tap target and the number is not part of the accessible name -
+	the slider announces its own value.
+-->
+{#snippet sliderRow(
+	id: string,
+	label: string,
+	readout: string,
+	min: number,
+	max: number,
+	step: number,
+	current: number,
+	set: (value: number) => void
+)}
+	<div class="space-y-2">
+		<div class="flex items-center justify-between gap-2">
+			<Label for={id} class="text-xs font-normal text-muted-foreground">{label}</Label>
+			<span class="gt-mono text-xs text-muted-foreground">{readout}</span>
+		</div>
+		<Slider {id} type="single" value={current} onValueChange={set} {min} {max} {step} />
+	</div>
+{/snippet}
+
+{#snippet switchRow(id: string, label: string, checked: boolean, set: (value: boolean) => void)}
+	<div class="flex min-h-11 items-center justify-between gap-3">
+		<Label for={id} class="text-xs font-medium">{label}</Label>
+		<Switch {id} checked={checked} onCheckedChange={set} />
+	</div>
+{/snippet}
+
+<!--
+	Spacing is the mobile design here, not decoration. This panel shares a column
+	with a canvas, so every block it gives to padding is a block the visualisation
+	loses: `space-y-4 p-3` on a phone, easing to the roomier `space-y-5 p-4` from
+	`sm` where the canvas has pixels to spare.
+-->
+<div class="space-y-4 p-3 sm:space-y-5 sm:p-4">
 	<section class="space-y-2">
 		<Label for="environment-select" class="text-xs">Environment</Label>
-		<select
-			id="environment-select"
-			class={inputClass}
+		<Select
+			type="single"
 			value={environmentState.environmentType}
-			onchange={(event) => onEnvironmentChange(event.currentTarget.value)}
+			onValueChange={(value) => {
+				if (value) onEnvironmentChange(value);
+			}}
 		>
-			{#each family?.environmentTypes ?? [] as type (type)}
-				<option value={type}>{ENVIRONMENT_LABELS[type] ?? type}</option>
-			{/each}
-		</select>
+			<SelectTrigger
+				id="environment-select"
+				class="data-[size=default]:h-11 w-full sm:data-[size=default]:h-9"
+			>
+				<!--
+					The label is read from the environment state rather than from
+					`SelectValue`. bits-ui derives `SelectValue` from the *mounted*
+					items, and the only way to keep those mounted is `forceMount` on
+					the content - which renders the listbox inside the builder sheet's
+					stacking context, where the sheet's own content paints over it and
+					the options stop being clickable on a phone.
+					The state is the source of truth here anyway, so reading it is both
+					simpler and more correct, and it is what the trigger's accessible
+					name comes from.
+				-->
+				<span data-slot="select-value" class="truncate">
+					{ENVIRONMENT_LABELS[environmentState.environmentType] ??
+						environmentState.environmentType ??
+						'Choose an environment'}
+				</span>
+			</SelectTrigger>
+			<SelectContent>
+				{#each family?.environmentTypes ?? [] as type (type)}
+					<SelectItem value={type} label={ENVIRONMENT_LABELS[type] ?? type}>
+						{ENVIRONMENT_LABELS[type] ?? type}
+					</SelectItem>
+				{/each}
+			</SelectContent>
+		</Select>
 		<p class="text-xs leading-relaxed text-muted-foreground">
 			{ENVIRONMENT_DESCRIPTIONS[environmentState.environmentType] ?? ''}
 		</p>
@@ -71,25 +162,27 @@
 
 	<Separator />
 
-	<section class="space-y-3">
+	<section class="space-y-2">
 		<Label for="seed-input" class="text-xs">Seed</Label>
-		<div class="flex gap-2">
-			<input
+		<InputGroup class="h-11 sm:h-9">
+			<InputGroupInput
 				id="seed-input"
 				type="number"
-				class="{inputClass} gt-mono"
+				class="gt-mono"
 				bind:value={environmentState.environmentSeed}
 			/>
-			<button
-				type="button"
-				class="gt-mono h-9 w-9 shrink-0 rounded-md border gt-transition-feedback hover:bg-accent"
-				onclick={() => (environmentState.environmentSeed = Math.floor(Math.random() * 1000000))}
-				title="Randomize seed and regenerate"
-				aria-label="Randomize seed and regenerate"
-			>
-				<Shuffle class="mx-auto h-4 w-4" />
-			</button>
-		</div>
+			<InputGroupAddon class="py-0">
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-11 sm:size-9"
+					onclick={() => (environmentState.environmentSeed = Math.floor(Math.random() * 1000000))}
+					aria-label="Randomize seed"
+				>
+					<Shuffle class="h-4 w-4" />
+				</Button>
+			</InputGroupAddon>
+		</InputGroup>
 		<p class="text-xs text-muted-foreground">
 			Changing the seed and regenerating reproduces a tree exactly.
 		</p>
@@ -98,112 +191,109 @@
 	{#if isAdversarial}
 		<Separator />
 		<section class="space-y-4">
-			<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search space</h3>
+			<h3 class={SECTION_HEADING}>Search space</h3>
 
 			{#if environmentState.environmentType === 'tic_tac_toe_limited'}
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<Label for="ttt-depth" class="text-xs font-normal text-muted-foreground">Depth limit</Label>
-						<span class="gt-mono text-xs text-muted-foreground">{environmentState.gameTreeOptions.tttDepth} plies</span>
-					</div>
-					<Slider
-						id="ttt-depth"
-						type="single"
-						value={environmentState.gameTreeOptions.tttDepth}
-						onValueChange={(value) => environmentState.updateGameTreeOptions({ tttDepth: value })}
-						min={1}
-						max={7}
-						step={1}
-					/>
-					<p class="text-xs text-muted-foreground">
-						Nodes at the cut are scored by a heuristic instead of a real outcome.
-					</p>
-				</div>
+				{@render sliderRow(
+					'ttt-depth',
+					'Depth limit',
+					`${environmentState.gameTreeOptions.tttDepth} plies`,
+					1,
+					7,
+					1,
+					environmentState.gameTreeOptions.tttDepth,
+					(value) => environmentState.updateGameTreeOptions({ tttDepth: value })
+				)}
+				<p class="text-xs text-muted-foreground">
+					Nodes at the cut are scored by a heuristic instead of a real outcome.
+				</p>
 			{/if}
 
 			{#if environmentState.environmentType === 'nim'}
-				<div class="flex flex-col gap-2">
-					<Label for="nim-heaps" class="text-xs">Heaps</Label>
-					<input
-						id="nim-heaps"
-						type="number"
-						min="1"
-						max="3"
-						class="{inputClass} gt-mono"
-						value={environmentState.gameTreeOptions.nimHeapCount}
-						onchange={(event) =>
-							environmentState.updateGameTreeOptions({ nimHeapCount: Number(event.currentTarget.value) })}
-					/>
-					<Label for="nim-stones" class="mt-2 text-xs">Max stones per heap</Label>
-					<input
-						id="nim-stones"
-						type="number"
-						min="1"
-						max="3"
-						class="{inputClass} gt-mono"
-						value={environmentState.gameTreeOptions.nimMaxStones}
-						onchange={(event) =>
-							environmentState.updateGameTreeOptions({ nimMaxStones: Number(event.currentTarget.value) })}
-					/>
-					<p class="text-xs text-muted-foreground">
-						Bounded so the whole tree stays under a couple of thousand nodes.
-					</p>
+				<div class="grid grid-cols-2 gap-2">
+					<div class="space-y-1">
+						<Label for="nim-heaps" class="text-xs">Heaps</Label>
+						<Input
+							id="nim-heaps"
+							type="number"
+							min="1"
+							max="3"
+							class="gt-mono {CONTROL_HEIGHT}"
+							value={environmentState.gameTreeOptions.nimHeapCount}
+							onchange={(event) =>
+								environmentState.updateGameTreeOptions({
+									nimHeapCount: Number(event.currentTarget.value)
+								})}
+						/>
+					</div>
+					<div class="space-y-1">
+						<Label for="nim-stones" class="text-xs">Max stones</Label>
+						<Input
+							id="nim-stones"
+							type="number"
+							min="1"
+							max="3"
+							class="gt-mono {CONTROL_HEIGHT}"
+							value={environmentState.gameTreeOptions.nimMaxStones}
+							onchange={(event) =>
+								environmentState.updateGameTreeOptions({
+									nimMaxStones: Number(event.currentTarget.value)
+								})}
+						/>
+					</div>
 				</div>
+				<p class="text-xs text-muted-foreground">
+					Bounded so the whole tree stays under a couple of thousand nodes.
+				</p>
 			{/if}
 
 			{#if environmentState.environmentType === 'random_tree'}
 				<div class="space-y-3">
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<Label for="branching" class="text-xs font-normal text-muted-foreground">Branching factor</Label>
-							<span class="gt-mono text-xs text-muted-foreground">{environmentState.gameTreeOptions.randomBranching}</span>
-						</div>
-						<Slider
-							id="branching"
-							type="single"
-							value={environmentState.gameTreeOptions.randomBranching}
-							onValueChange={(value) => environmentState.updateGameTreeOptions({ randomBranching: value })}
-							min={2}
-							max={6}
-							step={1}
-						/>
-					</div>
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<Label for="random-depth" class="text-xs font-normal text-muted-foreground">Depth</Label>
-							<span class="gt-mono text-xs text-muted-foreground">{environmentState.gameTreeOptions.randomDepth}</span>
-						</div>
-						<Slider
-							id="random-depth"
-							type="single"
-							value={environmentState.gameTreeOptions.randomDepth}
-							onValueChange={(value) => environmentState.updateGameTreeOptions({ randomDepth: value })}
-							min={1}
-							max={5}
-							step={1}
-						/>
-					</div>
+					{@render sliderRow(
+						'branching',
+						'Branching factor',
+						String(environmentState.gameTreeOptions.randomBranching),
+						2,
+						6,
+						1,
+						environmentState.gameTreeOptions.randomBranching,
+						(value) => environmentState.updateGameTreeOptions({ randomBranching: value })
+					)}
+					{@render sliderRow(
+						'random-depth',
+						'Depth',
+						String(environmentState.gameTreeOptions.randomDepth),
+						1,
+						5,
+						1,
+						environmentState.gameTreeOptions.randomDepth,
+						(value) => environmentState.updateGameTreeOptions({ randomDepth: value })
+					)}
 					<div class="grid grid-cols-2 gap-2">
 						<div class="space-y-1">
 							<Label for="min-util" class="text-xs">Min utility</Label>
-							<input
+							<Input
 								id="min-util"
 								type="number"
-								class="{inputClass} gt-mono"
+								class="gt-mono {CONTROL_HEIGHT}"
 								value={environmentState.gameTreeOptions.randomMinUtility}
 								onchange={(event) =>
-									environmentState.updateGameTreeOptions({ randomMinUtility: Number(event.currentTarget.value) })}
+									environmentState.updateGameTreeOptions({
+										randomMinUtility: Number(event.currentTarget.value)
+									})}
 							/>
 						</div>
 						<div class="space-y-1">
 							<Label for="max-util" class="text-xs">Max utility</Label>
-							<input
+							<Input
 								id="max-util"
 								type="number"
-								class="{inputClass} gt-mono"
+								class="gt-mono {CONTROL_HEIGHT}"
 								value={environmentState.gameTreeOptions.randomMaxUtility}
 								onchange={(event) =>
-									environmentState.updateGameTreeOptions({ randomMaxUtility: Number(event.currentTarget.value) })}
+									environmentState.updateGameTreeOptions({
+										randomMaxUtility: Number(event.currentTarget.value)
+									})}
 							/>
 						</div>
 					</div>
@@ -211,13 +301,15 @@
 			{/if}
 
 			{#if environmentState.environmentType === 'manual_tree'}
-				<button
-					type="button"
-					class="w-full rounded-md border px-3 py-2 text-xs font-medium gt-transition-feedback hover:bg-accent"
+				<Button
+					variant="outline"
+					size="sm"
+					class="h-11 w-full sm:h-8"
 					onclick={() => environmentState.randomizeGameTreeTerminals()}
 				>
+					<Dices class="h-3.5 w-3.5" />
 					Randomize terminal utilities
-				</button>
+				</Button>
 			{/if}
 		</section>
 	{:else}
@@ -225,27 +317,27 @@
 
 		{#if environmentState.environmentType !== 'graph'}
 			<section class="space-y-3">
-				<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Grid</h3>
+				<h3 class={SECTION_HEADING}>Grid</h3>
 				<div class="grid grid-cols-2 gap-2">
 					<div class="space-y-1">
 						<Label for="grid-rows" class="text-xs">Rows</Label>
-						<input
+						<Input
 							id="grid-rows"
 							type="number"
 							min="5"
 							max="100"
-							class="{inputClass} gt-mono"
+							class="gt-mono {CONTROL_HEIGHT}"
 							bind:value={environmentState.gridRowsSetting}
 						/>
 					</div>
 					<div class="space-y-1">
 						<Label for="grid-cols" class="text-xs">Cols</Label>
-						<input
+						<Input
 							id="grid-cols"
 							type="number"
 							min="5"
 							max="100"
-							class="{inputClass} gt-mono"
+							class="gt-mono {CONTROL_HEIGHT}"
 							bind:value={environmentState.gridColsSetting}
 						/>
 					</div>
@@ -254,98 +346,74 @@
 		{/if}
 
 		{#if environmentState.environmentType === 'braided_maze'}
-			<div class="space-y-2">
-				<div class="flex items-center justify-between">
-					<Label for="loop-density" class="text-xs font-normal text-muted-foreground">Loop density</Label>
-					<span class="gt-mono text-xs text-muted-foreground">{environmentState.loopDensity}%</span>
-				</div>
-				<Slider
-					id="loop-density"
-					type="single"
-					bind:value={environmentState.loopDensity}
-					min={0}
-					max={100}
-					step={5}
-				/>
-			</div>
+			{@render sliderRow(
+				'loop-density',
+				'Loop density',
+				`${environmentState.loopDensity}%`,
+				0,
+				100,
+				5,
+				environmentState.loopDensity,
+				(value) => (environmentState.loopDensity = value)
+			)}
 		{/if}
 
 		{#if environmentState.environmentType === 'random_obstacles'}
-			<div class="space-y-2">
-				<div class="flex items-center justify-between">
-					<Label for="obstacle-density" class="text-xs font-normal text-muted-foreground">Obstacle density</Label>
-					<span class="gt-mono text-xs text-muted-foreground">{environmentState.obstacleDensity}%</span>
-				</div>
-				<Slider
-					id="obstacle-density"
-					type="single"
-					bind:value={environmentState.obstacleDensity}
-					min={0}
-					max={100}
-					step={5}
-				/>
-			</div>
+			{@render sliderRow(
+				'obstacle-density',
+				'Obstacle density',
+				`${environmentState.obstacleDensity}%`,
+				0,
+				100,
+				5,
+				environmentState.obstacleDensity,
+				(value) => (environmentState.obstacleDensity = value)
+			)}
 		{/if}
 
 		{#if environmentState.environmentType === 'graph'}
 			<section class="space-y-3">
-				<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graph</h3>
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<Label for="node-count" class="text-xs font-normal text-muted-foreground">Nodes</Label>
-						<span class="gt-mono text-xs text-muted-foreground">{environmentState.graphNodeCount}</span>
-					</div>
-					<Slider
-						id="node-count"
-						type="single"
-						value={environmentState.graphNodeCount}
-						onValueChange={(value) => (environmentState.graphNodeCount = value)}
-						min={5}
-						max={100}
-						step={5}
-					/>
-				</div>
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<Label for="edge-density" class="text-xs font-normal text-muted-foreground">Edge density</Label>
-						<span class="gt-mono text-xs text-muted-foreground">{environmentState.graphEdgeMultiplier.toFixed(1)}x</span>
-					</div>
-					<Slider
-						id="edge-density"
-						type="single"
-						value={environmentState.graphEdgeMultiplier}
-						onValueChange={(value) => (environmentState.graphEdgeMultiplier = value)}
-						min={0.5}
-						max={10}
-						step={0.5}
-					/>
-				</div>
-				<div class="flex items-center justify-between">
-					<Label for="ensure-path" class="text-xs font-medium">Ensure path Start → Goal</Label>
-					<Switch
-						id="ensure-path"
-						checked={environmentState.graphEnsurePath}
-						onCheckedChange={(value) => (environmentState.graphEnsurePath = value)}
-					/>
-				</div>
+				<h3 class={SECTION_HEADING}>Graph</h3>
+				{@render sliderRow(
+					'node-count',
+					'Nodes',
+					String(environmentState.graphNodeCount),
+					5,
+					100,
+					5,
+					environmentState.graphNodeCount,
+					(value) => (environmentState.graphNodeCount = value)
+				)}
+				{@render sliderRow(
+					'edge-density',
+					'Edge density',
+					`${environmentState.graphEdgeMultiplier.toFixed(1)}x`,
+					0.5,
+					10,
+					0.5,
+					environmentState.graphEdgeMultiplier,
+					(value) => (environmentState.graphEdgeMultiplier = value)
+				)}
+				{@render switchRow(
+					'ensure-path',
+					'Ensure path Start → Goal',
+					environmentState.graphEnsurePath,
+					(value) => (environmentState.graphEnsurePath = value)
+				)}
 				{#if getAlgorithmSummary(environmentState.selectedAlgorithmId)?.supportsWeights}
-					<div class="flex items-center justify-between">
-						<Label for="weighted-graph" class="text-xs font-medium">Weighted edges</Label>
-						<Switch
-							id="weighted-graph"
-							checked={environmentState.graphWeighted}
-							onCheckedChange={(value) => (environmentState.graphWeighted = value)}
-						/>
-					</div>
+					{@render switchRow(
+						'weighted-graph',
+						'Weighted edges',
+						environmentState.graphWeighted,
+						(value) => (environmentState.graphWeighted = value)
+					)}
 				{/if}
-				<div class="flex items-center justify-between">
-					<Label for="directed-graph" class="text-xs font-medium">New edges directed by default</Label>
-					<Switch
-						id="directed-graph"
-						checked={environmentState.defaultEdgeDirected}
-						onCheckedChange={(value) => (environmentState.defaultEdgeDirected = value)}
-					/>
-				</div>
+				{@render switchRow(
+					'directed-graph',
+					'New edges directed',
+					environmentState.defaultEdgeDirected,
+					(value) => (environmentState.defaultEdgeDirected = value)
+				)}
 			</section>
 		{/if}
 	{/if}

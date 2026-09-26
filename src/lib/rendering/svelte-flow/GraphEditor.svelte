@@ -98,6 +98,8 @@ import { graphColorsFor } from './types';
 	});
 
 	function handlePaneClick({ event }: { event: MouseEvent | TouchEvent }) {
+		// A long press already opened a menu over this element.
+		if (consumeLongPress()) return;
 		editorState.selection = null;
 		if (editorState.mode !== 'node') return;
 		
@@ -110,6 +112,7 @@ import { graphColorsFor } from './types';
 	}
 
 	function handleNodeClick({ event, node }: { event: MouseEvent | TouchEvent, node: Node }) {
+		if (consumeLongPress()) return;
 		editorState.selection = { type: 'node', id: node.id };
 		const mode = editorState.mode;
 		if (mode === 'remove') {
@@ -122,6 +125,7 @@ import { graphColorsFor } from './types';
 	}
 
 	function handleEdgeClick({ event, edge }: { event: MouseEvent | TouchEvent, edge: Edge }) {
+		if (consumeLongPress()) return;
 		editorState.selection = { type: 'edge', id: edge.id };
 		const mode = editorState.mode;
 		if (mode === 'remove') {
@@ -161,6 +165,135 @@ import { graphColorsFor } from './types';
 		const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
 		graphContextTarget = { type: 'background', flowX: position.x, flowY: position.y };
 	}
+
+	/*
+	/*
+	 * A long press, because `contextmenu` never fires on a touch device.
+	 *
+	 * Every action in the node, edge and background menus - set start, set goal,
+	 * add an edge, rename, delete, edit a cost - was therefore unreachable on a
+	 * phone or a tablet, which is the entire editing surface of the manual-graph
+	 * environment. SvelteFlow exposes no per-element pointer-down handler, so the
+	 * press is caught on the surface and the target is resolved by hit-testing the
+	 * `data-id` that xyflow puts on every node and edge wrapper. The result feeds
+	 * the same `graphContextTarget` the mouse path uses, so the two presentations
+	 * cannot disagree about what a menu would act on.
+	 *
+	 * The gesture owns a full press cycle - down, move, up - and cancels itself on
+	 * all three ways out, because a press that has ended is not a long press and
+	 * leaving the timer armed would pop a menu a moment after an ordinary tap.
+	 */
+	const LONG_PRESS_MS = 500;
+	const LONG_PRESS_SLOP = 10;
+
+	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+	let releaseLongPress: (() => void) | null = null;
+	/**
+	 * Set when the gesture fires, so the `click` that follows the release does not
+	 * also apply the active tool. Long-pressing a node to rename it must not
+	 * delete it.
+	 */
+	let longPressFired = false;
+
+	function flowPointAt(event: PointerEvent) {
+		const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+		return { flowX: position.x, flowY: position.y };
+	}
+
+	function resolveTargetAt(event: PointerEvent): GraphContextTarget {
+		if (event.target instanceof Element) {
+			const edge = event.target.closest('.svelte-flow__edge[data-id]');
+			if (edge instanceof HTMLElement && edge.dataset.id) {
+				return { type: 'edge', edgeId: edge.dataset.id };
+			}
+			const node = event.target.closest('.svelte-flow__node[data-id]');
+			if (node instanceof HTMLElement && node.dataset.id) {
+				return { type: 'node', nodeId: node.dataset.id };
+			}
+		}
+		return { type: 'background', ...flowPointAt(event) };
+	}
+
+	function cancelLongPress() {
+		if (longPressTimer !== null) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+		releaseLongPress?.();
+		releaseLongPress = null;
+	}
+
+	function handleSurfacePointerDown(event: PointerEvent) {
+		cancelLongPress();
+		// A mouse already has the contextmenu path, and compare mode is inert.
+		if (event.pointerType === 'mouse' || executionStore.isComparing) return;
+
+		const origin = { x: event.clientX, y: event.clientY };
+		const pointerId = event.pointerId;
+		const target = resolveTargetAt(event);
+
+		const onMove = (move: PointerEvent) => {
+			// A pan, a drag or a scroll is not a long press.
+			if (Math.hypot(move.clientX - origin.x, move.clientY - origin.y) > LONG_PRESS_SLOP) {
+				cancelLongPress();
+			}
+		};
+		const onEnd = (end: PointerEvent) => {
+			if (end.pointerId === pointerId) cancelLongPress();
+		};
+
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onEnd);
+		window.addEventListener('pointercancel', onEnd);
+		releaseLongPress = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onEnd);
+			window.removeEventListener('pointercancel', onEnd);
+		};
+
+		longPressTimer = setTimeout(() => {
+			longPressTimer = null;
+			longPressFired = true;
+			graphContextTarget = target;
+			menuOpen = true;
+		}, LONG_PRESS_MS);
+	}
+
+	/** True once, when a long press has just consumed this interaction. */
+	function consumeLongPress() {
+		if (!longPressFired) return false;
+		longPressFired = false;
+		return true;
+	}
+
+	$effect(() => () => cancelLongPress());
+	$effect(() => () => cancelLongPress());
+
+	/**
+	 * Re-frame on an aspect-ratio change.
+	 *
+	 * xyflow keeps its own resize observer, so the surface is always the right
+	 * size; what goes stale on a rotation is the framing. Only a large change
+	 * triggers it, so an ordinary resize does not fight a user who has panned.
+	 * `untrack` for the same reason as the structural fit above: `fitView`
+	 * reads the viewport and then writes it.
+	 */
+	let surfaceElement = $state<HTMLDivElement | null>(null);
+	let lastAspect = $state(0);
+
+	$effect(() => {
+		const element = surfaceElement;
+		if (!element) return;
+		const width = element.clientWidth;
+		const height = element.clientHeight;
+		if (!width || !height) return;
+		const aspect = width / height;
+		const previous = lastAspect;
+		lastAspect = aspect;
+		if (previous && Math.abs(aspect - previous) > 0.15 && browser) {
+			untrack(() => fitView({ duration: 0 }));
+		}
+	});
 
 	function handleFitView() {
 		fitView();
@@ -203,9 +336,17 @@ import { graphColorsFor } from './types';
 
 </script>
 
-<div class={`relative h-full w-full ${editorState.mode === 'edge' ? 'cursor-crosshair' : ''} ${executionStore.isComparing ? 'pointer-events-none' : ''}`} role="application" aria-label="Manual graph editor" style:color-scheme={isDark ? 'dark' : 'light'}>
+<div
+		bind:this={surfaceElement}
+		class="relative h-full w-full {editorState.mode === 'edge' ? 'cursor-crosshair' : ''} {executionStore.isComparing ? 'pointer-events-none' : ''}"
+		role="application"
+		aria-label="Manual graph editor"
+		style:color-scheme={isDark ? 'dark' : 'light'}
+		style:touch-action="none"
+		onpointerdown={handleSurfacePointerDown}
+	>
 	<ContextMenu.Root bind:open={menuOpen}>
-		<ContextMenu.Trigger class="block w-full h-full">
+		<ContextMenu.Trigger class="block h-full w-full">
 			<SvelteFlow
 				{nodes}
 				{edges}
@@ -227,7 +368,7 @@ import { graphColorsFor } from './types';
 				fitView
 			>
 				<Background variant={BackgroundVariant.Dots} />
-				<Controls />
+				<Controls position="bottom-right" />
 			</SvelteFlow>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>

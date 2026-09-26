@@ -11,8 +11,14 @@ algorithm is a registry entry rather than a rewrite.
 - **Optimization** and **Sorting & DP** — registered, deliberately unbuilt. They
   exist to keep the top level honestly a registry.
 
-Press <kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> for the algorithm palette, <kbd>Space</kbd> to
-play, <kbd>N</kbd> to step, <kbd>B</kbd> to step back.
+Press <kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> for the algorithm palette, <kbd>⌘B</kbd> /
+<kbd>Ctrl B</kbd> to collapse the problem builder, <kbd>Space</kbd> to play, <kbd>N</kbd>
+to step, <kbd>B</kbd> to step back.
+
+The layout is one component tree at every width: the problem builder and the details
+panel dock beside the canvas on a desktop and become sheets over it on a phone, and
+the graph is never covered by chrome. See
+[ADR 0002](docs/adr/0002-shell-and-responsive-strategy.md).
 
 ## Architecture
 
@@ -65,6 +71,11 @@ depends on.
 - [`docs/adr/0001-problem-families-and-trace-events.md`](docs/adr/0001-problem-families-and-trace-events.md)
   — the architecture decision record, including the alternatives that were rejected
   and one deliberate deviation from the original brief.
+- [`docs/adr/0002-shell-and-responsive-strategy.md`](docs/adr/0002-shell-and-responsive-strategy.md)
+  — the application shell: why the panels dock at `lg`, why the transport is in
+  normal flow rather than floating over the canvas, which shadcn-svelte primitives
+  were adopted and which were deliberately not, and how touch became a first-class
+  input.
 - [`docs/design-tokens.md`](docs/design-tokens.md) — colour, type, motion and shape,
   and why the trace-state palette is kept separate from chrome.
 

@@ -153,6 +153,17 @@ a tool.
 | `--radius-md` | `0.375rem` |
 | `--radius-lg` | `0.5rem` (the base) |
 | `--radius-xl` | `0.75rem` |
+| `--radius-2xl` | `0.75rem` |
+| `--radius-3xl` | `0.875rem` |
+| `--radius-4xl` | `0.875rem` |
+
+The last three are not decorative steps. The shadcn `luma` registry renders its
+`Toggle`, `Button` and `Dialog` at `rounded-3xl` and `rounded-4xl`, whose stock values
+are 1.25rem and 1.5rem - a pill on a 36px control, and a different corner from every
+card and input in the same panel. Pinning the top of the scale just above `xl` means
+every piece of chrome resolves to one corner regardless of which default it inherits,
+which is the only way an open-code component set stays visually coherent once it is
+composed rather than used as shipped.
 
 Elevation has exactly two steps. More than that and a dense layout stops reading as
 flat:

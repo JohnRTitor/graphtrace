@@ -4,6 +4,15 @@
 	import { getFamily } from '$lib/families/registry';
 	import type { MetricColumn } from '$lib/trace/types';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '$lib/components/ui/empty';
+	import {
+		Table,
+		TableBody,
+		TableCell,
+		TableHead,
+		TableHeader,
+		TableRow
+	} from '$lib/components/ui/table';
 	import { playbackState } from '$lib/state/playback.svelte';
 
 	interface Props {
@@ -65,7 +74,7 @@
 	});
 </script>
 
-<div class="space-y-4 p-4">
+<div class="space-y-4 p-3 sm:p-4">
 	<div class="flex items-center justify-between">
 		<h2 class="text-sm font-semibold tracking-tight">Metrics</h2>
 		{#if status}
@@ -74,46 +83,57 @@
 	</div>
 
 	{#if executions.length === 0}
-		<p class="py-6 text-center text-sm text-muted-foreground">
-			Run an algorithm to collect metrics.
-		</p>
+		<Empty class="py-6">
+			<EmptyHeader>
+				<EmptyTitle class="text-xs font-medium text-foreground">No metrics yet</EmptyTitle>
+				<EmptyDescription class="text-xs">
+					Run an algorithm to collect metrics.
+				</EmptyDescription>
+			</EmptyHeader>
+		</Empty>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="w-full min-w-[360px] border-separate border-spacing-y-1 text-left text-xs">
-				<caption class="sr-only">Algorithm execution metrics</caption>
-				<thead>
-					<tr>
-						<th scope="col" class="font-medium text-muted-foreground">Metric</th>
-						{#each executions as execution (execution.id)}
-							<th scope="col" class="text-right font-medium">
-								{getAlgorithmSummary(execution.algorithmId)?.name ?? execution.algorithmId}
-							</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each columns as column (column.key)}
-						<tr>
-							<th scope="row" class="font-normal text-muted-foreground" title={column.description}>
-								{column.label}
-							</th>
-							{#each executions as execution (execution.id)}
-								{@const text = read(execution, column)}
-								{@const raw = execution.metrics[column.key]}
-								<td
-									class="gt-mono text-right tabular-nums gt-transition-state"
-									class:font-semibold={text !== null && winners.get(column.key) === raw}
-									class:text-primary={text !== null && winners.get(column.key) === raw}
-									class:text-muted-foreground={text === null}
-								>
-									{text ?? '—'}
-								</td>
-							{/each}
-						</tr>
+		<!--
+			No min width. The panel is a 288px column, and a 360px table inside it
+			meant 50px of permanent horizontal scroll on a phone. Algorithm names
+			wrap instead, which is the trade that keeps the whole table visible.
+		-->
+		<Table class="text-xs">
+			<TableHeader>
+				<TableRow class="hover:bg-transparent">
+					<TableHead class="font-medium text-muted-foreground">Metric</TableHead>
+					{#each executions as execution (execution.id)}
+						<TableHead class="text-right font-medium break-words">
+							{getAlgorithmSummary(execution.algorithmId)?.name ?? execution.algorithmId}
+						</TableHead>
 					{/each}
-				</tbody>
-			</table>
-		</div>
+				</TableRow>
+			</TableHeader>
+			<TableBody>
+				{#each columns as column (column.key)}
+					<TableRow>
+						<TableHead
+							scope="row"
+							class="font-normal text-muted-foreground"
+							title={column.description}
+						>
+							{column.label}
+						</TableHead>
+						{#each executions as execution (execution.id)}
+							{@const text = read(execution, column)}
+							{@const raw = execution.metrics[column.key]}
+							{@const isWinner = text !== null && winners.get(column.key) === raw}
+							<TableCell
+								class="gt-mono text-right tabular-nums gt-transition-state {isWinner
+									? 'font-semibold text-primary'
+									: ''} {text === null ? 'text-muted-foreground' : ''}"
+							>
+								{text ?? '—'}
+							</TableCell>
+						{/each}
+					</TableRow>
+				{/each}
+			</TableBody>
+		</Table>
 		{#if executions.length > 1}
 			<p class="text-xs text-muted-foreground">
 				The highlighted value is the better one for that row.

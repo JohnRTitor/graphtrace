@@ -20,6 +20,12 @@ export class MazeViewport {
 	public fitToView(gridCols: number, gridRows: number, cellSize: number, padding: number = 20) {
 		const width = Math.max(0, finiteOr(this.stage.width(), 0));
 		const height = Math.max(0, finiteOr(this.stage.height(), 0));
+		// A zero-sized stage cannot be fitted to anything. Clamping instead would
+		// produce a 0.1-scale stage with a negative offset - a canvas that looks
+		// broken rather than one that waits - and the size arrives on the next
+		// ResizeObserver tick, which re-fits anyway.
+		if (width <= 0 || height <= 0) return false;
+
 		const safeCellSize = Number.isFinite(cellSize) && cellSize > 0 ? cellSize : 1;
 		const safeCols = Number.isFinite(gridCols) && gridCols > 0 ? gridCols : 1;
 		const safeRows = Number.isFinite(gridRows) && gridRows > 0 ? gridRows : 1;
@@ -38,6 +44,7 @@ export class MazeViewport {
 
 		this.stage.position({ x: offsetX, y: offsetY });
 		this.stage.batchDraw();
+		return true;
 	}
 
 	public handleWheel(e: Konva.KonvaEventObject<WheelEvent>) {
@@ -61,6 +68,34 @@ export class MazeViewport {
 		this.stage.position({
 			x: pointer.x - mousePointTo.x * newScale,
 			y: pointer.y - mousePointTo.y * newScale,
+		});
+		this.stage.batchDraw();
+	}
+
+	/**
+	 * Pinch to zoom about the midpoint of two touches.
+	 *
+	 * The only way to change scale on a touch device: a `wheel` event is never
+	 * synthesised, so without this a phone is locked at whatever scale
+	 * `fitToView` chose - unusable for painting walls in a 30x40 maze, where
+	 * fit lands near 13px per cell.
+	 */
+	public handlePinch(scaleFactor: number, center: { x: number; y: number }) {
+		if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) return;
+
+		const oldScale = this.clampScale(this.stage.scaleX());
+		const newScale = this.clampScale(oldScale * scaleFactor);
+		if (newScale === oldScale) return;
+
+		const pointTo = {
+			x: (center.x - this.stage.x()) / oldScale,
+			y: (center.y - this.stage.y()) / oldScale,
+		};
+
+		this.stage.scale({ x: newScale, y: newScale });
+		this.stage.position({
+			x: center.x - pointTo.x * newScale,
+			y: center.y - pointTo.y * newScale,
 		});
 		this.stage.batchDraw();
 	}

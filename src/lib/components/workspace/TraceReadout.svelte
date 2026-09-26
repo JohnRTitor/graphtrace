@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { editorState } from '$lib/state/editor.svelte';
-	import { environmentState } from '$lib/state/environment.svelte';
 	import { playbackState } from '$lib/state/playback.svelte';
 	import type { TraceStateToken } from '$lib/families/types';
-	import type { GameTreeTraceState } from '$lib/families/adversarial/tree-state';
 	import { Separator } from '$lib/components/ui/separator';
 
 	/**

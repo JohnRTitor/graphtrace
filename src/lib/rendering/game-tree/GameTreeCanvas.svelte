@@ -8,7 +8,6 @@
 		type NodeTypes,
 		type EdgeTypes,
 		type Node,
-		type Edge
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import { onMount, untrack } from 'svelte';
@@ -23,6 +22,11 @@
 	import { playbackState, type PlaybackState } from '$lib/state/playback.svelte';
 	import type { NodeId } from '$lib/graph/types';
 	import type { GamePlayer } from '$lib/graph/game-tree';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Switch } from '$lib/components/ui/switch';
+	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 
 	let { playback = playbackState }: { playback?: PlaybackState } = $props();
 
@@ -56,6 +60,31 @@
 
 	let selectedNode = $state<NodeId | null>(null);
 	let selectedNodeModel = $derived(selectedNode ? (tree.nodes.get(selectedNode) ?? null) : null);
+
+	/**
+	 * Re-frame on an aspect-ratio change.
+	 *
+	 * xyflow keeps its own resize observer, so the surface is always the right
+	 * size; what goes stale on a rotation is the framing. Only a large change
+	 * triggers it, so an ordinary resize does not fight a user who has panned,
+	 * and the tree is not tiny because the phone turned sideways.
+	 */
+	let surfaceElement = $state<HTMLDivElement | null>(null);
+	let lastAspect = $state(0);
+
+	$effect(() => {
+		const element = surfaceElement;
+		if (!element) return;
+		const width = element.clientWidth;
+		const height = element.clientHeight;
+		if (!width || !height) return;
+		const aspect = width / height;
+		const previous = lastAspect;
+		lastAspect = aspect;
+		if (previous && Math.abs(aspect - previous) > 0.15 && browser) {
+			untrack(() => fitView({ duration: 0 }));
+		}
+	});
 
 	$effect(() => {
 		// Re-fit when the tree's shape changes, not on every trace step: refitting
@@ -95,8 +124,10 @@
 </script>
 
 <div
+	bind:this={surfaceElement}
 	class="relative h-full w-full"
 	style:color-scheme={isDark ? 'dark' : 'light'}
+	style:touch-action="none"
 	role="application"
 	aria-label="Game tree editor"
 >
@@ -117,7 +148,7 @@
 		panOnScroll
 	>
 		<Background variant={BackgroundVariant.Dots} gap={24} />
-		<Controls />
+		<Controls position="bottom-right" />
 	</SvelteFlow>
 
 	<!--
@@ -126,39 +157,44 @@
 		tools here act on a selection, not on a paint mode.
 	-->
 	<div
-		class="absolute bottom-4 left-4 z-10 flex flex-col gap-2 rounded-lg border bg-card/90 p-2 shadow-md backdrop-blur-sm gt-transition-panel"
+		class="gt-transition-panel absolute bottom-2 left-2 z-10 flex max-w-[calc(100%-1rem)] flex-col gap-2 rounded-lg border bg-card/90 p-2 shadow-lg backdrop-blur-sm sm:bottom-4 sm:left-4"
 	>
 		<div class="flex items-center gap-1">
-			<button
-				type="button"
-				class="rounded-md border px-2 py-1 text-xs font-medium gt-transition-feedback enabled:hover:bg-accent disabled:opacity-40"
+			<Button
+				variant="outline"
+				size="sm"
+				class="h-9 px-2.5 text-xs sm:h-8"
 				disabled={!tree.root}
 				onclick={addChild}
 			>
 				Add move
-			</button>
-			<button
-				type="button"
-				class="rounded-md border px-2 py-1 text-xs font-medium gt-transition-feedback enabled:hover:bg-accent disabled:opacity-40"
+			</Button>
+			<Button
+				variant="outline"
+				size="sm"
+				class="h-9 px-2.5 text-xs sm:h-8"
 				disabled={!selectedNode}
 				onclick={makeRoot}
 			>
 				Make root
-			</button>
-			<button
-				type="button"
-				class="rounded-md border px-2 py-1 text-xs font-medium gt-transition-feedback enabled:hover:bg-accent disabled:opacity-40"
+			</Button>
+			<Button
+				variant="outline"
+				size="sm"
+				class="h-9 px-2.5 text-xs sm:h-8"
 				disabled={!selectedNode}
 				onclick={() => selectedNode && environmentState.removeGameTreeNode(selectedNode)}
 			>
 				Remove
-			</button>
+			</Button>
 		</div>
 
-		<label class="flex items-center gap-2 px-1 text-xs text-muted-foreground">
-			<input type="checkbox" bind:checked={showValues} class="accent-primary" />
-			Show values
-		</label>
+		<div class="flex min-h-9 items-center justify-between gap-3 px-1">
+			<Label for="show-values" class="cursor-pointer text-xs text-muted-foreground">
+				Show values
+			</Label>
+			<Switch id="show-values" bind:checked={showValues} />
+		</div>
 	</div>
 
 	{#if selectedNodeModel}
@@ -189,46 +225,54 @@
 			</dl>
 
 			{#if node.player === 'terminal'}
-				<label class="block space-y-1 text-[11px] text-muted-foreground">
-					<span>Utility</span>
-					<input
+				<div class="space-y-1">
+					<Label for="node-utility" class="text-[11px] text-muted-foreground">Utility</Label>
+					<Input
+						id="node-utility"
 						type="number"
-						class="gt-mono h-7 w-full rounded-md border bg-background px-2 text-xs"
+						class="gt-mono h-9 text-xs sm:h-7"
 						value={node.utility ?? 0}
 						onchange={(event) =>
 							environmentState.setGameTreeUtility(node.id, Number(event.currentTarget.value))}
 					/>
-				</label>
+				</div>
 			{:else}
 				<div class="space-y-1">
 					<span class="text-[11px] text-muted-foreground">Node kind</span>
-					<div class="flex gap-1">
-						{#each ['max', 'min', 'terminal'] as role}
-							{@const isActive = node.player === role}
-							<button
-								type="button"
-								class="flex-1 rounded-md border px-1 py-1 text-[10px] uppercase gt-transition-feedback enabled:hover:bg-accent"
-								class:border-primary={isActive}
-								disabled={isActive}
-								onclick={() => {
-									invalidatePlaybackIfNeeded();
-									environmentState.setGameTreePlayer(node.id, role as GamePlayer);
-								}}
+					<ToggleGroup
+						type="single"
+						value={node.player}
+						onValueChange={(role) => {
+							if (!role || role === node.player) return;
+							invalidatePlaybackIfNeeded();
+							environmentState.setGameTreePlayer(node.id, role as GamePlayer);
+						}}
+						variant="outline"
+						aria-label="Node kind"
+						class="w-full"
+					>
+						{#each ['max', 'min', 'terminal'] as role (role)}
+							<ToggleGroupItem
+								value={role}
+								class="h-9 flex-1 px-1 text-[10px] uppercase sm:h-7"
 							>
 								{role}
-							</button>
+							</ToggleGroupItem>
 						{/each}
-					</div>
+					</ToggleGroup>
 				</div>
-				<label class="block space-y-1 text-[11px] text-muted-foreground">
-					<span>Move label</span>
-					<input
+				<div class="space-y-1">
+					<Label for="node-move-label" class="text-[11px] text-muted-foreground">
+						Move label
+					</Label>
+					<Input
+						id="node-move-label"
 						type="text"
-						class="h-7 w-full rounded-md border bg-background px-2 text-xs"
+						class="h-9 text-xs sm:h-7"
 						value={node.moveLabel}
 						onchange={(event) => environmentState.setGameTreeMoveLabel(node.id, event.currentTarget.value)}
 					/>
-				</label>
+				</div>
 			{/if}
 		</div>
 	{/if}

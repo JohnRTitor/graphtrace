@@ -10,6 +10,7 @@
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 	import ZoomOut from '@lucide/svelte/icons/zoom-out';
 	import Maximize from '@lucide/svelte/icons/maximize';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import MazeContextMenu from './MazeContextMenu.svelte';
 	import EditCostDialog from '$lib/components/workspace/EditCostDialog.svelte';
@@ -21,6 +22,16 @@
 	let container = $state<HTMLDivElement | null>(null);
 	let renderer = $state.raw<MazeRenderer | null>(null);
 
+	/**
+	 * Whether the user has framed the view themselves.
+	 *
+	 * Until they have, a container resize re-fits the whole grid. Afterwards it
+	 * does not: snapping back to a fit on every rotation, every browser-chrome
+	 * show/hide and every virtual-keyboard open is more annoying than a stale
+	 * frame, and the Fit button is right there.
+	 */
+	let userAdjustedView = $state(false);
+
 	// Watch theme
 	let isDark = $state(false);
 
@@ -31,6 +42,11 @@
 	let mazeCellTarget = $state<NodeId | null>(null);
 	let mazeCostOpen = $state(false);
 	let mazeCostCellId = $state<NodeId | null>(null);
+
+	/** The cell a tap last landed on, which is what the touch menu acts on. */
+	let selectedCellId = $derived(
+		editorState.selection?.type === 'cell' ? editorState.selection.id : null
+	);
 	let renderGrid = $derived(
 		playback.problem?.type === 'grid' ? playback.problem.grid : environmentState.grid
 	);
@@ -50,7 +66,13 @@
 
 		const resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
-				renderer?.resize(entry.contentRect.width, entry.contentRect.height);
+				const box = entry.contentBoxSize?.[0];
+				const width = box ? box.inlineSize : entry.contentRect.width;
+				const height = box ? box.blockSize : entry.contentRect.height;
+				renderer?.resize(width, height);
+				// A resize of the container alone is not the user adjusting the
+				// view, so it must not be taken as one.
+				if (!userAdjustedView) renderer?.fitToView();
 			}
 		});
 		resizeObserver.observe(container);
@@ -59,6 +81,7 @@
 			if (disposed || !container) return;
 			renderer = new Renderer(container);
 			renderer.setContext(editorState, environmentState);
+			renderer.setViewportAdjustedHandler(() => (userAdjustedView = true));
 			renderer.setContextMenuHandler((cellId) => {
 				if (cellId !== null && environmentState.grid.nodes.has(cellId)) {
 					mazeCellTarget = cellId;
@@ -107,6 +130,21 @@
 		}
 	});
 
+	/**
+	 * Re-fit when the grid's *shape* changes.
+	 *
+	 * Growing a 30x40 grid to 100x100 leaves the old fit scale, so the maze runs
+	 * off every edge with the only way back behind a control that may be under
+	 * the transport dock. Shape rather than edits, because a painted wall must
+	 * not throw away a viewport the user has positioned by hand.
+	 */
+	$effect(() => {
+		const shape = `${environmentState.gridRows}x${environmentState.gridCols}`;
+		void shape;
+		userAdjustedView = false;
+		renderer?.fitToView();
+	});
+
 	// Re-render visualization when vizState changes
 	$effect(() => {
 		if (renderer) {
@@ -122,6 +160,17 @@
 
 	function handleMenuOpenChange(open: boolean) {
 		menuOpen = open && mazeCellTarget !== null;
+	}
+
+	/**
+	 * The touch path into the cell menu: target whatever the selection is, which
+	 * a tap has just set, then open. A no-op without a selection, so the button
+	 * is only rendered when there is something to act on.
+	 */
+	function openCellMenuForSelection() {
+		if (selectedCellId === null) return;
+		mazeCellTarget = selectedCellId;
+		menuOpen = true;
 	}
 
 	function openMazeCostDialog(cellId: NodeId) {
@@ -191,15 +240,41 @@
 	{/if}
 
 	{#snippet zoomButton(Icon: Component<{ class?: string }>, label: string, onClick: () => void)}
-		<Button variant="ghost" size="icon" class="h-10 w-10 sm:h-8 sm:w-8" onclick={onClick} title={label}>
+		<Button variant="ghost" size="icon" class="h-tap w-tap sm:h-8 sm:w-8" onclick={onClick} title={label}>
 			<Icon class="h-4 w-4" />
 			<span class="sr-only">{label}</span>
 		</Button>
 	{/snippet}
 
-	<div class="absolute bottom-20 right-4 z-10 flex flex-col gap-2 rounded-md border bg-background/80 p-1 shadow-sm backdrop-blur-sm sm:bottom-4">
+	<!--
+		A touch path to the cell menu.
+
+		`ContextMenu` fires on `contextmenu`, which no mobile browser synthesises
+		for a canvas, so on a phone the whole menu - set start, set goal, toggle
+		wall, set cost - was unreachable. This opens the same controlled menu for
+		the cell under the current selection, which a tap has already set.
+	-->
+	{#if selectedCellId !== null}
+		<Button
+			variant="outline"
+			size="sm"
+			class="absolute bottom-2 left-2 z-10 h-9 gap-1.5 bg-background/90 px-2.5 text-xs backdrop-blur-sm sm:hidden"
+			onclick={openCellMenuForSelection}
+			aria-label="Cell actions"
+		>
+			<SlidersHorizontal class="h-3.5 w-3.5" />
+			Cell actions
+		</Button>
+	{/if}
+
+	<div
+		class="absolute bottom-2 right-2 z-10 flex flex-col gap-1 rounded-lg border bg-background/80 p-1 shadow-sm backdrop-blur-sm sm:bottom-4 sm:right-4"
+	>
 		{@render zoomButton(ZoomIn, 'Zoom In', () => renderer?.zoomIn())}
 		{@render zoomButton(ZoomOut, 'Zoom Out', () => renderer?.zoomOut())}
-		{@render zoomButton(Maximize, 'Fit to View', () => renderer?.fitToView())}
+		{@render zoomButton(Maximize, 'Fit to View', () => {
+			userAdjustedView = false;
+			renderer?.fitToView();
+		})}
 	</div>
 </div>

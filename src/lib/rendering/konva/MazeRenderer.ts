@@ -71,6 +71,17 @@ export class MazeRenderer {
 	private currentTheme: 'light' | 'dark' = 'dark';
 	private showCosts: boolean = true;
 
+	/**
+	 * Notifies the host that the user has taken the viewport into their own
+	 * hands - panned, wheel-zoomed or pinched.
+	 *
+	 * The host uses this to decide whether a container resize should re-fit.
+	 * Auto-fitting on every resize is right until the user has framed something
+	 * themselves, at which point snapping it back on every rotation or browser
+	 * chrome change is the wrong behaviour.
+	 */
+	private onViewportAdjustedHandler: (() => void) | null = null;
+
 	constructor(container: HTMLDivElement) {
 		this.stage = new Konva.Stage({
 			container,
@@ -163,6 +174,15 @@ export class MazeRenderer {
 		this.contextMenuHandler = handler;
 	}
 
+	/** @see onViewportAdjustedHandler */
+	public setViewportAdjustedHandler(handler: () => void) {
+		this.onViewportAdjustedHandler = handler;
+	}
+
+	private markViewportAdjusted() {
+		this.onViewportAdjustedHandler?.();
+	}
+
 	private setupEvents() {
 		let isPanning = false;
 		let panPointerId: number | null = null;
@@ -188,10 +208,51 @@ export class MazeRenderer {
 
 		this.stage.on('wheel', (e) => {
 			this.viewport.handleWheel(e);
+			this.markViewportAdjusted();
 			this.updateBackground();
 		});
 
+		/*
+		 * Pinch to zoom.
+		 *
+		 * A wheel event is never synthesised on a touch device, so the three zoom
+		 * buttons are the only way to change scale on a phone - and at the fit scale
+		 * a 30x40 maze lands at roughly 9px per cell, which is not enough to paint
+		 * a wall accurately or to see the difference between two similar frontiers.
+		 *
+		 * Konva's own pinch handling is bypassed by the hit-rect event graph below,
+		 * so the active touch points are tracked here. They cannot be read off the
+		 * event: a touch arrives as a PointerEvent, and a PointerEvent has no
+		 * `touches` list - only the raw TouchEvent does, and Konva hands over the
+		 * pointer event.
+		 */
+		const touches = new Map<number, { x: number; y: number }>();
+		let pinchDistance: number | null = null;
+
+		const stagePoint = (clientX: number, clientY: number) => {
+			const rect = this.stage.container().getBoundingClientRect();
+			return { x: clientX - rect.left, y: clientY - rect.top };
+		};
+
+		/** The spread and centroid of the active touches, or null below two fingers. */
+		const pinchFrame = () => {
+			if (touches.size < 2) return null;
+			const [a, b] = [...touches.values()];
+			return {
+				distance: Math.hypot(a.x - b.x, a.y - b.y),
+				center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+			};
+		};
+
+		/**
+		 * Whether more than one finger is down. A second finger arriving mid-drag
+		 * means the user began a pinch rather than a wall stroke, so the in-progress
+		 * paint is abandoned instead of committed.
+		 */
+		const isPinching = () => touches.size > 1;
+
 		this.hitRect.on('pointerdown', (e) => {
+			if (isPinching()) return;
 			if (isPanInput(e.evt)) {
 				beginPan(e);
 				return;
@@ -207,13 +268,14 @@ export class MazeRenderer {
 		});
 
 		this.hitRect.on('pointermove', (e) => {
-			if (isPanning) return;
+			if (isPanning || isPinching()) return;
 			this.updateHoverHighlight();
 			if (!this.editorStateRef || !this.envStateRef) return;
 			this.interaction.handlePointerMove(e, this.editorStateRef, this.envStateRef);
 		});
 
 		this.hitRect.on('pointerup', (e) => {
+			if (isPinching()) return;
 			if (isPanInput(e.evt) || isPanning) {
 				endPan(e);
 				return;
@@ -243,10 +305,31 @@ export class MazeRenderer {
 			if (isPanInput(e.evt)) {
 				beginPan(e);
 			}
+			if (e.evt.pointerType !== 'touch') return;
+			touches.set(e.pointerId, stagePoint(e.evt.clientX, e.evt.clientY));
+			if (!pinchFrame()) return;
+			// A second finger means a pinch, not a stroke: drop any paint in
+			// progress rather than committing a wall at the pinch's start point.
+			pinchDistance = pinchFrame()?.distance ?? null;
+			if (this.editorStateRef) {
+				this.interaction.handlePointerCancel(this.editorStateRef);
+			}
+			this.clearHover();
 		});
 
 		this.stage.on('pointermove', (e) => {
-			if (!isPanning) return;
+			if (e.evt.pointerType === 'touch' && touches.has(e.pointerId)) {
+				touches.set(e.pointerId, stagePoint(e.evt.clientX, e.evt.clientY));
+			}
+			const frame = pinchFrame();
+			if (frame && pinchDistance && pinchDistance > 0) {
+				this.viewport.handlePinch(frame.distance / pinchDistance, stagePoint(frame.center.x, frame.center.y));
+				pinchDistance = frame.distance;
+				this.markViewportAdjusted();
+				this.updateBackground();
+				return;
+			}
+			if (isPinching() || !isPanning) return;
 			if (panPointerId !== null && e.pointerId !== panPointerId) return;
 			const pos = this.stage.getPointerPosition();
 			if (!pos) return;
@@ -255,10 +338,13 @@ export class MazeRenderer {
 			this.stage.x(this.stage.x() + dx);
 			this.stage.y(this.stage.y() + dy);
 			lastPos = { x: pos.x, y: pos.y };
+			this.markViewportAdjusted();
 			this.updateBackground();
 		});
 
 		this.stage.on('pointerup', (e) => {
+			touches.delete(e.pointerId);
+			if (touches.size < 2) pinchDistance = null;
 			if (isNonPrimaryButton(e.evt) && this.editorStateRef) {
 				this.interaction.handlePointerCancel(this.editorStateRef);
 			}
@@ -266,6 +352,8 @@ export class MazeRenderer {
 		});
 
 		this.stage.on('pointercancel', (e) => {
+			touches.delete(e.pointerId);
+			if (touches.size < 2) pinchDistance = null;
 			endPan(e);
 			if (this.editorStateRef) {
 				this.interaction.handlePointerCancel(this.editorStateRef);
@@ -383,20 +471,33 @@ export class MazeRenderer {
 		this.stage.batchDraw();
 	}
 
-	public fitToView() {
-		if (this.currentGrid) {
-			this.viewport.fitToView(this.currentGrid.cols, this.currentGrid.rows, this.cellSize);
-			this.updateBackground();
-		}
+	/**
+	 * Frame the whole grid.
+	 *
+	 * Returns whether it could: a zero-sized stage is not an error, it is a
+	 * stage that has not been laid out yet, and the caller's next resize will
+	 * fit it.
+	 */
+	public fitToView(): boolean {
+		if (!this.currentGrid) return false;
+		const fitted = this.viewport.fitToView(
+			this.currentGrid.cols,
+			this.currentGrid.rows,
+			this.cellSize
+		);
+		if (fitted) this.updateBackground();
+		return fitted;
 	}
-	
+
 	public zoomIn() {
 		this.viewport.zoomIn();
+		this.markViewportAdjusted();
 		this.updateBackground();
 	}
-	
+
 	public zoomOut() {
 		this.viewport.zoomOut();
+		this.markViewportAdjusted();
 		this.updateBackground();
 	}
 

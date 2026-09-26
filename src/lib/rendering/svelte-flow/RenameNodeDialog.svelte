@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { invalidatePlaybackIfNeeded } from '$lib/state/invalidate';
@@ -43,12 +44,15 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Rename node</Dialog.Title>
+			<Dialog.Description>
+				The label is drawn on the node in the canvas.
+			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-2">
 			<Label for="node-rename-input">Label</Label>
-			<input
+			<Input
 				id="node-rename-input"
-				class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+				autofocus
 				bind:value
 				onkeydown={onKeydown}
 			/>

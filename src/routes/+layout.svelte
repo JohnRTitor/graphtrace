@@ -6,7 +6,6 @@
 	import { editorState } from '$lib/state/editor.svelte';
 	import { availableEditModes } from '$lib/state/editor-modes';
 	import { environmentState } from '$lib/state/environment.svelte';
-	import { executionStore } from '$lib/state/execution-store.svelte';
 	import { onMount, onDestroy } from 'svelte';
 
 	let { children } = $props();
@@ -51,8 +50,24 @@
 		) !== null;
 	}
 
+	/**
+	 * Overlays that own the keyboard while they are open.
+	 *
+	 * Scoped to modals and menus on purpose. A blanket `[data-state="open"]` also
+	 * matches a `Collapsible`, a `Popover` and a tab panel's neighbour - so one
+	 * expanded disclosure anywhere in the app silently disabled every single-key
+	 * shortcut, which is exactly what happened when the transport dock got a
+	 * `Collapsible` for its secondary controls. A dialog traps focus and a menu
+	 * owns the arrow and space keys; a disclosure owns neither.
+	 */
+	const OPEN_OVERLAY_SELECTOR = [
+		'[role="dialog"][data-state="open"]',
+		'[role="menu"][data-state="open"]',
+		'[role="listbox"][data-state="open"]'
+	].join(', ');
+
 	function hasOpenOverlay(): boolean {
-		return document.querySelector('[data-state="open"]') !== null;
+		return document.querySelector(OPEN_OVERLAY_SELECTOR) !== null;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {

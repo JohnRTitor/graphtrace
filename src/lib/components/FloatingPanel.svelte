@@ -191,18 +191,17 @@
 
 <div
 	bind:this={panelElement}
-	class="absolute z-10 w-72 transition-shadow {isDragging ? 'shadow-xl' : 'shadow-md'}"
+	class="absolute z-30 w-[min(20rem,calc(100vw-2rem))] transition-shadow {isDragging ? 'shadow-raised' : 'shadow-rest'}"
 	role="region"
 	aria-label={id}
 	style:right={x === undefined ? '16px' : 'auto'}
 	style:top={y === undefined ? '16px' : `${y}px`}
 	style:left={x === undefined ? 'auto' : `${x}px`}
-	style:touch-action="none"
 >
-	<div class="bg-card text-card-foreground rounded-xl border flex flex-col overflow-hidden {isDragging ? 'select-none' : ''}">
+	<div class="flex flex-col overflow-hidden rounded-xl border bg-card text-card-foreground {isDragging ? 'select-none' : ''}">
 		<!-- Header/Handle -->
 		<div
-			class="cursor-grab touch-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+			class="cursor-grab touch-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none active:cursor-grabbing"
 			role="button"
 			tabindex="0"
 			aria-label={`Move ${id} panel`}
@@ -215,7 +214,7 @@
 		>
 			{@render header?.()}
 		</div>
-		
+
 		<!-- Content -->
 		<div class={isDragging ? 'pointer-events-none' : ''}>
 			{@render children?.()}

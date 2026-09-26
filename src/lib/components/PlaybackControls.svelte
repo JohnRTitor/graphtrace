@@ -1,14 +1,22 @@
 <script lang="ts">
 	import {
-	playbackState,
-	comparePlaybackStates,
-	TIMELINE_STEP,
-	type PlaybackState
-} from '$lib/state/playback.svelte';
+		playbackState,
+		comparePlaybackStates,
+		TIMELINE_STEP,
+		type PlaybackState
+	} from '$lib/state/playback.svelte';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { buildTimeline, kindToTraceToken, kindsInOrder, TIMELINE_BUCKETS } from '$lib/trace/timeline';
-	import { nextStepOfKind, previousStepOfKind, type TraceEvent } from '$lib/trace/types';
+	import { nextStepOfKind, previousStepOfKind } from '$lib/trace/types';
+	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import { ButtonGroup } from '$lib/components/ui/button-group';
 	import { Button } from '$lib/components/ui/button';
+	import {
+		Collapsible,
+		CollapsibleContent,
+		CollapsibleTrigger
+	} from '$lib/components/ui/collapsible';
+	import { Label } from '$lib/components/ui/label';
 	import { Slider } from '$lib/components/ui/slider';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
@@ -17,6 +25,7 @@
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 
 	/**
 	 * The transport dock.
@@ -132,27 +141,47 @@
 		return kind ?? null;
 	});
 
+	/**
+	 * The event-kind strip, behind a disclosure.
+	 *
+	 * Jumping by kind is how a long trace is navigated, and a minimax trace runs to
+	 * tens of thousands of events - but it is a secondary control, and it is the
+	 * one row of the dock that is not needed to watch a trace play. It starts
+	 * closed so the dock is the same height at every viewport, which is what lets
+	 * the canvas be a fixed function of the screen rather than of how many event
+	 * kinds happen to be in the loaded trace.
+	 *
+	 * It is one row rather than a wrapping grid: a trace can carry a dozen kinds,
+	 * and wrapping turned the primary navigation for a minimax trace into three
+	 * rows of 17px targets.
+	 */
+	let jumpOpen = $state(false);
+
 	$effect(() => {
 		playbackState.setSpeed(speed);
 		for (const state of comparePlaybackStates) state.setSpeed(speed);
 	});
 </script>
 
-<div class="flex flex-col gap-3">
+<div class="flex flex-col gap-2 sm:gap-3">
 	{#if environmentState.runError}
-		<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
-			{environmentState.runError}
-		</p>
+		<Alert variant="destructive" class="rounded-lg py-2">
+			<AlertDescription class="text-xs">{environmentState.runError}</AlertDescription>
+		</Alert>
 	{/if}
 
-	<div class="flex items-center justify-between">
-		<h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Playback</h3>
-		<div class="gt-mono flex items-center gap-2 text-[11px] text-muted-foreground">
+	<div class="flex items-center justify-between gap-2">
+		<h3 class="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+			Playback
+		</h3>
+		<div class="gt-mono flex items-center gap-1.5 text-[11px] text-muted-foreground">
 			{#if currentKindLabel}
-				<span class="rounded bg-muted px-1.5 py-0.5">at {currentKindLabel}</span>
+				<span class="truncate rounded bg-muted px-1.5 py-0.5">at {currentKindLabel}</span>
 			{/if}
-			<span>{playbackState.currentStep} / {playbackState.totalSteps}</span>
-			<span>({Math.round(progressValue)}%)</span>
+			<span class="shrink-0 tabular-nums">
+				{playbackState.currentStep}/{playbackState.totalSteps}
+			</span>
+			<span class="shrink-0 tabular-nums">{Math.round(progressValue)}%</span>
 		</div>
 	</div>
 
@@ -169,7 +198,7 @@
 	-->
 	<div class="relative">
 		<div
-			class="relative h-9 w-full overflow-hidden rounded-md border bg-muted/40"
+			class="relative h-11 w-full overflow-hidden rounded-lg border bg-muted/40 sm:h-9"
 			role="presentation"
 			aria-hidden="true"
 		>
@@ -206,7 +235,7 @@
 			></div>
 		</div>
 
-		<div class="absolute inset-x-0 top-0 px-1">
+		<div class="absolute inset-x-0 top-0 flex h-11 items-center px-1 sm:h-9">
 			<Slider
 				aria-label="Trace position"
 				type="single"
@@ -226,58 +255,12 @@
 		</div>
 	</div>
 
-	<!--
-		Event-kind navigation. Each kind present in the trace gets a jump control
-		labelled with its own reserved colour, so the same affordance works for
-		`discover` in a grid and `prune` in a game tree.
-	-->
-	{#if kinds.length > 0}
-		<div class="flex flex-wrap items-center gap-1">
-			<span class="text-[10px] uppercase tracking-wide text-muted-foreground">jump</span>
-			{#each kinds as kind (kind)}
-				{@const token = kindToTraceToken(kind)}
-				<div class="flex items-center overflow-hidden rounded border">
-					<button
-						type="button"
-						class="px-1 py-0.5 text-[10px] gt-transition-feedback hover:bg-accent"
-						onclick={() => jump(kind, 'prev')}
-						title={`Previous ${kind} event`}
-						aria-label={`Jump to previous ${kind} event`}
-					>
-						<ChevronLeft class="h-3 w-3" />
-					</button>
-					<button
-						type="button"
-						class="flex items-center gap-1 border-x px-1.5 py-0.5 text-[10px] font-medium gt-transition-feedback hover:bg-accent"
-						onclick={() => jump(kind, 'next')}
-						title={`Next ${kind} event`}
-					>
-						<span
-							class="gt-trace-swatch !h-2 !w-2"
-							style:background-color={token === 'neutral'
-								? 'var(--muted-foreground)'
-								: `var(--trace-${token})`}
-						></span>
-						{kind}
-					</button>
-					<button
-						type="button"
-						class="px-1 py-0.5 text-[10px] gt-transition-feedback hover:bg-accent"
-						onclick={() => jump(kind, 'next')}
-						title={`Next ${kind} event`}
-						aria-label={`Jump to next ${kind} event`}
-					>
-						<ChevronRight class="h-3 w-3" />
-					</button>
-				</div>
-			{/each}
-		</div>
-	{/if}
-
-	<div class="flex items-center justify-center gap-2">
+	<ButtonGroup class="w-full justify-center">
 		<Button
+			data-slot="button-group"
 			variant="outline"
 			size="icon"
+			class="h-tap w-tap sm:h-9 sm:w-9"
 			onclick={resetAll}
 			disabled={!hasTrace}
 			title="Reset (R)"
@@ -286,8 +269,10 @@
 			<span class="sr-only">Reset</span>
 		</Button>
 		<Button
+			data-slot="button-group"
 			variant="outline"
 			size="icon"
+			class="h-tap w-tap sm:h-9 sm:w-9"
 			onclick={stepBackAll}
 			disabled={!hasTrace || playbackState.currentStep === 0}
 			title="Step Back (B)"
@@ -295,17 +280,25 @@
 			<SkipBack class="h-4 w-4" />
 			<span class="sr-only">Step Back</span>
 		</Button>
-		<Button variant="default" size="icon" class="h-10 w-10" onclick={togglePlayPause} title="Play/Pause (Space)">
+		<Button
+			data-slot="button-group"
+			size="icon"
+			class="h-tap w-tap sm:h-10 sm:w-10"
+			onclick={togglePlayPause}
+			title="Play/Pause (Space)"
+		>
 			{#if playbackState.isRunning}
 				<Pause class="h-5 w-5" />
 			{:else}
-				<Play class="ml-1 h-5 w-5" />
+				<Play class="ml-0.5 h-5 w-5" />
 			{/if}
 			<span class="sr-only">Play/Pause</span>
 		</Button>
 		<Button
+			data-slot="button-group"
 			variant="outline"
 			size="icon"
+			class="h-tap w-tap sm:h-9 sm:w-9"
 			onclick={stepAll}
 			disabled={playbackState.isRunning}
 			title="Step Forward (N)"
@@ -313,13 +306,79 @@
 			<SkipForward class="h-4 w-4" />
 			<span class="sr-only">Step Forward</span>
 		</Button>
-	</div>
+	</ButtonGroup>
 
 	<div class="space-y-1.5">
-		<div class="flex items-center justify-between">
-			<label for="speed-slider" class="text-[11px] text-muted-foreground">Speed</label>
-			<span class="gt-mono text-[11px] tabular-nums text-muted-foreground">{speed} ev/s</span>
+		<div class="flex items-center justify-between gap-2">
+			<Label for="speed-slider" class="text-[11px] font-normal text-muted-foreground">
+				Speed
+			</Label>
+			<span class="gt-mono text-[11px] tabular-nums text-muted-foreground">
+				{speed} ev/s
+			</span>
 		</div>
 		<Slider id="speed-slider" type="single" bind:value={speed} min={1} max={2000} step={1} class="w-full" />
 	</div>
+
+	{#if kinds.length > 0}
+		<Collapsible bind:open={jumpOpen}>
+			<CollapsibleTrigger
+				class="flex h-9 w-full items-center justify-between gap-2 rounded-md px-1 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
+			>
+				<span class="truncate">
+					Jump by event kind
+					<span class="normal-case">({kinds.length})</span>
+				</span>
+				<ChevronsUpDown class="h-3.5 w-3.5 shrink-0" />
+			</CollapsibleTrigger>
+
+			<CollapsibleContent class="pt-1">
+				<!--
+					Event-kind navigation. Each kind present in the trace gets a jump
+					control labelled with its own reserved colour, so the same affordance
+					works for `discover` in a grid and `prune` in a game tree.
+				-->
+				<div class="gt-scroll-x -mx-1 flex items-center gap-1 px-1">
+					{#each kinds as kind (kind)}
+						{@const token = kindToTraceToken(kind)}
+						<div class="flex shrink-0 items-center overflow-hidden rounded-lg border">
+							<button
+								type="button"
+								class="flex h-9 w-9 items-center justify-center gt-transition-feedback hover:bg-accent sm:h-8 sm:w-8"
+								onclick={() => jump(kind, 'prev')}
+								title={`Previous ${kind} event`}
+								aria-label={`Jump to previous ${kind} event`}
+							>
+								<ChevronLeft class="h-3.5 w-3.5" />
+							</button>
+							<button
+								type="button"
+								class="gt-mono flex h-9 items-center gap-1 border-x px-2 text-[11px] font-medium gt-transition-feedback hover:bg-accent sm:h-8 sm:px-1.5 sm:text-[10px]"
+								onclick={() => jump(kind, 'next')}
+								title={`Next ${kind} event`}
+								aria-label={`Jump to next ${kind} event`}
+							>
+								<span
+									class="gt-trace-swatch !h-2 !w-2"
+									style:background-color={token === 'neutral'
+										? 'var(--muted-foreground)'
+										: `var(--trace-${token})`}
+								></span>
+								{kind}
+							</button>
+							<button
+								type="button"
+								class="flex h-9 w-9 items-center justify-center gt-transition-feedback hover:bg-accent sm:h-8 sm:w-8"
+								onclick={() => jump(kind, 'next')}
+								title={`Next ${kind} event`}
+								aria-label={`Jump to next ${kind} event`}
+							>
+								<ChevronRight class="h-3.5 w-3.5" />
+							</button>
+						</div>
+					{/each}
+				</div>
+			</CollapsibleContent>
+		</Collapsible>
+	{/if}
 </div>

@@ -170,8 +170,13 @@ describe('design tokens', () => {
 	});
 
 	it('documents its radii and elevation', () => {
-		expect(Object.keys(radii)).toEqual(['sm', 'md', 'lg', 'xl', 'full']);
+		expect(Object.keys(radii)).toEqual(['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', 'full']);
 		expect(radii.lg).toBe(0.5);
+		// The luma registry's Toggle, Button and Dialog render at rounded-3xl and
+		// rounded-4xl. Left at their stock values they are pills on a 36px control
+		// and a different corner from every card in the same panel.
+		expect(radii['3xl']).toBeLessThan(1);
+		expect(radii['4xl']).toBe(radii['3xl']);
 		expect(PRUNED_OPACITY).toBeGreaterThan(0);
 		expect(PRUNED_OPACITY).toBeLessThan(1);
 	});
@@ -181,7 +186,10 @@ describe('design tokens', () => {
 
 		// The doc is only useful if it describes the shipped values, so the values
 		// it quotes are checked rather than trusted.
-		expect(doc).toContain(`--radius-lg\` | \`${radii.lg}rem\``);
+		for (const [name, value] of Object.entries(radii)) {
+			if (name === 'full') continue;
+			expect(doc).toContain(`--radius-${name}\` | \`${value}rem\``);
+		}
 		for (const value of Object.values(elevation)) {
 			expect(doc).toContain(value);
 			expect(themeBlock).toContain(value);
