@@ -11,7 +11,7 @@
 		type Edge
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import { environmentState } from '$lib/state/environment.svelte';
 	import { editorState } from '$lib/state/editor.svelte';
@@ -61,7 +61,13 @@
 		// Re-fit when the tree's shape changes, not on every trace step: refitting
 		// per step would fight the user's own panning.
 		void tree.nodes.size;
-		if (browser) fitView({ duration: 200 });
+		// `untrack` is load-bearing. `fitView` reads the viewport to decide where to
+		// pan and then writes it, and inside an effect those reads become
+		// dependencies of this effect - so writing the viewport re-triggers it,
+		// which fits again. An animated fit then re-arms itself every frame until
+		// Svelte aborts with `effect_update_depth_exceeded` and the page stops
+		// responding to input entirely.
+		if (browser) untrack(() => fitView({ duration: 200 }));
 	});
 
 	function handleNodeClick({ node }: { node: Node }) {

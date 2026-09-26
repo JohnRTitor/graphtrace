@@ -10,7 +10,7 @@
 	import GraphEdgeComponent from './GraphEdge.svelte';
 	import { toFlowNodes, toFlowEdges, extractPathEdges, graphStructureKey } from './flow-adapter';
 import { graphColorsFor } from './types';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import GraphBackgroundMenu from './GraphBackgroundMenu.svelte';
@@ -82,7 +82,11 @@ import { graphColorsFor } from './types';
 
 	$effect(() => {
 		void graphShape;
-		if (browser) fitView({ duration: 0 });
+		// `untrack` is load-bearing: `fitView` reads the viewport and then writes
+		// it, and inside an effect those reads become dependencies, so the write
+		// re-triggers this effect and it fits again - a loop that ends in
+		// `effect_update_depth_exceeded` and an unresponsive page.
+		if (browser) untrack(() => fitView({ duration: 0 }));
 	});
 
 	let nodes = $derived.by(() => {
