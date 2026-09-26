@@ -3,7 +3,12 @@ import { gameTreeEventKinds } from '../../algorithms/adversarial/types';
 import { adversarialEnvironmentTypes } from '../../generators/types';
 import { adversarialMetricColumns } from './metrics';
 import { adversarialInspectorSchema } from './inspector';
-import { applyGameTreeEvent, createGameTreeTraceState, wrapGameTreeEvents } from './tree-state';
+import {
+	applyGameTreeEvent,
+	createGameTreeTraceState,
+	stepInto,
+	wrapGameTreeEvents
+} from './tree-state';
 import { environmentState } from '../../state/environment.svelte';
 import type { Problem } from '../../domain/problem';
 import type { GameTreeEvent } from '../../algorithms/adversarial/types';
@@ -44,8 +49,14 @@ export const adversarialFamily: ProblemFamily = {
 			environmentState.familyId === 'adversarial' ? environmentState.gameTree : undefined;
 		return applyGameTreeEvent(state as never, event.payload as GameTreeEvent, tree);
 	},
-	toTraceEvents: (trace) => wrapGameTreeEvents(trace as readonly GameTreeEvent[]),
-	algorithmSummaries: () =>
+	/**
+	 * In-place equivalent of `reduce` for the playback engine. The snapshot tree is
+	 * threaded through by the codec, which is the only place that knows which
+	 * execution is loaded; the `reduce` path above falls back to the live
+	 * environment instead.
+	 */
+	stepInto: (state, event, tree) => stepInto(state as never, event.payload as GameTreeEvent, tree),
+	toTraceEvents: (trace) => wrapGameTreeEvents(trace as readonly GameTreeEvent[]),	algorithmSummaries: () =>
 		allAlgorithmSummaries().filter((summary) => summary.familyId === 'adversarial'),
 	legend: () => [
 		{ token: 'frontier', label: 'Pending', description: 'Not yet reached by the search.' },

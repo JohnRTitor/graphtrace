@@ -4,6 +4,7 @@ import { pathfindingMetricColumns } from './metrics';
 import {
 	createPathfindingTraceState,
 	reducePathfinding,
+	stepIntoPathfinding,
 	wrapPathfindingEvents
 } from './trace';
 import { pathfindingInspectorSchema } from './inspector';
@@ -38,6 +39,7 @@ export const pathfindingFamily: ProblemFamily = {
 
 	matchProblem: (problem: Problem) => problem.type === 'grid' || problem.type === 'graph',
 	createTraceState: createPathfindingTraceState,
+	stepInto: stepIntoPathfinding,
 	reduce: reducePathfinding,
 	toTraceEvents: (trace) => wrapPathfindingEvents(trace as Parameters<typeof wrapPathfindingEvents>[0]),
 	algorithmSummaries: () =>

@@ -7,20 +7,22 @@ import type { ProblemFamily } from '../families/types';
 import { getFamily } from '../families/registry';
 import type { TraceEvent, TraceState } from '../trace/types';
 import { asGameTreeState, asPathfindingState } from '../families/pathfinding/trace';
-import {
-	stepInto,
-	type GameTreeTraceState
-} from '../families/adversarial/tree-state';
-import type { GameTreeEvent } from '../algorithms/adversarial/types';
+import type { GameTreeTraceState } from '../families/adversarial/tree-state';
 import type { GameTree } from '../graph/game-tree';
 import type { MetricsRecord } from '../trace/types';
 
 /**
  * Builds the codec the engine folds a family's events with.
  *
- * `stepInto` is the in-place fast path. The game-tree reducer additionally needs
- * the tree snapshot to dim a whole pruned subtree, which the engine has no way of
- * knowing about, so the codec closes over it here.
+ * `stepInto` is a family's own in-place fast path, and the family declares it.
+ * It used to be hardcoded to the game-tree reducer here, which meant a pathfinding
+ * trace was folded by a reducer that does not understand its events: the state
+ * came back unchanged, `cellStates` stayed empty, and the maze never painted
+ * while the playhead advanced - the engine's step counter is independent of the
+ * state, so the trace looked like it was playing.
+ *
+ * The tree snapshot is threaded through for the game-tree family, which needs it
+ * to dim a whole pruned subtree and which the engine has no way of knowing about.
  */
 function codecFor(family: ProblemFamily | undefined, tree?: GameTree): TraceCodec {
 	if (!family) {
@@ -32,10 +34,11 @@ function codecFor(family: ProblemFamily | undefined, tree?: GameTree): TraceCode
 	return {
 		createState: () => family.createTraceState(),
 		reduce: (state, event) => family.reduce(state, { step: -1, kind: '', payload: event }),
-		// The tree snapshot is needed to dim a whole pruned subtree, which the
-		// engine has no way of knowing about, so the codec closes over it.
-		stepInto: (state, event) =>
-			stepInto(state as GameTreeTraceState, event as GameTreeEvent, tree)
+		// A family without a fast path falls back to `reduce`, which is the whole
+		// point of it being optional.
+		stepInto: family.stepInto
+			? (state, event) => family.stepInto!(state, { step: -1, kind: '', payload: event }, tree)
+			: undefined
 	};
 }
 

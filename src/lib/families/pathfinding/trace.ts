@@ -1,4 +1,4 @@
-import { applyEvent } from '../../visualization/trace-reducer';
+import { applyEvent, stepInto } from '../../visualization/trace-reducer';
 import type { VisualizationState } from '../../visualization/types';
 import type { AlgorithmEvent } from '../../algorithms/types';
 import { toTraceEvents, type TraceEvent } from '../../trace/types';
@@ -43,6 +43,19 @@ export function wrapPathfindingEvents(
 export function reducePathfinding(state: TraceState, event: TraceEvent): TraceState {
 	if (!isPathfindingState(state)) return state;
 	return applyEvent(state, event.payload as AlgorithmEvent);
+}
+
+/**
+ * In-place equivalent of {@link reducePathfinding} for the playback engine.
+ *
+ * The engine prefers this over `reduce`, so a family that supplies it must
+ * accept that its state is mutated between steps. The state handed back is a
+ * fresh shallow copy, which is what makes the renderer see a new value while
+ * the expensive nested structures are shared rather than cloned.
+ */
+export function stepIntoPathfinding(state: TraceState, event: TraceEvent): TraceState {
+	if (!isPathfindingState(state)) return state;
+	return stepInto(state, event.payload as AlgorithmEvent);
 }
 
 export function asPathfindingState(state: TraceState | null): PathfindingTraceState | null {

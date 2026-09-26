@@ -3,6 +3,7 @@ import type { Problem } from '../domain/problem';
 import type { EnvironmentType } from '../generators/types';
 import type { MetricColumn, TraceEvent, TraceState } from '../trace/types';
 import type { AlgorithmSummary } from '../algorithms/types';
+import type { GameTree } from '../graph/game-tree';
 
 /**
  * A field in the inspector schema.
@@ -87,6 +88,19 @@ export type ProblemFamily = {
 	matchProblem: (problem: Problem) => boolean;
 	createTraceState: () => TraceState;
 	reduce: (state: TraceState, event: TraceEvent) => TraceState;
+	/**
+	 * In-place fast path for the playback engine, equivalent to `reduce` but
+	 * allowed to mutate and return the same state object.
+	 *
+	 * Optional: the engine falls back to `reduce` when a family does not supply
+	 * one, so this is only for families whose trace is hot enough to be worth a
+	 * hand-written mutating reducer.
+	 *
+	 * The `tree` is the game tree the execution was snapshotted with. Only the
+	 * game-tree family needs it, to dim a pruned subtree, but it is threaded
+	 * through uniformly rather than special-cased per family.
+	 */
+	stepInto?: (state: TraceState, event: TraceEvent, tree?: GameTree) => TraceState;
 	/** Wraps a family's native trace into the shared envelope. */
 	toTraceEvents: (trace: readonly unknown[]) => TraceEvent[];
 	/** Algorithm summaries for the palette, resolved from the algorithm registry. */
