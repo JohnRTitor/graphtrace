@@ -256,37 +256,12 @@ export function stepForPercentage(percentage: number, totalSteps: number): numbe
 }
 
 /**
- * The step the timeline scrubber moves in. Shared with `quantiseToStep` so the
- * guard mirrors the slider's own rounding instead of guessing at it.
+ * The step the timeline scrubber moves in.
+ *
+ * Owned here so the slider's `step` and the percentage arithmetic that reads it
+ * cannot drift apart.
  */
 export const TIMELINE_STEP = 0.05;
-
-/** Rounds a value onto the slider's grid, the way the slider itself does. */
-export function quantiseToStep(value: number, step: number = TIMELINE_STEP): number {
-	if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) return 0;
-	return Math.round(value / step) * step;
-}
-
-/**
- * Whether a timeline slider emission is the playhead echoing its own position
- * rather than the user scrubbing.
- *
- * The slider is controlled, but its `onValueChange` is called from the value
- * *setter*, so pushing a new position in from outside fires it exactly as a drag
- * does. During playback that happens on every step, and the handler pauses and
- * seeks - so playback stopped itself on its first frame: it ran for a moment and
- * then stopped, leaving the readout at "1 / 36 (3%)" and the trace back at the
- * start.
- *
- * The comparison is on the quantised value rather than on the step it maps to.
- * Deriving the step instead does not work: the slider rounds to its 0.05 grid, so
- * for a 36-event trace step 2 sits at 5.5555…% and rounds down to 5.55%, which
- * floors back to step 1. That is one step away from where the playhead actually
- * is, and it is enough to look like a drag.
- */
-export function isPlaybackEcho(emitted: number, currentProgress: number): boolean {
-	return Number.isFinite(emitted) && quantiseToStep(currentProgress) === emitted;
-}
 
 export const playbackState = new PlaybackState('active');
 

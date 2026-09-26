@@ -2,7 +2,6 @@
 	import {
 	playbackState,
 	comparePlaybackStates,
-	isPlaybackEcho,
 	TIMELINE_STEP,
 	type PlaybackState
 } from '$lib/state/playback.svelte';
@@ -91,13 +90,23 @@
 		for (const state of panes) state.reset();
 	}
 
+	/**
+	 * Whether the user is actually driving the timeline slider right now.
+	 *
+	 * A controlled slider reports programmatic changes through `onValueChange` -
+	 * it is called from the value *setter* - so the playhead's own movement arrives
+	 * here on every step of playback, indistinguishable by value alone. Comparing
+	 * the emitted number against the current progress was tried and is not
+	 * reliable: at 200+ events per second the playhead crosses several slider steps
+	 * in a single frame, so any staleness at all exceeds the tolerance.
+	 *
+	 * So the emission is only trusted when there is a hand on the slider, or when
+	 * nothing is playing for an echo to be interrupting.
+	 */
+	let scrubbing = $state(false);
+
 	function scrub(value: number) {
-		// A controlled slider still reports programmatic changes through
-		// `onValueChange`, so every playback step re-enters this handler. Pausing
-		// and seeking here meant playback stopped itself one frame in. An emission
-		// that resolves to the step the playhead is already on is the echo, not a
-		// scrub, and is ignored.
-		if (isPlaybackEcho(value, playbackState.progressPercentage)) return;
+		if (playbackState.isRunning && !scrubbing) return;
 		pauseAll();
 		for (const state of panes) state.seekPercentage(value);
 	}
@@ -203,6 +212,12 @@
 				type="single"
 				value={progressValue}
 				onValueChange={(value) => scrub(value)}
+				onpointerdown={() => (scrubbing = true)}
+				onpointerup={() => (scrubbing = false)}
+				onpointercancel={() => (scrubbing = false)}
+				onlostpointercapture={() => (scrubbing = false)}
+				onkeydown={() => (scrubbing = true)}
+				onkeyup={() => (scrubbing = false)}
 				min={0}
 				max={100}
 				step={TIMELINE_STEP}
